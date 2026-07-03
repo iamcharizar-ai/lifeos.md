@@ -117,6 +117,57 @@ export function levelInfo(lifetimeXp: number) {
   return { level, floor, next, pct: (lifetimeXp - floor) / (next - floor) }
 }
 
+export interface WeekRecap {
+  startISO: string
+  endISO: string
+  earned: number
+  spent: number
+  net: number
+  days: { date: string; label: string; earned: number }[]
+}
+
+/** Monday (00:00) of the ISO week containing `ref`. */
+function mondayOf(ref: string): Date {
+  const d = new Date(ref + 'T12:00:00')
+  const dow = (d.getDay() + 6) % 7 // 0 = Monday … 6 = Sunday
+  d.setDate(d.getDate() - dow)
+  return d
+}
+
+/**
+ * Earned / spent / net XP for one Mon–Sun week. Pure derived view over the same
+ * events the wallet already folds — no new event type (binding rule 5 respected).
+ * `weekOffset` steps whole weeks back (−1 = last week) for week-over-week deltas.
+ */
+export function weekRecap(
+  s: Stores,
+  spends: Spend[],
+  ref: string = dateISO(),
+  weekOffset = 0,
+): WeekRecap {
+  const start = mondayOf(ref)
+  start.setDate(start.getDate() + weekOffset * 7)
+  const days: WeekRecap['days'] = []
+  let earned = 0
+  const d = new Date(start)
+  for (let i = 0; i < 7; i++) {
+    const iso = dateISO(d)
+    const e = dayEarned(s, iso)
+    earned += e
+    days.push({ date: iso, label: d.toLocaleDateString('en-IN', { weekday: 'narrow' }), earned: e })
+    d.setDate(d.getDate() + 1)
+  }
+  const startISO = dateISO(start)
+  const endISO = days[6].date
+  const spent = spends
+    .filter((sp) => {
+      const day = sp.at.slice(0, 10)
+      return day >= startISO && day <= endISO
+    })
+    .reduce((sum, sp) => sum + sp.xp, 0)
+  return { startISO, endISO, earned, spent, net: earned - spent, days }
+}
+
 /** Last n days of earned XP, oldest first. */
 export function xpSeries(s: Stores, days: number) {
   const out: { date: string; label: string; xp: number }[] = []

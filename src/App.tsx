@@ -203,7 +203,9 @@ export default function App() {
             onSkill={setSkill}
           />
         )}
-        {tab === 'wallet' && <Wallet stores={stores} spends={spends} onSpend={spend} />}
+        {tab === 'wallet' && (
+          <Wallet stores={stores} spends={spends} today={today} onSpend={spend} />
+        )}
         {tab === 'graph' && (
           <Suspense
             fallback={<div className="py-16 text-center text-xs text-zinc-600">weaving the web…</div>}
@@ -214,7 +216,7 @@ export default function App() {
       </motion.main>
 
       <footer className="mt-8 text-center text-[10px] uppercase tracking-widest text-zinc-700">
-        Phase 1–2 · v0.5 · live habit config ·{' '}
+        Phase 1–2 · v0.6 · weekly payday ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}
