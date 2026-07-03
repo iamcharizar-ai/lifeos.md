@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { HABITS } from '../config/habits'
+import type { Habit } from '../config/habits'
 import { streakFor } from '../lib/store'
 import { DAILY_CAP } from '../lib/xp'
 import {
@@ -17,12 +17,14 @@ import { VaultCard } from '../components/VaultCard'
 import type { useVault } from '../lib/vaultSync'
 
 export function Dashboard({
+  habits,
   stores,
   spends,
   today,
   vault,
   onGoWallet,
 }: {
+  habits: Habit[]
   stores: Stores
   spends: Spend[]
   today: string
@@ -30,13 +32,13 @@ export function Dashboard({
   onGoWallet: () => void
 }) {
   const todayXp = dayEarned(stores, today)
-  const doneCount = HABITS.filter((h) => stores.ticks[today]?.[h.id]).length
+  const doneCount = habits.filter((h) => stores.ticks[today]?.[h.id]).length
   const lifetime = lifetimeEarned(stores)
   const balance = lifetime - totalSpent(spends)
   const lvl = levelInfo(lifetime)
   const series = xpSeries(stores, 7)
   const maxXp = Math.max(...series.map((s) => s.xp), 1)
-  const streaks = HABITS.map((h) => ({ h, s: streakFor(stores.ticks, h.id, today) }))
+  const streaks = habits.map((h) => ({ h, s: streakFor(stores.ticks, h.id, today) }))
     .filter((x) => x.s >= 2)
     .sort((a, b) => b.s - a.s)
     .slice(0, 3)
@@ -55,7 +57,7 @@ export function Dashboard({
           </div>
           <div className="mt-1 text-[11px] text-zinc-500">cap {DAILY_CAP}</div>
         </div>
-        <ProgressRing pct={doneCount / HABITS.length} label={`${doneCount}/${HABITS.length}`} />
+        <ProgressRing pct={doneCount / habits.length} label={`${doneCount}/${habits.length}`} />
       </div>
 
       {/* Wallet + level */}

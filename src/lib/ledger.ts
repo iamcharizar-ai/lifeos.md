@@ -1,6 +1,6 @@
 // Derived-state ledger over local events. Same shapes move to Supabase rows later —
 // balance is always computed, never stored.
-import { HABITS } from '../config/habits'
+import { getHabits } from './habitConfig'
 import { capDay, dayBonus, habitXp, sleepXp, stepsXp, WORKOUT_XP } from './xp'
 import { dateISO, streakFor, type Ticks } from './store'
 
@@ -76,9 +76,10 @@ export function healthEarned(h: DayHealth | undefined): number {
 
 /** Total XP earned on one day: habits (streak-adjusted) + health + workout + bonuses, capped. */
 export function dayEarned(s: Stores, date: string): number {
+  const habits = getHabits()
   let base = 0
   let done = 0
-  for (const h of HABITS) {
+  for (const h of habits) {
     if (s.ticks[date]?.[h.id]) {
       done++
       base += habitXp(h.tier, streakFor(s.ticks, h.id, date))
@@ -88,7 +89,7 @@ export function dayEarned(s: Stores, date: string): number {
   if (s.workouts[date]) base += WORKOUT_XP
   if (base === 0) return 0
   const bonus =
-    dayBonus(done, HABITS.length) + (metricsComplete(s.metrics[date]) ? METRICS_BONUS : 0)
+    dayBonus(done, habits.length) + (metricsComplete(s.metrics[date]) ? METRICS_BONUS : 0)
   return capDay(base + bonus)
 }
 

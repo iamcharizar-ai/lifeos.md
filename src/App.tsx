@@ -19,6 +19,8 @@ import {
   type WorkoutMap,
 } from './lib/ledger'
 import { loadSkills, saveSkills, type SkillState, type SkillStatus } from './config/skills'
+import type { Tier } from './config/habits'
+import { applyConfig, configFromTemplate, configWithTier, useHabits } from './lib/habitConfig'
 import { useCloudSync } from './lib/cloudSync'
 import { useVault } from './lib/vaultSync'
 import { TabBar, type Tab } from './components/TabBar'
@@ -41,6 +43,7 @@ export default function App() {
   const [skills, setSkills] = useState<SkillState>(() => loadSkills())
   const today = dateISO()
   const vault = useVault()
+  const habits = useHabits()
 
   useEffect(() => saveTicks(ticks), [ticks])
   useEffect(() => saveMetrics(metrics), [metrics])
@@ -65,7 +68,30 @@ export default function App() {
     if (vault.status !== 'ready') return
     const t = setTimeout(() => void vault.writeNow(stores, today), 1500)
     return () => clearTimeout(t)
-  }, [stores, today, vault.status, vault.writeNow]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stores, habits, today, vault.status, vault.writeNow]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Habit-list authority: poll the vault's daily template (PC, when linked) and
+  // broadcast edits as a config event — the phone picks the new list up live.
+  useEffect(() => {
+    if (vault.status !== 'ready') return
+    let stopped = false
+    const check = async () => {
+      const text = await vault.readTemplateText()
+      if (stopped || !text) return
+      const cfg = configFromTemplate(text)
+      if (cfg && applyConfig(cfg))
+        cloud.emit('config', { habits: JSON.stringify(cfg.habits) }, cfg.at.slice(0, 10))
+    }
+    void check()
+    const t = setInterval(() => void check(), 20_000)
+    const onFocus = () => void check()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      stopped = true
+      clearInterval(t)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [vault.status, vault.readTemplateText, cloud.emit]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (habitId: string) => {
     const wasTicked = Boolean(ticks[today]?.[habitId])
@@ -105,6 +131,15 @@ export default function App() {
     cloud.emit('workout_clear', {})
   }
 
+  const cycleTier = (habitId: string) => {
+    const order: Tier[] = ['core', 'standard', 'basic']
+    const h = habits.find((x) => x.id === habitId)
+    if (!h) return
+    const next = order[(order.indexOf(h.tier) + 1) % order.length]
+    const cfg = configWithTier(habitId, next)
+    if (cfg && applyConfig(cfg)) cloud.emit('config', { habits: JSON.stringify(cfg.habits) })
+  }
+
   const setSkill = (id: string, status: SkillStatus) => {
     setSkills((prev) => ({ ...prev, [id]: status }))
     cloud.emit('skill', { skillId: id, status })
@@ -139,6 +174,7 @@ export default function App() {
       >
         {tab === 'dashboard' && (
           <Dashboard
+            habits={habits}
             stores={stores}
             spends={spends}
             today={today}
@@ -148,9 +184,11 @@ export default function App() {
         )}
         {tab === 'habits' && (
           <HabitsScreen
+            habits={habits}
             ticks={ticks}
             today={today}
             onToggle={toggle}
+            onCycleTier={cycleTier}
             metrics={metrics[today]}
             onMetric={setMetric}
           />
@@ -176,7 +214,7 @@ export default function App() {
       </motion.main>
 
       <footer className="mt-8 text-center text-[10px] uppercase tracking-widest text-zinc-700">
-        Phase 1–2 · v0.4 · vault write-back ·{' '}
+        Phase 1–2 · v0.5 · live habit config ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}

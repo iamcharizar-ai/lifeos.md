@@ -3,7 +3,8 @@
 // mirrors today's state into daily/YYYY-MM-DD.md in the existing template
 // format — HABITS/MONTHLY/NOW dataview stay untouched.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { HABITS } from '../config/habits'
+import type { Habit } from '../config/habits'
+import { getHabits } from './habitConfig'
 import { idbDel, idbGet, idbSet } from './idb'
 import type { Stores } from './ledger'
 
@@ -16,9 +17,28 @@ function escapeRegex(s: string): string {
 }
 
 function fallbackTemplate(date: string): string {
-  return `# ${date}\n\n## Habits\n${HABITS.map((h) => `- [ ] ${h.name} ${h.emoji}`).join(
-    '\n',
-  )}\n\n## Metrics\nweight::\nkcal::\nprotein::\n\n## Diary\n-\n`
+  return `# ${date}\n\n## Habits\n${getHabits()
+    .map((h) => `- [ ] ${h.name} ${h.emoji}`)
+    .join('\n')}\n\n## Metrics\nweight::\nkcal::\nprotein::\n\n## Diary\n-\n`
+}
+
+/** Insert checkbox lines for habits the note predates (added to the template later). */
+function ensureHabitLines(text: string, habits: Habit[]): string {
+  const missing = habits.filter((h) => !text.includes(`] ${h.name} ${h.emoji}`))
+  if (missing.length === 0) return text
+  const lines = text.split('\n')
+  const start = lines.findIndex((l) => /^##\s+Habits\b/i.test(l))
+  if (start === -1) return text
+  let end = lines.length
+  for (let i = start + 1; i < lines.length; i++)
+    if (/^##\s/.test(lines[i])) {
+      end = i
+      break
+    }
+  let insertAt = start + 1
+  for (let i = start + 1; i < end; i++) if (/^\s*-\s*\[/.test(lines[i])) insertAt = i + 1
+  lines.splice(insertAt, 0, ...missing.map((h) => `- [ ] ${h.name} ${h.emoji}`))
+  return lines.join('\n')
 }
 
 function upsertField(text: string, field: string, value: string): string {
@@ -36,9 +56,10 @@ function upsertField(text: string, field: string, value: string): string {
 }
 
 export function renderDay(existing: string, stores: Stores, date: string): string {
-  let text = existing
+  const habits = getHabits()
+  let text = ensureHabitLines(existing, habits)
   const dayTicks = stores.ticks[date] ?? {}
-  for (const h of HABITS) {
+  for (const h of habits) {
     const label = `${h.name} ${h.emoji}`
     const re = new RegExp(`- \\[[ xX]\\] ${escapeRegex(label)}`)
     const mark = dayTicks[h.id] ? 'x' : ' '
@@ -131,6 +152,19 @@ export function useVault() {
     setStatus('disconnected')
   }, [])
 
+  /** Raw daily template text — the habit-list authority the config poller parses. */
+  const readTemplateText = useCallback(async (): Promise<string | null> => {
+    const h = handleRef.current
+    if (!h) return null
+    try {
+      const dir = await h.getDirectoryHandle('templates')
+      const fh = await dir.getFileHandle('daily-template.md')
+      return await (await fh.getFile()).text()
+    } catch {
+      return null
+    }
+  }, [])
+
   const writeNow = useCallback(async (stores: Stores, date: string) => {
     const h = handleRef.current
     if (!h) return
@@ -143,5 +177,5 @@ export function useVault() {
     }
   }, [])
 
-  return { status, lastWrite, error, connect, authorize, disconnect, writeNow }
+  return { status, lastWrite, error, connect, authorize, disconnect, writeNow, readTemplateText }
 }

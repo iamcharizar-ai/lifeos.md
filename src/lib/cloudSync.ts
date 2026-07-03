@@ -11,6 +11,8 @@ import type { Dispatch, SetStateAction } from 'react'
 import { dateISO, type Ticks } from './store'
 import type { HealthMap, MetricsMap, Spend, Stores, WorkoutMap } from './ledger'
 import type { SkillState, SkillStatus } from '../config/skills'
+import type { Habit } from '../config/habits'
+import { applyConfig, getConfig } from './habitConfig'
 import { supabase } from './supabase'
 
 export type CloudStatus = 'off' | 'connecting' | 'live' | 'error'
@@ -24,6 +26,7 @@ export type EventType =
   | 'workout_clear'
   | 'spend'
   | 'skill'
+  | 'config'
 
 export interface LifeEvent {
   device: string
@@ -127,6 +130,16 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
     case 'skill':
       s.setSkills((prev) => ({ ...prev, [String(p.skillId)]: String(p.status) as SkillStatus }))
       break
+    case 'config':
+      // Habit config lives in its own external store, not React state — LWW by `at`
+      try {
+        const habits = JSON.parse(String(p.habits)) as Habit[]
+        if (Array.isArray(habits) && habits.length > 0)
+          applyConfig({ habits, at: ev.at, source: 'cloud' })
+      } catch {
+        /* malformed payload — ignore */
+      }
+      break
   }
 }
 
@@ -161,6 +174,15 @@ function seedEvents(snap: CloudSnapshot, device: string): LifeEvent[] {
       day: today,
       type: 'skill',
       payload: { skillId, status },
+    })
+  const cfg = getConfig()
+  if (cfg.source !== 'default')
+    out.push({
+      device,
+      at: cfg.at,
+      day: cfg.at.slice(0, 10),
+      type: 'config',
+      payload: { habits: JSON.stringify(cfg.habits) },
     })
   return out
 }

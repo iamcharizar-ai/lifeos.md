@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { HABITS, TIER_XP, type Tier } from '../config/habits'
+import { TIER_XP, type Habit, type Tier } from '../config/habits'
 import { habitXp } from '../lib/xp'
 import { streakFor, type Ticks } from '../lib/store'
 import { metricsComplete, METRICS_BONUS, type DayMetrics } from '../lib/ledger'
@@ -32,25 +33,47 @@ const METRIC_FIELDS = [
 ] as const
 
 export function HabitsScreen({
+  habits,
   ticks,
   today,
   onToggle,
+  onCycleTier,
   metrics,
   onMetric,
 }: {
+  habits: Habit[]
   ticks: Ticks
   today: string
   onToggle: (habitId: string) => void
+  onCycleTier: (habitId: string) => void
   metrics: DayMetrics | undefined
   onMetric: (key: keyof DayMetrics, value: string) => void
 }) {
   const todayTicks = ticks[today] ?? {}
+  const [editTiers, setEditTiers] = useState(false)
 
   return (
     <div>
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-[11px] text-zinc-600">
+          {editTiers
+            ? 'tap a habit to move it between tiers'
+            : 'list follows templates/daily-template.md'}
+        </span>
+        <button
+          onClick={() => setEditTiers((v) => !v)}
+          className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+            editTiers
+              ? 'border-violet-400/60 bg-violet-400/15 text-violet-300'
+              : 'border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:border-zinc-700'
+          }`}
+        >
+          {editTiers ? 'done' : '⚙️ tiers'}
+        </button>
+      </div>
       {(['core', 'standard', 'basic'] as Tier[]).map((tier) => {
         const meta = TIER_META[tier]
-        const list = HABITS.filter((h) => h.tier === tier)
+        const list = habits.filter((h) => h.tier === tier)
         return (
           <section key={tier} className="mb-7">
             <div className="mb-3 flex items-center gap-2">
@@ -70,7 +93,7 @@ export function HabitsScreen({
                 return (
                   <motion.button
                     key={h.id}
-                    onClick={() => onToggle(h.id)}
+                    onClick={() => (editTiers ? onCycleTier(h.id) : onToggle(h.id))}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03, type: 'spring', stiffness: 260, damping: 24 }}
