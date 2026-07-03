@@ -160,10 +160,10 @@ export default function App() {
   return (
     <div className="mx-auto max-w-md px-4 pb-28 pt-6 sm:max-w-2xl">
       <header className="mb-6 flex items-baseline justify-between">
-        <h1 className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
-          LifeOS · HUD
+        <h1 className="font-display text-sm font-bold uppercase tracking-[0.3em] text-bone">
+          LifeOS<span className="text-ember">//</span>HUD
         </h1>
-        <span className="text-xs text-zinc-500">{dateLabel}</span>
+        <span className="num text-xs text-ash">{dateLabel}</span>
       </header>
 
       <motion.main
@@ -208,15 +208,15 @@ export default function App() {
         )}
         {tab === 'graph' && (
           <Suspense
-            fallback={<div className="py-16 text-center text-xs text-zinc-600">weaving the web…</div>}
+            fallback={<div className="py-16 text-center text-xs text-dim">weaving the web…</div>}
           >
             <GraphScreen />
           </Suspense>
         )}
       </motion.main>
 
-      <footer className="mt-8 text-center text-[10px] uppercase tracking-widest text-zinc-700">
-        Phase 1–2 · v0.6 · weekly payday ·{' '}
+      <footer className="hud-label mt-8 text-center !text-[9px] !text-dim">
+        Phase 1–2 · v0.7 · forge-terminal ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}

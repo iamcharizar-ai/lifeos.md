@@ -5,24 +5,31 @@ import { habitXp } from '../lib/xp'
 import { streakFor, type Ticks } from '../lib/store'
 import { metricsComplete, METRICS_BONUS, type DayMetrics } from '../lib/ledger'
 
-export const TIER_META: Record<Tier, { label: string; accent: string; ring: string; chip: string }> = {
+// Tier = XP value class → shades of the currency, not new hues.
+export const TIER_META: Record<
+  Tier,
+  { label: string; accent: string; ring: string; chip: string; head: string }
+> = {
   core: {
     label: 'Core',
-    accent: 'border-amber-400/60 bg-amber-400/10',
-    ring: 'text-amber-400',
-    chip: 'bg-amber-400/15 text-amber-300',
+    accent: 'border-gold-dim bg-gold/10',
+    ring: 'text-gold',
+    chip: 'border border-gold-dim bg-gold/10 text-gold',
+    head: '!text-gold',
   },
   standard: {
     label: 'Standard',
-    accent: 'border-cyan-400/60 bg-cyan-400/10',
-    ring: 'text-cyan-400',
-    chip: 'bg-cyan-400/15 text-cyan-300',
+    accent: 'border-line2 bg-plate2',
+    ring: 'text-bone',
+    chip: 'border border-line2 bg-plate2 text-bone',
+    head: '!text-bone',
   },
   basic: {
     label: 'Basic',
-    accent: 'border-zinc-400/60 bg-zinc-400/10',
-    ring: 'text-zinc-300',
-    chip: 'bg-zinc-400/15 text-zinc-300',
+    accent: 'border-line bg-plate',
+    ring: 'text-ash',
+    chip: 'border border-line bg-plate text-ash',
+    head: '',
   },
 }
 
@@ -55,17 +62,17 @@ export function HabitsScreen({
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-[11px] text-zinc-600">
+        <span className="text-[11px] text-dim">
           {editTiers
             ? 'tap a habit to move it between tiers'
             : 'list follows templates/daily-template.md'}
         </span>
         <button
           onClick={() => setEditTiers((v) => !v)}
-          className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+          className={`chip border px-3 py-1 font-display text-[10px] font-semibold uppercase tracking-wider transition-colors ${
             editTiers
-              ? 'border-violet-400/60 bg-violet-400/15 text-violet-300'
-              : 'border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:border-zinc-700'
+              ? 'border-gold-dim bg-gold/10 text-gold'
+              : 'border-line bg-plate text-ash hover:border-line2'
           }`}
         >
           {editTiers ? 'done' : '⚙️ tiers'}
@@ -77,10 +84,8 @@ export function HabitsScreen({
         return (
           <section key={tier} className="mb-7">
             <div className="mb-3 flex items-center gap-2">
-              <h2 className={`text-xs font-bold uppercase tracking-widest ${meta.ring}`}>
-                {meta.label}
-              </h2>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}>
+              <h2 className={`hud-label ${meta.head}`}>{meta.label}</h2>
+              <span className={`chip num px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}>
                 {TIER_XP[tier]} XP
               </span>
             </div>
@@ -98,8 +103,8 @@ export function HabitsScreen({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03, type: 'spring', stiffness: 260, damping: 24 }}
                     whileTap={{ scale: 0.94 }}
-                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
-                      ticked ? meta.accent : 'border-zinc-800 bg-zinc-900/60 hover:border-zinc-700'
+                    className={`chip flex items-center gap-3 border px-4 py-3 text-left transition-colors ${
+                      ticked ? meta.accent : 'border-line bg-plate hover:border-line2'
                     }`}
                   >
                     <motion.span
@@ -110,19 +115,15 @@ export function HabitsScreen({
                       {h.emoji}
                     </motion.span>
                     <span
-                      className={`flex-1 text-sm font-medium ${
-                        ticked ? 'text-zinc-100' : 'text-zinc-400'
-                      }`}
+                      className={`flex-1 text-sm font-medium ${ticked ? 'text-bone' : 'text-ash'}`}
                     >
                       {h.name}
                     </span>
                     {streak >= 3 && (
-                      <span className="text-xs font-semibold text-orange-400">🔥{streak}</span>
+                      <span className="num text-xs font-semibold text-ember">🔥{streak}</span>
                     )}
                     <span
-                      className={`text-xs font-bold tabular-nums ${
-                        ticked ? meta.ring : 'text-zinc-600'
-                      }`}
+                      className={`num text-xs font-bold ${ticked ? meta.ring : 'text-dim'}`}
                     >
                       {ticked ? `+${xp}` : xp}
                     </span>
@@ -137,12 +138,12 @@ export function HabitsScreen({
       {/* Metrics */}
       <section className="mb-7">
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-emerald-400">Metrics</h2>
+          <h2 className="hud-label !text-sage">Metrics</h2>
           <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+            className={`chip num px-2 py-0.5 text-[10px] font-semibold ${
               metricsComplete(metrics)
-                ? 'bg-emerald-400/15 text-emerald-300'
-                : 'bg-zinc-400/15 text-zinc-400'
+                ? 'border border-sage/40 bg-sage/10 text-sage'
+                : 'border border-line bg-plate text-ash'
             }`}
           >
             {metricsComplete(metrics) ? `+${METRICS_BONUS} earned` : `all 3 = +${METRICS_BONUS} XP`}
@@ -152,9 +153,9 @@ export function HabitsScreen({
           {METRIC_FIELDS.map((f) => (
             <label
               key={f.key}
-              className="flex flex-col gap-1 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-2.5"
+              className="chip flex flex-col gap-1 border border-line bg-plate px-3 py-2.5"
             >
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              <span className="hud-label !text-[9px]">
                 {f.emoji} {f.label}
               </span>
               <div className="flex items-baseline gap-1">
@@ -164,9 +165,9 @@ export function HabitsScreen({
                   value={metrics?.[f.key] ?? ''}
                   onChange={(e) => onMetric(f.key, e.target.value)}
                   placeholder="—"
-                  className="w-full bg-transparent text-sm font-semibold tabular-nums outline-none placeholder:text-zinc-700"
+                  className="num w-full bg-transparent text-sm font-semibold text-bone outline-none placeholder:text-dim"
                 />
-                <span className="text-[10px] text-zinc-600">{f.unit}</span>
+                <span className="text-[10px] text-dim">{f.unit}</span>
               </div>
             </label>
           ))}

@@ -82,39 +82,37 @@ export function Wallet({
   return (
     <div className="space-y-4">
       {/* Balance hero */}
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5 text-center">
-        <div className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-          Spendable balance
-        </div>
-        <div className="mt-2 text-5xl font-bold tabular-nums text-cyan-300">
+      <div className="plate p-5 text-center">
+        <div className="hud-label">Spendable balance</div>
+        <div className="num mt-2 font-display text-5xl font-bold text-gold">
           <AnimatedNumber value={balance} />
         </div>
-        <div className="mt-1 text-xs text-zinc-500">
+        <div className="num mt-1 text-xs text-ash">
           {LEISURE_RATE} XP = 1 hour of leisure · LVL {lvl.level} ·{' '}
           {lifetime.toLocaleString('en-IN')} lifetime
         </div>
       </div>
 
       {/* Weekly payday */}
-      <div className="overflow-hidden rounded-3xl border border-violet-400/25 bg-gradient-to-b from-violet-500/10 to-zinc-900/50 p-5">
+      <div className="plate overflow-hidden bg-gradient-to-b from-gold/[0.07] to-plate p-5">
         <div className="flex items-baseline justify-between">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-violet-300">
-            {isSunday ? '💸 Payday' : 'This week'}
-          </div>
-          <span className="text-[10px] tabular-nums text-zinc-500">
+          <div className="hud-label !text-gold">{isSunday ? '💸 Payday' : 'This week'}</div>
+          <span className="num text-[10px] text-dim">
             {week.startISO.slice(5)} – {week.endISO.slice(5)}
           </span>
         </div>
 
         <div className="mt-2 flex items-end gap-3">
-          <div className="text-4xl font-bold tabular-nums text-zinc-100">
+          <div className="num font-display text-4xl font-bold text-bone">
             <AnimatedNumber value={week.net} />
-            <span className="ml-1 text-sm font-medium text-zinc-500">net XP</span>
+            <span className="ml-1 font-sans text-sm font-medium text-ash">net XP</span>
           </div>
           {lastWeek.net !== 0 && (
             <span
-              className={`mb-1 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
-                wow >= 0 ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'
+              className={`chip num mb-1 border px-2 py-0.5 text-[10px] font-bold ${
+                wow >= 0
+                  ? 'border-sage/40 bg-sage/10 text-sage'
+                  : 'border-ember-dim bg-ember/10 text-ember'
               }`}
             >
               {wow >= 0 ? '▲' : '▼'} {Math.abs(wow)} vs last wk
@@ -122,9 +120,9 @@ export function Wallet({
           )}
         </div>
 
-        <div className="mt-1 flex gap-4 text-[11px] tabular-nums">
-          <span className="text-emerald-400">+{week.earned} earned</span>
-          <span className="text-rose-400">−{week.spent} spent</span>
+        <div className="num mt-1 flex gap-4 text-[11px]">
+          <span className="text-sage">+{week.earned} earned</span>
+          <span className="text-ember">−{week.spent} spent</span>
         </div>
 
         {/* week ribbon — Mon→Sun earn bars */}
@@ -136,18 +134,14 @@ export function Wallet({
                   initial={{ height: 0 }}
                   animate={{ height: `${Math.max((d.earned / maxDay) * 100, 4)}%` }}
                   transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-                  className={`w-full rounded-t ${
-                    d.date === today
-                      ? 'bg-violet-400'
-                      : d.earned > 0
-                        ? 'bg-violet-400/40'
-                        : 'bg-zinc-800'
+                  className={`chip w-full ${
+                    d.date === today ? 'bg-gold' : d.earned > 0 ? 'bg-gold/35' : 'bg-plate2'
                   }`}
                 />
               </div>
               <span
-                className={`text-[9px] font-semibold ${
-                  d.date === today ? 'text-violet-300' : 'text-zinc-600'
+                className={`num text-[9px] font-semibold ${
+                  d.date === today ? 'text-gold' : 'text-dim'
                 }`}
               >
                 {d.label}
@@ -157,17 +151,15 @@ export function Wallet({
         </div>
 
         {isSunday && (
-          <div className="mt-3 rounded-xl bg-violet-400/10 px-3 py-2 text-center text-[11px] text-violet-200">
+          <div className="chip mt-3 border border-gold-dim bg-gold/10 px-3 py-2 text-center text-[11px] text-gold">
             Week closed. {week.net >= 0 ? 'Banked and carried forward.' : 'Overspent — earn it back.'} 🧾
           </div>
         )}
       </div>
 
       {/* Spend */}
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-          Buy leisure time 🎮
-        </div>
+      <div className="plate p-5">
+        <div className="hud-label mb-3">Buy leisure time 🎮</div>
         <div className="grid grid-cols-3 gap-2">
           {SPEND_OPTIONS.map((o) => {
             const cost = Math.round(o.hours * LEISURE_RATE)
@@ -178,14 +170,14 @@ export function Wallet({
                 whileTap={affordable ? { scale: 0.93 } : undefined}
                 onClick={() => spend(o.hours)}
                 disabled={!affordable}
-                className={`rounded-2xl border px-3 py-3 text-center transition-colors ${
+                className={`chip border px-3 py-3 text-center transition-colors ${
                   affordable
-                    ? 'border-cyan-400/40 bg-cyan-400/10 hover:border-cyan-400/70'
-                    : 'cursor-not-allowed border-zinc-800 bg-zinc-900/40 opacity-40'
+                    ? 'border-ember-dim bg-ember/10 hover:border-ember'
+                    : 'cursor-not-allowed border-line bg-plate opacity-40'
                 }`}
               >
-                <div className="text-sm font-bold">{o.label}</div>
-                <div className="mt-0.5 text-xs tabular-nums text-cyan-300">−{cost} XP</div>
+                <div className="text-sm font-bold text-bone">{o.label}</div>
+                <div className="num mt-0.5 text-xs text-ember">−{cost} XP</div>
               </motion.button>
             )
           })}
@@ -196,7 +188,7 @@ export function Wallet({
               initial={{ opacity: 0, y: 8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="mt-3 rounded-xl bg-emerald-400/15 px-4 py-2.5 text-center text-sm font-semibold text-emerald-300"
+              className="chip mt-3 border border-sage/40 bg-sage/10 px-4 py-2.5 text-center text-sm font-semibold text-sage"
             >
               {justSpent}h of guilt-free leisure unlocked. Enjoy it — you paid for it. 🎮
             </motion.div>
@@ -205,22 +197,18 @@ export function Wallet({
       </div>
 
       {/* Ledger */}
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-          Ledger
-        </div>
+      <div className="plate p-5">
+        <div className="hud-label mb-3">Ledger</div>
         {rows.length === 0 ? (
-          <div className="text-sm text-zinc-600">Nothing yet — tick some habits.</div>
+          <div className="text-sm text-dim">Nothing yet — tick some habits.</div>
         ) : (
           <div className="space-y-2">
             {rows.map((r) => (
               <div key={r.key} className="flex items-center gap-3 text-sm">
-                <span className="w-20 shrink-0 tabular-nums text-zinc-600">{r.when.slice(5)}</span>
-                <span className="flex-1 text-zinc-300">{r.label}</span>
+                <span className="num w-20 shrink-0 text-dim">{r.when.slice(5)}</span>
+                <span className="flex-1 text-bone">{r.label}</span>
                 <span
-                  className={`font-bold tabular-nums ${
-                    r.delta > 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
+                  className={`num font-bold ${r.delta > 0 ? 'text-gold' : 'text-ember'}`}
                 >
                   {r.delta > 0 ? `+${r.delta}` : r.delta}
                 </span>

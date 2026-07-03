@@ -46,16 +46,14 @@ export function Dashboard({
   return (
     <div className="space-y-4">
       {/* Today hero */}
-      <div className="flex items-end justify-between rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5">
+      <div className="plate flex items-end justify-between p-5">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-            Today
-          </div>
-          <div className="mt-1 text-4xl font-bold tabular-nums tracking-tight">
+          <div className="hud-label">Today</div>
+          <div className="num mt-1 font-display text-4xl font-bold tracking-tight text-bone">
             <AnimatedNumber value={todayXp} />
-            <span className="ml-1.5 text-base font-medium text-zinc-500">XP</span>
+            <span className="ml-1.5 font-sans text-base font-medium text-gold">XP</span>
           </div>
-          <div className="mt-1 text-[11px] text-zinc-500">cap {DAILY_CAP}</div>
+          <div className="num mt-1 text-[11px] text-dim">cap {DAILY_CAP}</div>
         </div>
         <ProgressRing pct={doneCount / habits.length} label={`${doneCount}/${habits.length}`} />
       </div>
@@ -64,40 +62,36 @@ export function Dashboard({
       <motion.button
         onClick={onGoWallet}
         whileTap={{ scale: 0.97 }}
-        className="block w-full rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5 text-left"
+        className="plate block w-full p-5 text-left"
       >
         <div className="flex items-baseline justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-              Wallet
-            </div>
-            <div className="mt-1 text-3xl font-bold tabular-nums text-cyan-300">
+            <div className="hud-label">Wallet</div>
+            <div className="num mt-1 font-display text-3xl font-bold text-gold">
               <AnimatedNumber value={balance} />
-              <span className="ml-1.5 text-sm font-medium text-zinc-500">XP spendable</span>
+              <span className="ml-1.5 font-sans text-sm font-medium text-ash">XP spendable</span>
             </div>
           </div>
-          <div className="rounded-full bg-violet-400/15 px-3 py-1 text-xs font-bold text-violet-300">
+          <div className="chip border border-gold-dim bg-gold/10 px-3 py-1 font-display text-xs font-bold text-gold">
             LVL {lvl.level}
           </div>
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+        <div className="chip mt-3 h-1.5 overflow-hidden bg-plate2">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-violet-400 to-cyan-400"
+            className="h-full bg-gradient-to-r from-ember to-gold"
             animate={{ width: `${Math.round(lvl.pct * 100)}%` }}
             transition={{ type: 'spring', stiffness: 80, damping: 20 }}
           />
         </div>
-        <div className="mt-1.5 flex justify-between text-[10px] tabular-nums text-zinc-600">
+        <div className="num mt-1.5 flex justify-between text-[10px] text-dim">
           <span>{lifetime.toLocaleString('en-IN')} lifetime XP</span>
           <span>next lvl at {lvl.next.toLocaleString('en-IN')}</span>
         </div>
       </motion.button>
 
       {/* 7-day chart */}
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-          Last 7 days
-        </div>
+      <div className="plate p-5">
+        <div className="hud-label mb-3">Last 7 days</div>
         <div className="flex h-24 items-end gap-2">
           {series.map((d, i) => (
             <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
@@ -105,13 +99,13 @@ export function Dashboard({
                 initial={{ height: 0 }}
                 animate={{ height: `${Math.max((d.xp / maxXp) * 100, 3)}%` }}
                 transition={{ delay: i * 0.05, type: 'spring', stiffness: 120, damping: 20 }}
-                className={`w-full rounded-t-md ${
-                  d.date === today ? 'bg-cyan-400' : d.xp > 0 ? 'bg-zinc-600' : 'bg-zinc-800'
+                className={`chip w-full ${
+                  d.date === today ? 'bg-gold' : d.xp > 0 ? 'bg-line2' : 'bg-plate2'
                 }`}
               />
               <span
-                className={`text-[10px] font-semibold ${
-                  d.date === today ? 'text-cyan-300' : 'text-zinc-600'
+                className={`num text-[10px] font-semibold ${
+                  d.date === today ? 'text-gold' : 'text-dim'
                 }`}
               >
                 {d.label}
@@ -122,21 +116,17 @@ export function Dashboard({
       </div>
 
       {/* Streaks */}
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-          Streaks
-        </div>
+      <div className="plate p-5">
+        <div className="hud-label mb-3">Streaks</div>
         {streaks.length === 0 ? (
-          <div className="text-sm text-zinc-600">
-            No streaks yet — 3 days in a row starts the fire. 🔥
-          </div>
+          <div className="text-sm text-dim">No streaks yet — 3 days in a row starts the fire. 🔥</div>
         ) : (
           <div className="space-y-2">
             {streaks.map(({ h, s }) => (
               <div key={h.id} className="flex items-center gap-3 text-sm">
                 <span>{h.emoji}</span>
-                <span className="flex-1 text-zinc-300">{h.name}</span>
-                <span className="font-bold text-orange-400">🔥 {s}d</span>
+                <span className="flex-1 text-bone">{h.name}</span>
+                <span className="num font-bold text-ember">🔥 {s}d</span>
               </div>
             ))}
           </div>

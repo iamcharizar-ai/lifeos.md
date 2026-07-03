@@ -81,7 +81,7 @@ export function GraphScreen() {
     <div className="space-y-3">
       <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
         {Object.entries(GROUP_LABELS).map(([g, label]) => (
-          <span key={g} className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+          <span key={g} className="flex items-center gap-1.5 text-[10px] text-ash">
             <span
               className="inline-block h-2 w-2 rounded-full"
               style={{ background: GROUP_COLORS[g] }}
@@ -93,16 +93,16 @@ export function GraphScreen() {
 
       <div
         ref={ref}
-        className="h-[60vh] overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/30"
+        className="plate h-[60vh] overflow-hidden"
       />
 
       {err ? (
-        <div className="text-center text-xs text-rose-400">{err}</div>
+        <div className="text-center text-xs text-ember">{err}</div>
       ) : (
-        <div className="text-center text-[10px] text-zinc-600">
+        <div className="text-center text-[10px] text-dim">
           {stats && `${stats.nodes} notes · ${stats.links} links · `}
           drag to explore · scroll to zoom · click a node to open it in Obsidian · refresh with{' '}
-          <span className="text-zinc-400">npm run graph</span>
+          <span className="text-ash">npm run graph</span>
         </div>
       )}
     </div>

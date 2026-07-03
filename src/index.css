@@ -1,4 +1,35 @@
-@import "tailwindcss";
+@import '@fontsource/chakra-petch/600.css';
+@import '@fontsource/chakra-petch/700.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+@import 'tailwindcss';
+
+/* ── Forge-Terminal tokens ─────────────────────────────────────────
+   Identity law: gold = XP/currency · ember = effort/training/streaks.
+   Everything else stays near-mono; state carries color, not decoration. */
+@theme {
+  --color-ink: #0a0d13;
+  --color-plate: #10151e;
+  --color-plate2: #161d29;
+  --color-line: #232d3d;
+  --color-line2: #31405a;
+  --color-ash: #8b94a7;
+  --color-dim: #525b6e;
+  --color-bone: #e8ecf4;
+  --color-ember: #ff5c38;
+  --color-ember-dim: #b03a20;
+  --color-gold: #f0b429;
+  --color-gold-dim: #9a7418;
+  --color-sage: #7bd88a;
+  --color-haze: #5b8def;
+
+  --font-display: 'Chakra Petch', 'Segoe UI', sans-serif;
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
 
 :root {
   color-scheme: dark;
@@ -6,8 +37,99 @@
 
 body {
   margin: 0;
-  background: #09090b;
-  color: #fafafa;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: #0a0d13;
+  /* faint vertical seam texture — instrument panel, not decoration */
+  background-image: linear-gradient(rgba(35, 45, 61, 0.14) 1px, transparent 1px);
+  background-size: 100% 56px;
+  color: #e8ecf4;
+  font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── Chamfer plate language — the one clipped corner is the motif ── */
+.plate {
+  background: #10151e;
+  border: 1px solid #232d3d;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+.plate-raised {
+  background: #161d29;
+}
+.chip {
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+}
+/* clip-path eats the border on the cut edge — restore it with a hairline seam */
+.plate {
+  position: relative;
+}
+.plate::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 21px;
+  height: 21px;
+  background: linear-gradient(
+    135deg,
+    transparent calc(50% - 1px),
+    #31405a calc(50% - 1px),
+    #31405a 50%,
+    transparent 50%
+  );
+  pointer-events: none;
+}
+
+/* ── HUD label — Chakra Petch eyebrow, used for every section head ── */
+.hud-label {
+  font-family: 'Chakra Petch', sans-serif;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #8b94a7;
+}
+
+/* ── Motion & state ── */
+@keyframes ember-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 92, 56, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 12px 2px rgba(255, 92, 56, 0.22);
+  }
+}
+.pulse-ember {
+  animation: ember-pulse 1.8s ease-in-out infinite;
+}
+
+/* available = quiet invitation: static ring, no ambient motion (battery + restraint) */
+.pulse-available {
+  outline: 1px solid rgba(232, 236, 244, 0.35);
+  outline-offset: 2px;
+}
+
+@keyframes edge-flow {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ember,
+  .pulse-available {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* numerals read as instruments everywhere */
+.num {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
 }

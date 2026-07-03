@@ -22,14 +22,12 @@ export function HealthScreen({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5 text-center">
-        <div className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-          Health XP today
-        </div>
-        <div className="mt-2 text-4xl font-bold tabular-nums text-emerald-300">
+      <div className="plate p-5 text-center">
+        <div className="hud-label">Health XP today</div>
+        <div className="num mt-2 font-display text-4xl font-bold text-sage">
           +<AnimatedNumber value={earned} />
         </div>
-        <div className="mt-1 text-xs text-zinc-500">
+        <div className="num mt-1 text-xs text-ash">
           {stepsXp(steps)} from steps · {sleepXp(sleep)} from sleep
         </div>
       </div>
@@ -41,12 +39,12 @@ export function HealthScreen({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3.5"
+            className="chip flex items-center gap-4 border border-line bg-plate px-4 py-3.5"
           >
             <span className="text-2xl">{f.emoji}</span>
             <div className="flex-1">
-              <div className="text-sm font-medium text-zinc-300">{f.label}</div>
-              <div className="text-[10px] text-zinc-600">{f.hint}</div>
+              <div className="text-sm font-medium text-bone">{f.label}</div>
+              <div className="text-[10px] text-dim">{f.hint}</div>
             </div>
             <input
               type="number"
@@ -54,16 +52,15 @@ export function HealthScreen({
               value={health?.[f.key] ?? ''}
               onChange={(e) => onChange(f.key, e.target.value)}
               placeholder="—"
-              className="w-24 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-right text-sm font-semibold tabular-nums outline-none focus:border-emerald-400/50 placeholder:text-zinc-700"
+              className="num chip w-24 border border-line bg-ink px-3 py-2 text-right text-sm font-semibold outline-none placeholder:text-dim focus:border-sage/50"
             />
-            <span className="w-10 text-[10px] text-zinc-600">{f.unit}</span>
+            <span className="w-10 text-[10px] text-dim">{f.unit}</span>
           </motion.label>
         ))}
       </div>
 
-      <div className="rounded-2xl border border-dashed border-zinc-800 p-4 text-center text-xs text-zinc-600">
-        Manual entry for now — Phase 3 wires <span className="text-zinc-400">Health Connect</span>{' '}
-        so steps, sleep &amp; HR flow in automatically. 🫀
+      <div className="chip border border-dashed border-line p-4 text-center text-xs text-dim">
+        Manual entry for now — Phase 3 automates steps &amp; sleep. 🫀
       </div>
     </div>
   )
