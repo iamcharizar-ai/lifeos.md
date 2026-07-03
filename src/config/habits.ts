@@ -45,6 +45,9 @@ export const DEFAULT_HABITS: Habit[] = [
 
 // Pre-v0.5 ids that a plain slug of the name would NOT reproduce. Ticks in the
 // ledger are keyed on these — the map keeps history folding onto the right habit.
+// The 2026-07-04 habit-stack entries map continuing habits onto their old ids
+// so streaks survive the rename (per-name keys must match the template EXACTLY
+// after the trailing emoji is stripped, inner emoji included).
 const LEGACY_IDS: Record<string, string> = {
   'Morning walk 5K': 'morning-walk',
   'Night walk 5K': 'night-walk',
@@ -53,11 +56,63 @@ const LEGACY_IDS: Record<string, string> = {
   'Fiber — chia / isabgol / bran': 'fiber',
   'Green tea / moringa': 'green-tea',
   'Work diary + planning': 'work-diary',
+  // habit-stack (2026-07-04) continuations
+  'Weight ⚖️ / Incense 🔥 / Calendar': 'weigh-in',
+  'AM Skincare': 'skincare',
+  'Morning Walk 👟 / Sun ☀️ / Day Prep': 'morning-walk',
+  'Guitar — session 1': 'guitar',
+  'Reading on the taxi': 'reading',
+  'Night Walk 5K': 'night-walk',
+  'Family Time 🐻 / Dinner': 'family-time',
+  'Work Diary 📗 / Plan 💭 / English Shadow': 'work-diary',
+  'Bath 🧼 / Brush': 'bath',
+  Isabgol: 'fiber',
 }
 
-export const DEFAULT_TIERS: Record<string, Tier> = Object.fromEntries(
-  DEFAULT_HABITS.map((h) => [h.id, h.tier]),
-)
+// Demo XP assignment for the 2026-07-04 stack (Rishabh: "you decide the xp by
+// importance for my goals"). Keyed by id; only applies to habits the live
+// config hasn't seen yet — existing habits keep their app-owned tier.
+const STACK_TIERS: Record<string, Tier> = {
+  // core 20 XP — moves the mission (PS2 / CAT / LeetCode / cut / discipline)
+  'leetcode-1-easy': 'core',
+  'ai-dev-time': 'core',
+  'day-tasks-9-5': 'core',
+  calisthenics: 'core',
+  'sleep-before-10': 'core',
+  'no-junk-food': 'core',
+  'no-goon': 'core',
+  // standard 10 XP — training volume & compounding skills
+  'push-ups': 'standard',
+  'pull-ups': 'standard',
+  'lateral-raises': 'standard',
+  'l-sit': 'standard',
+  'ab-roller': 'standard',
+  'guitar-session-2': 'standard',
+  'weekly-goal-work': 'standard',
+  'green-blend': 'standard',
+  'walk-14k-steps': 'standard',
+  'logged-work-next-day-plan': 'standard',
+  // basic 5 XP — hygiene, fuel, logistics
+  'pull-guitar-out': 'basic',
+  'make-bed': 'basic',
+  'water-1l-morning': 'basic',
+  'water-1l-midday': 'basic',
+  'water-1l-afternoon': 'basic',
+  'water-1l-evening': 'basic',
+  'chia-seeds-15g': 'basic',
+  breakfast: 'basic',
+  lunch: 'basic',
+  'eye-drops': 'basic',
+  'anime-movie-game': 'basic',
+  'pm-skincare': 'basic',
+  'creatine-medicine': 'basic',
+  'crafts-youtube': 'basic',
+}
+
+export const DEFAULT_TIERS: Record<string, Tier> = {
+  ...Object.fromEntries(DEFAULT_HABITS.map((h) => [h.id, h.tier])),
+  ...STACK_TIERS,
+}
 
 export function slugify(name: string): string {
   return name
