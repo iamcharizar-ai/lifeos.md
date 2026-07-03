@@ -19,6 +19,7 @@ import {
   type WorkoutMap,
 } from './lib/ledger'
 import { loadSkills, saveSkills, type SkillState, type SkillStatus } from './config/skills'
+import { useCloudSync } from './lib/cloudSync'
 import { useVault } from './lib/vaultSync'
 import { TabBar, type Tab } from './components/TabBar'
 import { Dashboard } from './screens/Dashboard'
@@ -53,6 +54,12 @@ export default function App() {
     [ticks, metrics, health, workouts],
   )
 
+  // Phone↔PC sync via Supabase event ledger — inert until .env.local has keys
+  const cloud = useCloudSync(
+    { stores, spends, skills },
+    { setTicks, setMetrics, setHealth, setWorkouts, setSpends, setSkills },
+  )
+
   // Auto write-back: any state change flows into the vault's daily note (PC, when linked)
   useEffect(() => {
     if (vault.status !== 'ready') return
@@ -61,38 +68,53 @@ export default function App() {
   }, [stores, today, vault.status, vault.writeNow]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (habitId: string) => {
+    const wasTicked = Boolean(ticks[today]?.[habitId])
+    const at = new Date().toISOString()
     setTicks((prev) => {
       const day = { ...(prev[today] ?? {}) }
       if (day[habitId]) delete day[habitId]
-      else day[habitId] = new Date().toISOString()
+      else day[habitId] = at
       return { ...prev, [today]: day }
     })
+    if (wasTicked) cloud.emit('untick', { habitId })
+    else cloud.emit('tick', { habitId, at })
   }
 
-  const setMetric = (key: keyof DayMetrics, value: string) =>
+  const setMetric = (key: keyof DayMetrics, value: string) => {
     setMetrics((prev) => ({ ...prev, [today]: { ...(prev[today] ?? {}), [key]: value } }))
+    cloud.emitField('metric', key, value)
+  }
 
-  const setHealthField = (key: keyof DayHealth, value: string) =>
+  const setHealthField = (key: keyof DayHealth, value: string) => {
     setHealth((prev) => ({ ...prev, [today]: { ...(prev[today] ?? {}), [key]: value } }))
+    cloud.emitField('health', key, value)
+  }
 
-  const logWorkout = (type: string) =>
-    setWorkouts((prev) => ({ ...prev, [today]: { type, at: new Date().toISOString() } }))
+  const logWorkout = (type: string) => {
+    const at = new Date().toISOString()
+    setWorkouts((prev) => ({ ...prev, [today]: { type, at } }))
+    cloud.emit('workout', { type, at })
+  }
 
-  const clearWorkout = () =>
+  const clearWorkout = () => {
     setWorkouts((prev) => {
       const next = { ...prev }
       delete next[today]
       return next
     })
+    cloud.emit('workout_clear', {})
+  }
 
-  const setSkill = (id: string, status: SkillStatus) =>
+  const setSkill = (id: string, status: SkillStatus) => {
     setSkills((prev) => ({ ...prev, [id]: status }))
+    cloud.emit('skill', { skillId: id, status })
+  }
 
-  const spend = (hours: number, xp: number) =>
-    setSpends((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), at: new Date().toISOString(), hours, xp },
-    ])
+  const spend = (hours: number, xp: number) => {
+    const sp = { id: crypto.randomUUID(), at: new Date().toISOString(), hours, xp }
+    setSpends((prev) => [...prev, sp])
+    cloud.emit('spend', { id: sp.id, at: sp.at, hours, xp })
+  }
 
   const dateLabel = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',
@@ -154,7 +176,12 @@ export default function App() {
       </motion.main>
 
       <footer className="mt-8 text-center text-[10px] uppercase tracking-widest text-zinc-700">
-        Phase 1–2 · v0.3 · local + vault write-back — Supabase sync pending
+        Phase 1–2 · v0.4 · vault write-back ·{' '}
+        {cloud.status === 'live' && '☁️ cloud sync live'}
+        {cloud.status === 'connecting' && '☁️ connecting…'}
+        {cloud.status === 'error' && '☁️ sync error'}
+        {cloud.status === 'off' && 'cloud sync off (no keys)'}
+        {cloud.pending > 0 && ` · ${cloud.pending} queued`}
       </footer>
 
       <TabBar tab={tab} onChange={setTab} />

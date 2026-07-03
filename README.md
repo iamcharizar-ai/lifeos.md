@@ -1,32 +1,36 @@
-# React + TypeScript + Vite
+# LifeOS — HUD
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Personal OS frontend: 6-tab HUD (Dashboard · Habits · Health · Body · Wallet · Graph) backed by the Obsidian vault. React + Vite + TS + Tailwind + Framer Motion.
 
-Currently, two official plugins are available:
+- **Spec authority**: `wiki/outputs/lifeos-master-plan.md` in the vault (XP economy, phases, data-ownership law)
+- **Session state**: `wiki/outputs/lifeos-session-status.md`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Commands
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm run dev        # localhost:5173
+npm run build      # typecheck + dist/
+npm run graph      # regenerate public/graph.json from the vault
+npm run lint       # oxlint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Architecture
+
+- **Local state**: localStorage maps (ticks/metrics/health/workouts/spends/skills) — instant, offline-first
+- **Vault write-back (PC)**: File System Access API mirrors today's state into `daily/YYYY-MM-DD.md` in the exact template format (`src/lib/vaultSync.ts`)
+- **Cloud sync (phone↔PC)**: Supabase append-only event ledger (`src/lib/cloudSync.ts`) — every mutation emits an immutable event; state is derived by folding events. Inert until env keys exist.
+- **PWA**: `public/manifest.webmanifest` + `public/sw.js` — installable on the phone from the deployed URL
+
+## Supabase + Vercel setup (the 15-minute runbook)
+
+1. **Supabase**: create a free project → Dashboard → SQL editor → paste + run `supabase/schema.sql`
+2. Copy `.env.example` → `.env.local`, fill `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (Project Settings → API)
+3. Restart `npm run dev` — footer should flip from "cloud sync off" to "☁️ cloud sync live". First boot with an empty table auto-seeds it from existing localStorage history.
+4. **Vercel**: push this repo to GitHub → vercel.com → Import project → framework auto-detects Vite → add both `VITE_SUPABASE_*` env vars in project settings → Deploy
+5. Open the URL on the phone (Chrome) → menu → **Add to Home screen** → tick a habit → it appears on the PC in <1s and lands in the vault's daily note
+
+## Rules baked in
+
+- Ledger is append-only; balance/XP always derived, never stored
+- Habit ids in `src/config/habits.ts` are stable forever — they key the ledger and write-back
+- Vault format never changes; the write-back conforms to the vault, not vice versa
