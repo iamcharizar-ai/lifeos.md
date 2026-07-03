@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import ForceGraph from 'force-graph'
 import {
   nodeState,
   PATH_META,
@@ -14,19 +15,32 @@ import {
   type SkillStatus,
 } from '../config/skills'
 
-// Logical coordinate space: 3 columns × 84px rows, x stretched to fit.
-const VW = 300
-const ROW_H = 84
-const NODE_H = 60
-const colX = (c: number) => VW / 6 + (c * VW) / 3 // column centers: 50, 150, 250
+// ── Designed layout: lanes per discipline, depth flows downward ────
+// Not physics — every node is pinned, so the map reads as a route, not soup.
+const LANE_W = 170
+const SUB_W = 48
+const ROW_H = 74
+const PATHS = Object.keys(PATH_META) as PathId[]
 
-function edgePath(from: Skill, to: Skill): string {
-  const x1 = colX(from.pos[1])
-  const y1 = from.pos[0] * ROW_H + NODE_H // bottom of parent
-  const x2 = colX(to.pos[1])
-  const y2 = to.pos[0] * ROW_H // top of child
-  const my = (y1 + y2) / 2
-  return `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`
+function coords(s: Skill): { x: number; y: number } {
+  const lane = PATHS.indexOf(s.path)
+  return {
+    x: lane * LANE_W + (s.pos[1] - 1) * SUB_W,
+    y: s.pos[0] * ROW_H + (lane % 2) * 26,
+  }
+}
+
+const STATE_FILL: Record<NodeState, string> = {
+  unlocked: '#f0b429',
+  training: '#ff5c38',
+  available: '#161d29',
+  locked: '#10151e',
+}
+const STATE_RING: Record<NodeState, string> = {
+  unlocked: '#f0b429',
+  training: '#ff5c38',
+  available: '#e8ecf4',
+  locked: '#232d3d',
 }
 
 const STATE_CHIP: Record<NodeState, { label: string; cls: string }> = {
@@ -36,48 +50,12 @@ const STATE_CHIP: Record<NodeState, { label: string; cls: string }> = {
   locked: { label: 'Locked', cls: 'text-dim border-line bg-plate' },
 }
 
-function TreeNode({
-  skill,
-  state,
-  onSelect,
-  selected,
-}: {
-  skill: Skill
-  state: NodeState
-  onSelect: (s: Skill) => void
-  selected: boolean
-}) {
-  const base =
-    'chip absolute flex flex-col items-center justify-center gap-0.5 border px-1 py-1.5 text-center transition-colors'
-  const look =
-    state === 'unlocked'
-      ? 'border-gold-dim bg-gold/10 text-bone'
-      : state === 'training'
-        ? 'border-ember-dim bg-ember/10 text-bone pulse-ember'
-        : state === 'available'
-          ? 'border-line2 bg-plate2 text-ash pulse-available'
-          : 'border-line bg-plate text-dim opacity-55'
-  return (
-    <motion.button
-      onClick={() => onSelect(skill)}
-      whileTap={{ scale: 0.93 }}
-      animate={state === 'unlocked' ? { scale: [1, 1.06, 1] } : {}}
-      transition={{ duration: 0.4 }}
-      className={`${base} ${look} ${selected ? 'z-10 outline outline-1 outline-bone' : ''}`}
-      style={{
-        left: `calc(${skill.pos[1] * 33.333}% + 5px)`,
-        width: 'calc(33.333% - 10px)',
-        top: skill.pos[0] * ROW_H,
-        height: NODE_H,
-      }}
-    >
-      <span className="text-base leading-none">
-        {state === 'locked' ? '🔒' : skill.emoji}
-        {skill.star && state !== 'locked' && <span className="ml-0.5 text-[9px]">⭐</span>}
-      </span>
-      <span className="line-clamp-2 text-[9px] font-semibold leading-tight">{skill.name}</span>
-    </motion.button>
-  )
+interface GNode {
+  id: string
+  x: number
+  y: number
+  fx: number
+  fy: number
 }
 
 function DetailSheet({
@@ -215,22 +193,189 @@ export function SkillTree({
   skills: SkillState
   onSkill: (id: string, status: SkillStatus) => void
 }) {
+  const holder = useRef<HTMLDivElement>(null)
+  const graphRef = useRef<InstanceType<typeof ForceGraph> | null>(null)
+  const stateRef = useRef(skills)
+  stateRef.current = skills
   const [selected, setSelected] = useState<Skill | null>(null)
-
-  const byPath = useMemo(() => {
-    const m = new Map<PathId, Skill[]>()
-    for (const s of SKILLS) {
-      const list = m.get(s.path) ?? []
-      list.push(s)
-      m.set(s.path, list)
-    }
-    return m
-  }, [])
 
   const totalUnlocked = SKILLS.filter((s) => skillStatus(skills, s) === 'unlocked').length
 
+  useEffect(() => {
+    const el = holder.current
+    if (!el) return
+
+    // x/y set directly: with cooldownTicks(0) the engine never ticks, so
+    // fx/fy alone would never reach the draw coordinates.
+    const nodes: GNode[] = SKILLS.map((s) => {
+      const { x, y } = coords(s)
+      return { id: s.id, x, y, fx: x, fy: y }
+    })
+    const links = SKILLS.flatMap((s) =>
+      s.requires
+        .filter((r) => SKILL_MAP.has(r))
+        .map((r) => ({ source: r, target: s.id })),
+    )
+
+    // Link endpoints are raw string ids until force-graph resolves them to
+    // node objects — accessors run in both phases, so handle both shapes.
+    const skillOf = (ref: unknown): Skill | undefined => {
+      const id =
+        typeof ref === 'string' || typeof ref === 'number'
+          ? String(ref)
+          : String((ref as { id?: string | number } | null)?.id ?? '')
+      return SKILL_MAP.get(id)
+    }
+    const stOf = (s: Skill) => nodeState(stateRef.current, s)
+    const litLink = (l: { source: unknown }) => {
+      const src = skillOf(l.source)
+      return !!src && skillStatus(stateRef.current, src) === 'unlocked'
+    }
+    const frontierLink = (l: { source: unknown; target: unknown }) => {
+      const src = skillOf(l.source)
+      const tgt = skillOf(l.target)
+      return (
+        !!src &&
+        !!tgt &&
+        skillStatus(stateRef.current, src) === 'unlocked' &&
+        skillStatus(stateRef.current, tgt) !== 'unlocked'
+      )
+    }
+
+    const graph = new ForceGraph(el)
+    graphRef.current = graph
+    graph
+      .graphData({ nodes, links })
+      .width(el.clientWidth)
+      .height(el.clientHeight)
+      .backgroundColor('rgba(0,0,0,0)')
+      // nodes are all pinned (fx/fy) — the engine can run freely without
+      // moving anything; keep the paint loop alive for the edge particles
+      .autoPauseRedraw(false)
+      .enableNodeDrag(false)
+      .nodeLabel(() => '')
+      .linkColor((l) => {
+        const src = skillOf((l as { source: unknown }).source)
+        return src && litLink(l as { source: unknown }) ? PATH_META[src.path].hue : '#232d3d'
+      })
+      .linkWidth((l) => (litLink(l as { source: unknown }) ? 1.6 : 0.7))
+      .linkLineDash((l) => (litLink(l as { source: unknown }) ? null : [2, 3]))
+      .linkDirectionalParticles((l) =>
+        frontierLink(l as { source: unknown; target: unknown }) ? 2 : 0,
+      )
+      .linkDirectionalParticleSpeed(0.004)
+      .linkDirectionalParticleWidth(2.4)
+      .linkDirectionalParticleColor((l) => {
+        const src = skillOf((l as { source: unknown }).source)
+        return src ? PATH_META[src.path].hue : '#232d3d'
+      })
+      .nodeCanvasObject((node, ctx, scale) => {
+        if (import.meta.env.DEV) {
+          const w = window as unknown as { __paints?: number }
+          w.__paints = (w.__paints ?? 0) + 1
+        }
+        const s = skillOf(node as GNode)
+        if (!s) return
+        const st = stOf(s)
+        const x = (node as GNode).x
+        const y = (node as GNode).y
+        const r = st === 'locked' ? 7 : 9
+
+        // glow for active states
+        if (st === 'unlocked' || st === 'training') {
+          ctx.shadowColor = STATE_RING[st]
+          ctx.shadowBlur = 10
+        }
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, 2 * Math.PI)
+        ctx.fillStyle = STATE_FILL[st]
+        ctx.globalAlpha = st === 'locked' ? 0.75 : 1
+        ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.lineWidth = st === 'available' ? 1.4 : 1
+        ctx.strokeStyle = STATE_RING[st]
+        ctx.stroke()
+        ctx.globalAlpha = 1
+
+        // glyph
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.font = `${r * 1.1}px sans-serif`
+        ctx.globalAlpha = st === 'locked' ? 0.5 : 1
+        ctx.fillText(st === 'locked' ? '🔒' : s.emoji, x, y + 0.5)
+        ctx.globalAlpha = 1
+
+        // star marker
+        if (s.star) {
+          ctx.font = '6px sans-serif'
+          ctx.fillText('⭐', x + r + 3, y - r + 1)
+        }
+
+        // name label — appears as you zoom in
+        if (scale > 1.1) {
+          ctx.font = `600 ${Math.max(4.5, 5.5)}px "IBM Plex Sans", sans-serif`
+          ctx.fillStyle =
+            st === 'locked' ? 'rgba(139,148,167,0.55)' : 'rgba(232,236,244,0.92)'
+          ctx.fillText(s.name, x, y + r + 7)
+        }
+      })
+      .nodePointerAreaPaint((node, color, ctx) => {
+        const x = (node as GNode).x
+        const y = (node as GNode).y
+        ctx.beginPath()
+        ctx.arc(x, y, 16, 0, 2 * Math.PI)
+        ctx.fillStyle = color
+        ctx.fill()
+      })
+      .onRenderFramePost((ctx) => {
+        // lane headers float in the void above each discipline
+        PATHS.forEach((p, i) => {
+          const meta = PATH_META[p]
+          const x = i * LANE_W
+          const y = -46 + (i % 2) * 26
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.font = '700 9px "Chakra Petch", sans-serif'
+          ctx.fillStyle = meta.hue
+          ctx.fillText(meta.label.toUpperCase(), x, y)
+          const list = SKILLS.filter((s) => s.path === p)
+          const done = list.filter((s) => skillStatus(stateRef.current, s) === 'unlocked').length
+          ctx.font = '500 5.5px "IBM Plex Mono", monospace'
+          ctx.fillStyle = 'rgba(139,148,167,0.8)'
+          ctx.fillText(`${done}/${list.length}`, x, y + 10)
+        })
+      })
+      .onNodeClick((node) => {
+        const s = skillOf(node as GNode)
+        if (s) setSelected(s)
+      })
+      .onBackgroundClick(() => setSelected(null))
+
+    requestAnimationFrame(() => graph.zoomToFit(0, 40))
+    if (import.meta.env.DEV) (window as unknown as { __tree?: unknown }).__tree = graph
+
+    const onResize = () => {
+      graph.width(el.clientWidth).height(el.clientHeight)
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      graph._destructor()
+      // StrictMode double-mounts: drop this instance's canvas from the DOM so
+      // the remount's canvas isn't shadowed by a dead one
+      el.replaceChildren()
+      graphRef.current = null
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // state changes restyle in place — reassigning an accessor triggers repaint
+  useEffect(() => {
+    const g = graphRef.current
+    if (g) g.linkColor(g.linkColor())
+  }, [skills])
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="flex items-baseline justify-between px-1">
         <h2 className="font-display text-xs font-bold uppercase tracking-[0.22em] text-bone">
           Skill constellation
@@ -240,89 +385,41 @@ export function SkillTree({
         </span>
       </div>
 
-      {(Object.keys(PATH_META) as PathId[]).map((pathId) => {
-        const meta = PATH_META[pathId]
-        const list = byPath.get(pathId) ?? []
-        const rows = Math.max(...list.map((s) => s.pos[0])) + 1
-        const height = (rows - 1) * ROW_H + NODE_H
-        const unlocked = list.filter((s) => skillStatus(skills, s) === 'unlocked').length
-        const edges = list.flatMap((s) =>
-          s.requires
-            .map((r) => SKILL_MAP.get(r))
-            .filter((p): p is Skill => Boolean(p && p.path === pathId))
-            .map((p) => ({ from: p, to: s })),
-        )
-        return (
-          <section key={pathId} className="plate p-4">
-            <div className="mb-3 flex items-baseline justify-between">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2" style={{ background: meta.hue }} />
-                <span className="hud-label !text-bone">{meta.label}</span>
-                <span className="text-[9px] text-dim">{meta.hint}</span>
-              </div>
-              <span className="num text-[10px] text-ash">
-                {unlocked}/{list.length}
-              </span>
-            </div>
+      <div
+        ref={holder}
+        className="h-[68vh] w-full overflow-hidden"
+        style={{
+          background:
+            'radial-gradient(ellipse at 50% 30%, rgba(22,29,41,0.55) 0%, rgba(10,13,19,0) 65%)',
+        }}
+      />
 
-            <div className="relative" style={{ height }}>
-              <svg
-                className="pointer-events-none absolute inset-0 h-full w-full"
-                viewBox={`0 0 ${VW} ${height}`}
-                preserveAspectRatio="none"
-                aria-hidden
-              >
-                {edges.map(({ from, to }) => {
-                  const lit = skillStatus(skills, from) === 'unlocked'
-                  return (
-                    <path
-                      key={`${from.id}-${to.id}`}
-                      d={edgePath(from, to)}
-                      fill="none"
-                      vectorEffect="non-scaling-stroke"
-                      stroke={lit ? meta.hue : '#232d3d'}
-                      strokeWidth={lit ? 1.5 : 1}
-                      strokeOpacity={lit ? 0.75 : 0.9}
-                      strokeDasharray={lit ? undefined : '3 4'}
-                      style={lit ? { filter: `drop-shadow(0 0 3px ${meta.hue})` } : undefined}
-                    />
-                  )
-                })}
-              </svg>
-              {list.map((s) => (
-                <TreeNode
-                  key={s.id}
-                  skill={s}
-                  state={nodeState(skills, s)}
-                  onSelect={setSelected}
-                  selected={selected?.id === s.id}
-                />
-              ))}
-            </div>
-          </section>
-        )
-      })}
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[9px] text-dim">
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-gold" /> unlocked
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-ember" /> training
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full border border-bone bg-plate2" />{' '}
+          available
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full border border-line bg-plate" /> locked
+        </span>
+        <span className="text-dim">· drag to roam · pinch/scroll to zoom · tap a node</span>
+      </div>
 
       <AnimatePresence>
         {selected && (
-          <>
-            <motion.button
-              key="scrim"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelected(null)}
-              className="fixed inset-0 z-20 bg-ink/70"
-              aria-label="Close details"
-            />
-            <DetailSheet
-              key={selected.id}
-              skill={selected}
-              skills={skills}
-              onSkill={onSkill}
-              onClose={() => setSelected(null)}
-            />
-          </>
+          <DetailSheet
+            key={selected.id}
+            skill={selected}
+            skills={skills}
+            onSkill={onSkill}
+            onClose={() => setSelected(null)}
+          />
         )}
       </AnimatePresence>
     </div>

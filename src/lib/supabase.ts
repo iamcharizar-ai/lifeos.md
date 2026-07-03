@@ -5,6 +5,13 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+// Dev kill-switch: VITE_SUPABASE_DISABLE=1 forces pure-local mode even when
+// .env.local has real keys — agent/browser test runs can never touch the
+// prod ledger. (PowerShell can't blank a var: $env:X='' deletes it and Vite
+// falls back to .env.local, which is how a "sandboxed" run once came up live.)
+const disabled = import.meta.env.VITE_SUPABASE_DISABLE === '1'
 
 export const supabase: SupabaseClient | null =
-  url && anonKey ? createClient(url, anonKey, { auth: { persistSession: false } }) : null
+  !disabled && url && anonKey
+    ? createClient(url, anonKey, { auth: { persistSession: false } })
+    : null

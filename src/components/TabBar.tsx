@@ -1,12 +1,13 @@
 import { motion } from 'framer-motion'
 
-export type Tab = 'dashboard' | 'habits' | 'health' | 'body' | 'wallet' | 'graph'
+export type Tab = 'dashboard' | 'habits' | 'health' | 'body' | 'train' | 'wallet' | 'graph'
 
 const TABS: { id: Tab; emoji: string; label: string }[] = [
   { id: 'dashboard', emoji: '🎛️', label: 'HUD' },
   { id: 'habits', emoji: '✅', label: 'Habits' },
   { id: 'health', emoji: '🫀', label: 'Health' },
   { id: 'body', emoji: '🧗', label: 'Body' },
+  { id: 'train', emoji: '🏋️', label: 'Train' },
   { id: 'wallet', emoji: '💠', label: 'Wallet' },
   { id: 'graph', emoji: '🕸️', label: 'Graph' },
 ]

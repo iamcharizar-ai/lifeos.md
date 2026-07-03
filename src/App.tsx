@@ -27,10 +27,14 @@ import { TabBar, type Tab } from './components/TabBar'
 import { Dashboard } from './screens/Dashboard'
 import { HabitsScreen } from './screens/HabitsScreen'
 import { HealthScreen } from './screens/HealthScreen'
-import { BodyScreen } from './screens/BodyScreen'
+import { TrainScreen } from './screens/TrainScreen'
 import { Wallet } from './screens/Wallet'
 const GraphScreen = lazy(() =>
   import('./screens/GraphScreen').then((m) => ({ default: m.GraphScreen })),
+)
+// BodyScreen pulls in force-graph for the constellation — lazy like Graph
+const BodyScreen = lazy(() =>
+  import('./screens/BodyScreen').then((m) => ({ default: m.BodyScreen })),
 )
 
 export default function App() {
@@ -195,12 +199,17 @@ export default function App() {
         )}
         {tab === 'health' && <HealthScreen health={health[today]} onChange={setHealthField} />}
         {tab === 'body' && (
-          <BodyScreen
+          <Suspense
+            fallback={<div className="py-16 text-center text-xs text-dim">charting the constellation…</div>}
+          >
+            <BodyScreen skills={skills} onSkill={setSkill} />
+          </Suspense>
+        )}
+        {tab === 'train' && (
+          <TrainScreen
             workout={workouts[today]}
             onLogWorkout={logWorkout}
             onClearWorkout={clearWorkout}
-            skills={skills}
-            onSkill={setSkill}
           />
         )}
         {tab === 'wallet' && (
