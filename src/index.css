@@ -35,6 +35,12 @@
   color-scheme: dark;
 }
 
+html {
+  /* zoom / display-size changes must reflow text, never clip it */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: #0a0d13;
@@ -132,4 +138,19 @@ body {
 .num {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Safe areas ────────────────────────────────────────────────────
+   viewport-fit=cover draws the PWA edge-to-edge (under Android's gesture
+   bar / display cutouts); every fixed-edge surface must compensate or
+   content clips at the screen edges — worst when zoomed. */
+.safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+.safe-top {
+  padding-top: max(1.5rem, env(safe-area-inset-top));
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }

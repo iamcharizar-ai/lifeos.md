@@ -171,7 +171,7 @@ export default function App() {
   })
 
   return (
-    <div className="mx-auto max-w-md px-4 pb-28 pt-6 sm:max-w-2xl">
+    <div className="safe-x safe-top mx-auto max-w-md pb-28 sm:max-w-2xl">
       <header className="mb-6 flex items-baseline justify-between">
         <h1 className="font-display text-sm font-bold uppercase tracking-[0.3em] text-bone">
           LifeOS<span className="text-ember">//</span>HUD

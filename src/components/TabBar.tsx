@@ -14,7 +14,7 @@ const TABS: { id: Tab; emoji: string; label: string }[] = [
 
 export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-ink/90 backdrop-blur">
+    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 border-t border-line bg-ink/90 backdrop-blur">
       <div className="mx-auto flex max-w-md items-stretch justify-around sm:max-w-2xl">
         {TABS.map((t) => (
           <button
