@@ -13,6 +13,7 @@ import type { HealthMap, MetricsMap, Spend, Stores, WorkoutMap } from './ledger'
 import type { SkillState, SkillStatus } from '../config/skills'
 import type { Habit } from '../config/habits'
 import { applyConfig, getConfig } from './habitConfig'
+import { parseSummary } from './workout'
 import { supabase } from './supabase'
 
 export type CloudStatus = 'off' | 'connecting' | 'live' | 'error'
@@ -104,12 +105,15 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
         [ev.day]: { ...(prev[ev.day] ?? {}), [String(p.key)]: String(p.value) },
       }))
       break
-    case 'workout':
+    case 'workout': {
+      // v0.9 tracked sessions ride a JSON `session` field; quick logs don't
+      const session = parseSummary(p.session)
       s.setWorkouts((prev) => ({
         ...prev,
-        [ev.day]: { type: String(p.type), at: String(p.at) },
+        [ev.day]: { type: String(p.type), at: String(p.at), ...(session ? { session } : {}) },
       }))
       break
+    }
     case 'workout_clear':
       s.setWorkouts((prev) => {
         const next = { ...prev }
@@ -157,7 +161,17 @@ function seedEvents(snap: CloudSnapshot, device: string): LifeEvent[] {
     for (const [key, value] of Object.entries(h))
       if (value) out.push({ device, at: `${day}T12:00:00Z`, day, type: 'health', payload: { key, value } })
   for (const [day, w] of Object.entries(workouts))
-    out.push({ device, at: w.at, day, type: 'workout', payload: { type: w.type, at: w.at } })
+    out.push({
+      device,
+      at: w.at,
+      day,
+      type: 'workout',
+      payload: {
+        type: w.type,
+        at: w.at,
+        ...(w.session ? { session: JSON.stringify(w.session) } : {}),
+      },
+    })
   for (const sp of snap.spends)
     out.push({
       device,

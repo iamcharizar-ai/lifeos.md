@@ -3,6 +3,7 @@
 import { getHabits } from './habitConfig'
 import { capDay, dayBonus, habitXp, sleepXp, stepsXp, WORKOUT_XP } from './xp'
 import { dateISO, streakFor, type Ticks } from './store'
+import type { WorkoutSummary } from './workout'
 
 export interface Spend {
   id: string
@@ -26,6 +27,8 @@ export interface DayHealth {
 export interface DayWorkout {
   type: string
   at: string
+  /** Phase 4 tracked session — absent on quick-logged / pre-v0.9 workouts */
+  session?: WorkoutSummary
 }
 
 export type MetricsMap = Record<string, DayMetrics>

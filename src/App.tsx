@@ -23,6 +23,7 @@ import type { Tier } from './config/habits'
 import { applyConfig, configFromTemplate, configWithTier, useHabits } from './lib/habitConfig'
 import { useCloudSync } from './lib/cloudSync'
 import { useVault } from './lib/vaultSync'
+import type { WorkoutSummary } from './lib/workout'
 import { TabBar, type Tab } from './components/TabBar'
 import { Dashboard } from './screens/Dashboard'
 import { HabitsScreen } from './screens/HabitsScreen'
@@ -120,10 +121,18 @@ export default function App() {
     cloud.emitField('health', key, value)
   }
 
-  const logWorkout = (type: string) => {
-    const at = new Date().toISOString()
-    setWorkouts((prev) => ({ ...prev, [today]: { type, at } }))
-    cloud.emit('workout', { type, at })
+  // Finish Workout: the only moment a session touches the ledger — one event,
+  // summary JSON in the payload; vault write-back follows via the effect above.
+  const finishWorkout = (summary: WorkoutSummary) => {
+    setWorkouts((prev) => ({
+      ...prev,
+      [today]: { type: summary.name, at: summary.finishedAt, session: summary },
+    }))
+    cloud.emit('workout', {
+      type: summary.name,
+      at: summary.finishedAt,
+      session: JSON.stringify(summary),
+    })
   }
 
   const clearWorkout = () => {
@@ -208,7 +217,7 @@ export default function App() {
         {tab === 'train' && (
           <TrainScreen
             workout={workouts[today]}
-            onLogWorkout={logWorkout}
+            onFinishWorkout={finishWorkout}
             onClearWorkout={clearWorkout}
           />
         )}
@@ -225,7 +234,7 @@ export default function App() {
       </motion.main>
 
       <footer className="hud-label mt-8 text-center !text-[9px] !text-dim">
-        Phase 1–2 · v0.7 · forge-terminal ·{' '}
+        Phase 1–4 · v0.9 · forge-terminal ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}

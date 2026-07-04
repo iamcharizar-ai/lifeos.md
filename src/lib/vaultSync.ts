@@ -7,6 +7,7 @@ import type { Habit } from '../config/habits'
 import { getHabits } from './habitConfig'
 import { idbDel, idbGet, idbSet } from './idb'
 import type { Stores } from './ledger'
+import { renderWorkoutMarkdown } from './workout'
 
 const HANDLE_KEY = 'vault-dir-handle'
 
@@ -74,7 +75,32 @@ export function renderDay(existing: string, stores: Stores, date: string): strin
   if (hd?.sleep) text = upsertField(text, 'sleep', hd.sleep)
   const w = stores.workouts[date]
   if (w) text = upsertField(text, 'workout', w.type)
+  if (w?.session) text = upsertWorkoutSection(text, renderWorkoutMarkdown(w.session))
   return text
+}
+
+/** Replace (or insert before ## Diary) a `## Workout` section — idempotent,
+ *  renderDay reruns on every state change. Only the section body is owned. */
+export function upsertWorkoutSection(text: string, body: string): string {
+  const section = `## Workout\n${body}\n`
+  const lines = text.split('\n')
+  const start = lines.findIndex((l) => /^##\s+Workout\b/i.test(l))
+  if (start !== -1) {
+    let end = lines.length
+    for (let i = start + 1; i < lines.length; i++)
+      if (/^##\s/.test(lines[i])) {
+        end = i
+        break
+      }
+    lines.splice(start, end - start, ...section.split('\n'))
+    return lines.join('\n')
+  }
+  const diary = lines.findIndex((l) => /^##\s+Diary\b/i.test(l))
+  if (diary !== -1) {
+    lines.splice(diary, 0, ...section.split('\n'))
+    return lines.join('\n')
+  }
+  return text.replace(/\n*$/, '\n\n') + section
 }
 
 async function readTemplate(vault: FileSystemDirectoryHandle, date: string): Promise<string> {

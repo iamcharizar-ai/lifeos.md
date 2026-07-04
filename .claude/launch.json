@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lifeos-dev-nosync",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:VITE_SUPABASE_DISABLE='1'; npx vite --port 5173 --strictPort"
+      ],
+      "port": 5173
+    }
+  ]
+}
