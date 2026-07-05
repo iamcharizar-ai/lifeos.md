@@ -181,9 +181,9 @@ export default function App() {
 
       <motion.main
         key={tab}
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.15 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
       >
         {tab === 'dashboard' && (
           <Dashboard
@@ -234,7 +234,7 @@ export default function App() {
       </motion.main>
 
       <footer className="hud-label mt-8 text-center !text-[9px] !text-dim">
-        Phase 1–4 · v0.9 · forge-terminal ·{' '}
+        Phase 1–4 · v1.0 · forge-terminal ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}

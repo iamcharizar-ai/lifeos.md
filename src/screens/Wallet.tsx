@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { CoinSlot } from '../components/CoinSlot'
 import {
   dayEarned,
   LEISURE_RATE,
@@ -37,6 +38,7 @@ export function Wallet({
   onSpend: (hours: number, xp: number) => void
 }) {
   const [justSpent, setJustSpent] = useState<number | null>(null)
+  const [denom, setDenom] = useState(1) // hours selected for the coin
 
   const lifetime = lifetimeEarned(stores)
   const balance = lifetime - totalSpent(spends)
@@ -88,8 +90,7 @@ export function Wallet({
           <AnimatedNumber value={balance} />
         </div>
         <div className="num mt-1 text-xs text-ash">
-          {LEISURE_RATE} XP = 1 hour of leisure · LVL {lvl.level} ·{' '}
-          {lifetime.toLocaleString('en-IN')} lifetime
+          LVL {lvl.level} · {lifetime.toLocaleString('en-IN')} lifetime XP
         </div>
       </div>
 
@@ -157,30 +158,46 @@ export function Wallet({
         )}
       </div>
 
-      {/* Spend */}
-      <div className="plate p-5">
-        <div className="hud-label mb-3">Buy leisure time 🎮</div>
+      {/* Spend — the coin slot. Choosing is a tap; paying is a gesture. */}
+      <div className="plate plate-raised p-5">
+        <div className="mb-3 flex items-baseline justify-between">
+          <div className="hud-label">Buy leisure time 🎮</div>
+          <span className="num text-[10px] text-dim">{LEISURE_RATE} XP = 1h</span>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           {SPEND_OPTIONS.map((o) => {
             const cost = Math.round(o.hours * LEISURE_RATE)
             const affordable = cost <= balance
+            const selected = denom === o.hours
             return (
               <motion.button
                 key={o.hours}
                 whileTap={affordable ? { scale: 0.93 } : undefined}
-                onClick={() => spend(o.hours)}
+                onClick={() => affordable && setDenom(o.hours)}
                 disabled={!affordable}
-                className={`chip border px-3 py-3 text-center transition-colors ${
-                  affordable
-                    ? 'border-ember-dim bg-ember/10 hover:border-ember'
-                    : 'cursor-not-allowed border-line bg-plate opacity-40'
+                className={`chip border px-3 py-2.5 text-center transition-colors ${
+                  !affordable
+                    ? 'cursor-not-allowed border-line bg-plate opacity-40'
+                    : selected
+                      ? 'border-gold-dim bg-gold/10'
+                      : 'border-line bg-plate hover:border-line2'
                 }`}
               >
-                <div className="text-sm font-bold text-bone">{o.label}</div>
-                <div className="num mt-0.5 text-xs text-ember">−{cost} XP</div>
+                <div className={`text-sm font-bold ${selected ? 'text-gold' : 'text-bone'}`}>
+                  {o.label}
+                </div>
+                <div className="num mt-0.5 text-xs text-ash">−{cost} XP</div>
               </motion.button>
             )
           })}
+        </div>
+
+        <div className="mt-4">
+          <CoinSlot
+            cost={Math.round(denom * LEISURE_RATE)}
+            affordable={Math.round(denom * LEISURE_RATE) <= balance}
+            onCommit={() => spend(denom)}
+          />
         </div>
         <AnimatePresence>
           {justSpent !== null && (
