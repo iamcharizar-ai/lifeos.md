@@ -375,7 +375,7 @@ export function SkillTree({
   }, [skills])
 
   return (
-    <div className="space-y-3">
+    <div className="bleed bleed-pad space-y-3">
       <div className="flex items-baseline justify-between px-1">
         <h2 className="font-display text-xs font-bold uppercase tracking-[0.22em] text-bone">
           Skill constellation

@@ -101,7 +101,7 @@ function Planner({
     })
 
   return (
-    <div className="space-y-5">
+    <div className="bleed bleed-pad space-y-5">
       <div className="plate p-4">
         <div className="mb-1 flex items-baseline justify-between">
           <div className="hud-label">Anatomy // target map</div>
@@ -302,7 +302,7 @@ function ActiveWorkout({
   const restLeft = rest ? Math.max(0, Math.ceil((rest.endsAt - now) / 1000)) : 0
 
   return (
-    <div className="space-y-4">
+    <div className="bleed bleed-pad space-y-4">
       {/* command bar */}
       <div className="plate flex items-center justify-between gap-3 p-4">
         <div className="min-w-0">

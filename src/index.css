@@ -43,6 +43,9 @@ html {
 
 body {
   margin: 0;
+  /* .bleed spans 100vw, which includes the scrollbar gutter on Windows —
+     clip the few px of horizontal overhang instead of growing a scrollbar */
+  overflow-x: clip;
   background: #0a0d13;
   /* faint vertical seam texture — instrument panel, not decoration */
   background-image: linear-gradient(rgba(35, 45, 61, 0.14) 1px, transparent 1px);
@@ -176,6 +179,21 @@ body::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ── Full-bleed breakout ───────────────────────────────────────────
+   Escapes the centered max-w column to the true viewport edges — the
+   negative margin exactly cancels the column offset AND the safe-x
+   padding, on any screen width. Sections that need the whole monitor
+   (Train plates, Body constellation) wear this. */
+.bleed {
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+/* edge padding for bleed content that still needs a finger's breathing room */
+.bleed-pad {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
 }
 
 /* numerals read as instruments everywhere */
