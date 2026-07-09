@@ -73,6 +73,7 @@ export function renderDay(existing: string, stores: Stores, date: string): strin
   const hd = stores.health[date]
   if (hd?.steps) text = upsertField(text, 'steps', hd.steps)
   if (hd?.sleep) text = upsertField(text, 'sleep', hd.sleep)
+  if (hd?.water) text = upsertField(text, 'water', hd.water)
   const w = stores.workouts[date]
   if (w) text = upsertField(text, 'workout', w.type)
   if (w?.session) text = upsertWorkoutSection(text, renderWorkoutMarkdown(w.session))
@@ -101,6 +102,44 @@ export function upsertWorkoutSection(text: string, body: string): string {
     return lines.join('\n')
   }
   return text.replace(/\n*$/, '\n\n') + section
+}
+
+// ── Day tasks — the `## Tasks` section of the daily note ────────────
+// Claude (JARVIS-0 planning) writes the day's tasks into the note from the
+// vault timeline; the HUD renders them and toggles write straight back, so
+// app and Obsidian always show the same checkboxes.
+
+export interface VaultTask {
+  text: string
+  done: boolean
+}
+
+/** Checkbox lines of the `## Tasks` section; null when the note has no section. */
+export function parseTasksSection(text: string): VaultTask[] | null {
+  const lines = text.split(/\r?\n/)
+  const start = lines.findIndex((l) => /^##\s+Tasks\b/i.test(l))
+  if (start === -1) return null
+  const out: VaultTask[] = []
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i]
+    if (/^##\s/.test(line)) break
+    const m = line.match(/^\s*-\s*\[([ xX])\]\s+(.+?)\s*$/)
+    if (m) out.push({ text: m[2], done: m[1] !== ' ' })
+  }
+  return out
+}
+
+async function readDaily(
+  vault: FileSystemDirectoryHandle,
+  date: string,
+): Promise<string | null> {
+  try {
+    const daily = await vault.getDirectoryHandle('daily')
+    const fh = await daily.getFileHandle(`${date}.md`)
+    return await (await fh.getFile()).text()
+  } catch {
+    return null
+  }
 }
 
 async function readTemplate(vault: FileSystemDirectoryHandle, date: string): Promise<string> {
@@ -191,6 +230,31 @@ export function useVault() {
     }
   }, [])
 
+  /** Today's `## Tasks` checkboxes, or null (no note / no section / no vault). */
+  const readTasks = useCallback(async (date: string): Promise<VaultTask[] | null> => {
+    const h = handleRef.current
+    if (!h) return null
+    const text = await readDaily(h, date)
+    return text ? parseTasksSection(text) : null
+  }, [])
+
+  /** Flip one task checkbox in the daily note — the HUD's write-back. */
+  const toggleTask = useCallback(async (date: string, taskText: string): Promise<void> => {
+    const h = handleRef.current
+    if (!h) return
+    const text = await readDaily(h, date)
+    if (!text) return
+    const re = new RegExp(`^(\\s*-\\s*\\[)([ xX])(\\]\\s+${escapeRegex(taskText)}\\s*)$`, 'm')
+    const m = text.match(re)
+    if (!m) return
+    const next = text.replace(re, `$1${m[2] === ' ' ? 'x' : ' '}$3`)
+    const daily = await h.getDirectoryHandle('daily', { create: true })
+    const fh = await daily.getFileHandle(`${date}.md`, { create: true })
+    const w = await fh.createWritable()
+    await w.write(next)
+    await w.close()
+  }, [])
+
   const writeNow = useCallback(async (stores: Stores, date: string) => {
     const h = handleRef.current
     if (!h) return
@@ -203,5 +267,16 @@ export function useVault() {
     }
   }, [])
 
-  return { status, lastWrite, error, connect, authorize, disconnect, writeNow, readTemplateText }
+  return {
+    status,
+    lastWrite,
+    error,
+    connect,
+    authorize,
+    disconnect,
+    writeNow,
+    readTemplateText,
+    readTasks,
+    toggleTask,
+  }
 }

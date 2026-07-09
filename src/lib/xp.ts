@@ -5,6 +5,9 @@ export const DAILY_CAP = 400
 export const WORKOUT_XP = 15
 export const STEPS_XP_CAP = 12
 export const SLEEP_XP = 10
+// Hydration moved from four 5-XP habits to one Health-tab meter: hit the
+// daily target, bank one flat bonus.
+export const WATER_XP = 5
 
 export function streakMultiplier(streakDays: number): number {
   if (streakDays >= 30) return 1.5
@@ -31,6 +34,10 @@ export function stepsXp(steps: number): number {
 
 export function sleepXp(hours: number): number {
   return hours >= 7 ? SLEEP_XP : 0
+}
+
+export function waterXp(ml: number, targetMl: number): number {
+  return ml >= targetMl ? WATER_XP : 0
 }
 
 export function capDay(xp: number): number {

@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { Habit } from '../config/habits'
 import { streakFor } from '../lib/store'
@@ -14,7 +15,7 @@ import {
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { ProgressRing } from '../components/ProgressRing'
 import { VaultCard } from '../components/VaultCard'
-import type { useVault } from '../lib/vaultSync'
+import type { useVault, VaultTask } from '../lib/vaultSync'
 
 export function Dashboard({
   habits,
@@ -44,7 +45,10 @@ export function Dashboard({
     .slice(0, 3)
 
   return (
-    <div className="space-y-4">
+    // Mobile: one stack. Desktop had dead gutters — the HUD now spreads into
+    // two columns, with the day's vault tasks on the right where the eye rests.
+    <div className="space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
+      <div className="space-y-4">
       {/* Today hero */}
       <div className="plate flex items-end justify-between p-5">
         <div>
@@ -132,8 +136,86 @@ export function Dashboard({
           </div>
         )}
       </div>
+      </div>
 
-      <VaultCard vault={vault} />
+      <div className="space-y-4">
+        <TasksCard vault={vault} today={today} />
+        <VaultCard vault={vault} />
+      </div>
+    </div>
+  )
+}
+
+// ── Day tasks — the `## Tasks` section of today's vault note ─────────
+// Read-poll like the habit-template poller; toggles write straight back to
+// the note, so the HUD and Obsidian are the same board.
+function TasksCard({ vault, today }: { vault: ReturnType<typeof useVault>; today: string }) {
+  const [tasks, setTasks] = useState<VaultTask[] | null>(null)
+
+  const load = useCallback(async () => {
+    if (vault.status !== 'ready') return
+    setTasks(await vault.readTasks(today))
+  }, [vault.status, vault.readTasks, today]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    void load()
+    const t = setInterval(() => void load(), 30_000)
+    const onFocus = () => void load()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(t)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [load])
+
+  if (vault.status !== 'ready') return null
+
+  const done = tasks?.filter((t) => t.done).length ?? 0
+
+  return (
+    <div className="plate p-5">
+      <div className="mb-3 flex items-baseline justify-between">
+        <div className="hud-label">Today&apos;s tasks · vault</div>
+        {tasks && tasks.length > 0 && (
+          <span className="num text-[10px] text-dim">
+            {done}/{tasks.length}
+          </span>
+        )}
+      </div>
+      {!tasks ? (
+        <div className="text-xs text-dim">
+          No <span className="num text-ash">## Tasks</span> section in today&apos;s note yet —
+          Claude fills it from the vault timeline.
+        </div>
+      ) : tasks.length === 0 ? (
+        <div className="text-xs text-dim">Tasks section is empty — free ground today.</div>
+      ) : (
+        <div className="space-y-1.5">
+          {tasks.map((t) => (
+            <motion.button
+              key={t.text}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => void vault.toggleTask(today, t.text).then(load)}
+              className={`chip flex w-full items-center gap-2.5 border px-3 py-2 text-left transition-colors ${
+                t.done ? 'border-gold-dim bg-gold/10' : 'border-line bg-plate2 hover:border-line2'
+              }`}
+            >
+              <span
+                className={`num shrink-0 text-xs font-bold ${t.done ? 'text-gold' : 'text-dim'}`}
+              >
+                {t.done ? '☑' : '☐'}
+              </span>
+              <span
+                className={`flex-1 text-[13px] ${
+                  t.done ? 'text-dim line-through' : 'text-bone'
+                }`}
+              >
+                {t.text}
+              </span>
+            </motion.button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

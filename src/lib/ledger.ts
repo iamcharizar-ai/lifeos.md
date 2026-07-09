@@ -1,7 +1,8 @@
 // Derived-state ledger over local events. Same shapes move to Supabase rows later —
 // balance is always computed, never stored.
 import { getHabits } from './habitConfig'
-import { capDay, dayBonus, habitXp, sleepXp, stepsXp, WORKOUT_XP } from './xp'
+import { WATER_TARGET_ML } from '../config/foods'
+import { capDay, dayBonus, habitXp, sleepXp, stepsXp, waterXp, WORKOUT_XP } from './xp'
 import { dateISO, streakFor, type Ticks } from './store'
 import type { WorkoutSummary } from './workout'
 
@@ -18,10 +19,35 @@ export interface DayMetrics {
   protein?: string
 }
 
+/** One logged food — vault item, barcode product, or custom entry. Immutable
+ *  once logged; totals are always derived. Rides DayHealth.foods as JSON. */
+export interface FoodLogEntry {
+  id: string
+  name: string
+  grams: number
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  meal: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  at: string // ISO timestamp
+}
+
 export interface DayHealth {
   steps?: string
   sleep?: string
   hr?: string
+  /** total ml drunk today */
+  water?: string
+  /** ISO of the last water log — drives the Health-tab thirst ping */
+  waterAt?: string
+  /** JSON FoodLogEntry[] */
+  foods?: string
+  /** JSON string[] — med names taken today */
+  meds?: string
+  /** sleep times, "23:30" / "07:00" — sleep hours derive from these */
+  bed?: string
+  wake?: string
 }
 
 export interface DayWorkout {
@@ -72,9 +98,54 @@ export function metricsComplete(m: DayMetrics | undefined): boolean {
   return Boolean(m?.weight && m?.kcal && m?.protein)
 }
 
+export function parseFoods(h: DayHealth | undefined): FoodLogEntry[] {
+  try {
+    const arr = JSON.parse(h?.foods ?? '[]') as FoodLogEntry[]
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+
+export function parseMeds(h: DayHealth | undefined): string[] {
+  try {
+    const arr = JSON.parse(h?.meds ?? '[]') as string[]
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+
+export function foodTotals(foods: FoodLogEntry[]) {
+  return foods.reduce(
+    (t, f) => ({
+      kcal: t.kcal + f.kcal,
+      protein: t.protein + f.protein,
+      carbs: t.carbs + f.carbs,
+      fat: t.fat + f.fat,
+    }),
+    { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+  )
+}
+
+/** Sleep hours from bed/wake times (bed may be before or after midnight). */
+export function sleepHours(bed: string | undefined, wake: string | undefined): number {
+  if (!bed || !wake) return 0
+  const [bh, bm] = bed.split(':').map(Number)
+  const [wh, wm] = wake.split(':').map(Number)
+  if ([bh, bm, wh, wm].some(Number.isNaN)) return 0
+  let mins = wh * 60 + wm - (bh * 60 + bm)
+  if (mins <= 0) mins += 24 * 60
+  return Math.round((mins / 60) * 10) / 10
+}
+
 export function healthEarned(h: DayHealth | undefined): number {
   if (!h) return 0
-  return stepsXp(parseFloat(h.steps ?? '0') || 0) + sleepXp(parseFloat(h.sleep ?? '0') || 0)
+  return (
+    stepsXp(parseFloat(h.steps ?? '0') || 0) +
+    sleepXp(parseFloat(h.sleep ?? '0') || 0) +
+    waterXp(parseFloat(h.water ?? '0') || 0, WATER_TARGET_ML)
+  )
 }
 
 /** Total XP earned on one day: habits (streak-adjusted) + health + workout + bonuses, capped. */

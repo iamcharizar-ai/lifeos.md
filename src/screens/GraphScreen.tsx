@@ -72,7 +72,13 @@ export function GraphScreen() {
           })
       })
       .catch((e: Error) => setErr(e.message))
+    // .bleed spans the true viewport — track it so the canvas always fills the plate
+    const ro = new ResizeObserver(() => {
+      graph?.width(el.clientWidth).height(el.clientHeight)
+    })
+    ro.observe(el)
     return () => {
+      ro.disconnect()
       graph?._destructor()
     }
   }, [])
@@ -91,10 +97,10 @@ export function GraphScreen() {
         ))}
       </div>
 
-      <div
-        ref={ref}
-        className="plate h-[60vh] overflow-hidden"
-      />
+      {/* the web needs the whole monitor — escape the centered column */}
+      <div className="bleed bleed-pad">
+        <div ref={ref} className="plate h-[68vh] overflow-hidden" />
+      </div>
 
       {err ? (
         <div className="text-center text-xs text-ember">{err}</div>

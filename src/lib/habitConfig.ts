@@ -7,10 +7,15 @@ import {
   DEFAULT_HABITS,
   DEFAULT_TIERS,
   habitIdFor,
+  isWaterHabit,
   parseTemplateHabits,
   type Habit,
   type Tier,
 } from '../config/habits'
+
+// Water habits are retired from the stack (hydration = Health-tab meter);
+// strip them at every ingress so no source can resurrect them.
+const stripWater = (habits: Habit[]): Habit[] => habits.filter((h) => !isWaterHabit(h.id))
 
 export type ConfigSource = 'default' | 'vault' | 'app' | 'cloud'
 
@@ -28,7 +33,8 @@ function load(): HabitConfig {
     const raw = localStorage.getItem(CFG_KEY)
     if (raw) {
       const cfg = JSON.parse(raw) as HabitConfig
-      if (Array.isArray(cfg.habits) && cfg.habits.length > 0 && cfg.at) return cfg
+      if (Array.isArray(cfg.habits) && cfg.habits.length > 0 && cfg.at)
+        return { ...cfg, habits: stripWater(cfg.habits) }
     }
   } catch {
     /* corrupted → default */
@@ -65,6 +71,8 @@ function sameHabits(a: Habit[], b: Habit[]): boolean {
 export function applyConfig(cfg: HabitConfig): boolean {
   if (cfg.at <= current.at) return false
   if (!Array.isArray(cfg.habits) || cfg.habits.length === 0) return false
+  cfg = { ...cfg, habits: stripWater(cfg.habits) }
+  if (cfg.habits.length === 0) return false
   const changed = !sameHabits(cfg.habits, current.habits)
   current = cfg
   try {
@@ -90,6 +98,7 @@ export function configFromTemplate(text: string): HabitConfig | null {
   for (const { name, emoji } of parsed) {
     const id = habitIdFor(name)
     if (seen.has(id)) continue // duplicate line in template — keep the first
+    if (isWaterHabit(id)) continue // hydration lives on the Health tab now
     seen.add(id)
     habits.push({ id, name, emoji, tier: prevTier.get(id) ?? DEFAULT_TIERS[id] ?? 'standard' })
   }

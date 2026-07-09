@@ -28,6 +28,7 @@ import {
   type WorkoutSummary,
 } from '../lib/workout'
 import { MuscleMap } from '../components/MuscleMap'
+import { MuscleGuide } from '../components/MuscleGuide'
 
 type Selection = { kind: 'split' | 'exercise'; id: string } | null
 
@@ -75,6 +76,7 @@ function Planner({
   onClearWorkout: () => void
 }) {
   const [sel, setSel] = useState<Selection>(null)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   const target = useMemo(() => {
     if (sel?.kind === 'exercise') {
@@ -105,9 +107,17 @@ function Planner({
       <div className="plate p-4">
         <div className="mb-1 flex items-baseline justify-between">
           <div className="hud-label">Anatomy // target map</div>
-          {glow.length > 0 && (
-            <span className="num text-[10px] text-ember">⬢ trained today</span>
-          )}
+          <div className="flex items-center gap-2">
+            {glow.length > 0 && (
+              <span className="num text-[10px] text-ember">⬢ trained today</span>
+            )}
+            <button
+              onClick={() => setGuideOpen(true)}
+              className="chip border border-line bg-plate2 px-2.5 py-1 font-display text-[9px] font-semibold uppercase tracking-wider text-ash hover:border-line2 hover:text-bone"
+            >
+              🧠 intel
+            </button>
+          </div>
         </div>
         <MuscleMap
           primary={target.primary}
@@ -223,6 +233,8 @@ function Planner({
           + empty session (build as you go)
         </button>
       </div>
+
+      {guideOpen && <MuscleGuide onClose={() => setGuideOpen(false)} />}
     </div>
   )
 }

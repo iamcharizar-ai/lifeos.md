@@ -19,6 +19,7 @@ import {
   type WorkoutMap,
 } from './lib/ledger'
 import { loadSkills, saveSkills, type SkillState, type SkillStatus } from './config/skills'
+import { WATER_TARGET_ML } from './config/foods'
 import type { Tier } from './config/habits'
 import { applyConfig, configFromTemplate, configWithTier, useHabits } from './lib/habitConfig'
 import { useCloudSync } from './lib/cloudSync'
@@ -164,6 +165,24 @@ export default function App() {
     cloud.emit('spend', { id: sp.id, at: sp.at, hours, xp })
   }
 
+  // Thirst ping: red dot on the Health tab when no water has landed for 2h+
+  // during waking hours (or none at all by 9am). Re-evaluated every minute.
+  const [minuteTick, setMinuteTick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setMinuteTick((x) => x + 1), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const thirsty = useMemo(() => {
+    void minuteTick
+    const h = health[today]
+    const waterMl = parseFloat(h?.water ?? '0') || 0
+    if (waterMl >= WATER_TARGET_ML) return false
+    const hour = new Date().getHours()
+    if (hour < 8 || hour >= 22) return false
+    if (!h?.waterAt) return hour >= 9
+    return Date.now() - new Date(h.waterAt).getTime() > 2 * 60 * 60 * 1000
+  }, [health, today, minuteTick])
+
   const dateLabel = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',
     day: 'numeric',
@@ -171,7 +190,7 @@ export default function App() {
   })
 
   return (
-    <div className="safe-x safe-top mx-auto max-w-md pb-28 sm:max-w-2xl">
+    <div className="safe-x safe-top mx-auto max-w-md pb-28 sm:max-w-2xl lg:max-w-4xl">
       <header className="mb-6 flex items-baseline justify-between">
         <h1 className="font-display text-sm font-bold uppercase tracking-[0.3em] text-bone">
           LifeOS<span className="text-ember">//</span>HUD
@@ -202,11 +221,16 @@ export default function App() {
             today={today}
             onToggle={toggle}
             onCycleTier={cycleTier}
+          />
+        )}
+        {tab === 'health' && (
+          <HealthScreen
+            health={health[today]}
+            onChange={setHealthField}
             metrics={metrics[today]}
             onMetric={setMetric}
           />
         )}
-        {tab === 'health' && <HealthScreen health={health[today]} onChange={setHealthField} />}
         {tab === 'body' && (
           <Suspense
             fallback={<div className="py-16 text-center text-xs text-dim">charting the constellation…</div>}
@@ -242,7 +266,7 @@ export default function App() {
         {cloud.pending > 0 && ` · ${cloud.pending} queued`}
       </footer>
 
-      <TabBar tab={tab} onChange={setTab} />
+      <TabBar tab={tab} onChange={setTab} alerts={{ health: thirsty }} />
     </div>
   )
 }

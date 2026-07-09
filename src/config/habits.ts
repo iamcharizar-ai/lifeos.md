@@ -13,10 +13,12 @@ export interface Habit {
   tier: Tier
 }
 
+// Economy v2 (2026-07-09): essentials are table stakes, not needle-movers —
+// basic pays 1 XP so brushing your teeth can't out-earn real work.
 export const TIER_XP: Record<Tier, number> = {
   core: 20,
   standard: 10,
-  basic: 5,
+  basic: 1,
 }
 
 export const DEFAULT_HABITS: Habit[] = [
@@ -92,7 +94,7 @@ const STACK_TIERS: Record<string, Tier> = {
   'green-blend': 'standard',
   'walk-14k-steps': 'standard',
   'logged-work-next-day-plan': 'standard',
-  // basic 5 XP — hygiene, fuel, logistics
+  // basic 1 XP — hygiene, fuel, logistics
   'pull-guitar-out': 'basic',
   'make-bed': 'basic',
   'water-1l-morning': 'basic',
@@ -112,6 +114,13 @@ const STACK_TIERS: Record<string, Tier> = {
 export const DEFAULT_TIERS: Record<string, Tier> = {
   ...Object.fromEntries(DEFAULT_HABITS.map((h) => [h.id, h.tier])),
   ...STACK_TIERS,
+}
+
+// Hydration left the habit stack (2026-07-09) — it lives on the Health tab as
+// one water meter now. Ticks keyed on these ids stay in the ledger as history;
+// the live list just never shows them again.
+export function isWaterHabit(id: string): boolean {
+  return /^water-1l/.test(id)
 }
 
 export function slugify(name: string): string {
