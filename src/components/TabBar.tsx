@@ -1,13 +1,14 @@
 import { motion } from 'framer-motion'
 
-export type Tab = 'dashboard' | 'habits' | 'health' | 'body' | 'train' | 'wallet' | 'graph'
+// Health + Train tabs retired 2026-07-10: health data now arrives via the
+// Google Health pipeline (ghealth/JARVIS) and workouts via Project Strong —
+// both land in the same ledger events, so state/XP/write-back are unchanged.
+export type Tab = 'dashboard' | 'habits' | 'body' | 'wallet' | 'graph'
 
 const TABS: { id: Tab; emoji: string; label: string }[] = [
   { id: 'dashboard', emoji: '🎛️', label: 'HUD' },
   { id: 'habits', emoji: '✅', label: 'Habits' },
-  { id: 'health', emoji: '🫀', label: 'Health' },
   { id: 'body', emoji: '🧗', label: 'Body' },
-  { id: 'train', emoji: '🏋️', label: 'Train' },
   { id: 'wallet', emoji: '💠', label: 'Wallet' },
   { id: 'graph', emoji: '🕸️', label: 'Graph' },
 ]

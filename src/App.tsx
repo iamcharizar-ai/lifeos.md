@@ -10,8 +10,6 @@ import {
   saveMetrics,
   saveSpends,
   saveWorkouts,
-  type DayHealth,
-  type DayMetrics,
   type HealthMap,
   type MetricsMap,
   type Spend,
@@ -19,17 +17,13 @@ import {
   type WorkoutMap,
 } from './lib/ledger'
 import { loadSkills, saveSkills, type SkillState, type SkillStatus } from './config/skills'
-import { WATER_TARGET_ML } from './config/foods'
 import type { Tier } from './config/habits'
 import { applyConfig, configFromTemplate, configWithTier, useHabits } from './lib/habitConfig'
 import { useCloudSync } from './lib/cloudSync'
 import { useVault } from './lib/vaultSync'
-import type { WorkoutSummary } from './lib/workout'
 import { TabBar, type Tab } from './components/TabBar'
 import { Dashboard } from './screens/Dashboard'
 import { HabitsScreen } from './screens/HabitsScreen'
-import { HealthScreen } from './screens/HealthScreen'
-import { TrainScreen } from './screens/TrainScreen'
 import { Wallet } from './screens/Wallet'
 const GraphScreen = lazy(() =>
   import('./screens/GraphScreen').then((m) => ({ default: m.GraphScreen })),
@@ -112,39 +106,6 @@ export default function App() {
     else cloud.emit('tick', { habitId, at })
   }
 
-  const setMetric = (key: keyof DayMetrics, value: string) => {
-    setMetrics((prev) => ({ ...prev, [today]: { ...(prev[today] ?? {}), [key]: value } }))
-    cloud.emitField('metric', key, value)
-  }
-
-  const setHealthField = (key: keyof DayHealth, value: string) => {
-    setHealth((prev) => ({ ...prev, [today]: { ...(prev[today] ?? {}), [key]: value } }))
-    cloud.emitField('health', key, value)
-  }
-
-  // Finish Workout: the only moment a session touches the ledger — one event,
-  // summary JSON in the payload; vault write-back follows via the effect above.
-  const finishWorkout = (summary: WorkoutSummary) => {
-    setWorkouts((prev) => ({
-      ...prev,
-      [today]: { type: summary.name, at: summary.finishedAt, session: summary },
-    }))
-    cloud.emit('workout', {
-      type: summary.name,
-      at: summary.finishedAt,
-      session: JSON.stringify(summary),
-    })
-  }
-
-  const clearWorkout = () => {
-    setWorkouts((prev) => {
-      const next = { ...prev }
-      delete next[today]
-      return next
-    })
-    cloud.emit('workout_clear', {})
-  }
-
   const cycleTier = (habitId: string) => {
     const order: Tier[] = ['core', 'standard', 'basic']
     const h = habits.find((x) => x.id === habitId)
@@ -164,24 +125,6 @@ export default function App() {
     setSpends((prev) => [...prev, sp])
     cloud.emit('spend', { id: sp.id, at: sp.at, hours, xp })
   }
-
-  // Thirst ping: red dot on the Health tab when no water has landed for 2h+
-  // during waking hours (or none at all by 9am). Re-evaluated every minute.
-  const [minuteTick, setMinuteTick] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setMinuteTick((x) => x + 1), 60_000)
-    return () => clearInterval(t)
-  }, [])
-  const thirsty = useMemo(() => {
-    void minuteTick
-    const h = health[today]
-    const waterMl = parseFloat(h?.water ?? '0') || 0
-    if (waterMl >= WATER_TARGET_ML) return false
-    const hour = new Date().getHours()
-    if (hour < 8 || hour >= 22) return false
-    if (!h?.waterAt) return hour >= 9
-    return Date.now() - new Date(h.waterAt).getTime() > 2 * 60 * 60 * 1000
-  }, [health, today, minuteTick])
 
   const dateLabel = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',
@@ -223,27 +166,12 @@ export default function App() {
             onCycleTier={cycleTier}
           />
         )}
-        {tab === 'health' && (
-          <HealthScreen
-            health={health[today]}
-            onChange={setHealthField}
-            metrics={metrics[today]}
-            onMetric={setMetric}
-          />
-        )}
         {tab === 'body' && (
           <Suspense
             fallback={<div className="py-16 text-center text-xs text-dim">charting the constellation…</div>}
           >
             <BodyScreen skills={skills} onSkill={setSkill} />
           </Suspense>
-        )}
-        {tab === 'train' && (
-          <TrainScreen
-            workout={workouts[today]}
-            onFinishWorkout={finishWorkout}
-            onClearWorkout={clearWorkout}
-          />
         )}
         {tab === 'wallet' && (
           <Wallet stores={stores} spends={spends} today={today} onSpend={spend} />
@@ -258,7 +186,7 @@ export default function App() {
       </motion.main>
 
       <footer className="hud-label mt-8 text-center !text-[9px] !text-dim">
-        Phase 1–4 · v1.0 · forge-terminal ·{' '}
+        v1.1 · forge-terminal · health+train → pipeline ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}
@@ -266,7 +194,7 @@ export default function App() {
         {cloud.pending > 0 && ` · ${cloud.pending} queued`}
       </footer>
 
-      <TabBar tab={tab} onChange={setTab} alerts={{ health: thirsty }} />
+      <TabBar tab={tab} onChange={setTab} />
     </div>
   )
 }
