@@ -16,7 +16,7 @@ import {
   type Stores,
   type WorkoutMap,
 } from './lib/ledger'
-import { loadSkills, saveSkills, type SkillState, type SkillStatus } from './config/skills'
+import { loadSkills, saveSkills, type SkillState } from './config/skills'
 import type { Tier } from './config/habits'
 import { applyConfig, configFromTemplate, configWithTier, useHabits } from './lib/habitConfig'
 import { useCloudSync } from './lib/cloudSync'
@@ -27,10 +27,6 @@ import { HabitsScreen } from './screens/HabitsScreen'
 import { Wallet } from './screens/Wallet'
 const GraphScreen = lazy(() =>
   import('./screens/GraphScreen').then((m) => ({ default: m.GraphScreen })),
-)
-// BodyScreen pulls in force-graph for the constellation — lazy like Graph
-const BodyScreen = lazy(() =>
-  import('./screens/BodyScreen').then((m) => ({ default: m.BodyScreen })),
 )
 
 export default function App() {
@@ -115,11 +111,6 @@ export default function App() {
     if (cfg && applyConfig(cfg)) cloud.emit('config', { habits: JSON.stringify(cfg.habits) })
   }
 
-  const setSkill = (id: string, status: SkillStatus) => {
-    setSkills((prev) => ({ ...prev, [id]: status }))
-    cloud.emit('skill', { skillId: id, status })
-  }
-
   const spend = (hours: number, xp: number) => {
     const sp = { id: crypto.randomUUID(), at: new Date().toISOString(), hours, xp }
     setSpends((prev) => [...prev, sp])
@@ -166,13 +157,6 @@ export default function App() {
             onCycleTier={cycleTier}
           />
         )}
-        {tab === 'body' && (
-          <Suspense
-            fallback={<div className="py-16 text-center text-xs text-dim">charting the constellation…</div>}
-          >
-            <BodyScreen skills={skills} onSkill={setSkill} />
-          </Suspense>
-        )}
         {tab === 'wallet' && (
           <Wallet stores={stores} spends={spends} today={today} onSpend={spend} />
         )}
@@ -186,7 +170,7 @@ export default function App() {
       </motion.main>
 
       <footer className="hud-label mt-8 text-center !text-[9px] !text-dim">
-        v1.1 · forge-terminal · health+train → pipeline ·{' '}
+        v1.2 · forge-terminal · health+train → pipeline · body → arbor ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}

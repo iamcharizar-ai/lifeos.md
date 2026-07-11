@@ -3,12 +3,14 @@ import { motion } from 'framer-motion'
 // Health + Train tabs retired 2026-07-10: health data now arrives via the
 // Google Health pipeline (ghealth/JARVIS) and workouts via Project Strong —
 // both land in the same ledger events, so state/XP/write-back are unchanged.
-export type Tab = 'dashboard' | 'habits' | 'body' | 'wallet' | 'graph'
+// Body tab (skill constellation) retired 2026-07-11: skills live in ARBOR
+// (dev/arbor, port 5178), which syncs straight to the vault. Skill state and
+// its cloud events are kept so old ledgers still replay cleanly.
+export type Tab = 'dashboard' | 'habits' | 'wallet' | 'graph'
 
 const TABS: { id: Tab; emoji: string; label: string }[] = [
   { id: 'dashboard', emoji: '🎛️', label: 'HUD' },
   { id: 'habits', emoji: '✅', label: 'Habits' },
-  { id: 'body', emoji: '🧗', label: 'Body' },
   { id: 'wallet', emoji: '💠', label: 'Wallet' },
   { id: 'graph', emoji: '🕸️', label: 'Graph' },
 ]
