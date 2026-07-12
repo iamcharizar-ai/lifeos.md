@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { dateISO, loadTicks, saveTicks, type Ticks } from './lib/store'
 import {
@@ -24,10 +24,6 @@ import { useVault } from './lib/vaultSync'
 import { TabBar, type Tab } from './components/TabBar'
 import { Dashboard } from './screens/Dashboard'
 import { HabitsScreen } from './screens/HabitsScreen'
-import { Wallet } from './screens/Wallet'
-const GraphScreen = lazy(() =>
-  import('./screens/GraphScreen').then((m) => ({ default: m.GraphScreen })),
-)
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard')
@@ -111,12 +107,6 @@ export default function App() {
     if (cfg && applyConfig(cfg)) cloud.emit('config', { habits: JSON.stringify(cfg.habits) })
   }
 
-  const spend = (hours: number, xp: number) => {
-    const sp = { id: crypto.randomUUID(), at: new Date().toISOString(), hours, xp }
-    setSpends((prev) => [...prev, sp])
-    cloud.emit('spend', { id: sp.id, at: sp.at, hours, xp })
-  }
-
   const dateLabel = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',
     day: 'numeric',
@@ -139,14 +129,7 @@ export default function App() {
         transition={{ type: 'spring', stiffness: 420, damping: 34 }}
       >
         {tab === 'dashboard' && (
-          <Dashboard
-            habits={habits}
-            stores={stores}
-            spends={spends}
-            today={today}
-            vault={vault}
-            onGoWallet={() => setTab('wallet')}
-          />
+          <Dashboard habits={habits} stores={stores} today={today} vault={vault} />
         )}
         {tab === 'habits' && (
           <HabitsScreen
@@ -157,20 +140,10 @@ export default function App() {
             onCycleTier={cycleTier}
           />
         )}
-        {tab === 'wallet' && (
-          <Wallet stores={stores} spends={spends} today={today} onSpend={spend} />
-        )}
-        {tab === 'graph' && (
-          <Suspense
-            fallback={<div className="py-16 text-center text-xs text-dim">weaving the web…</div>}
-          >
-            <GraphScreen />
-          </Suspense>
-        )}
       </motion.main>
 
       <footer className="hud-label mt-8 text-center !text-[9px] !text-dim">
-        v1.2 · forge-terminal · health+train → pipeline · body → arbor ·{' '}
+        v1.3 · forge-terminal · habit tracker · body → arbor · lifts → strong ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}

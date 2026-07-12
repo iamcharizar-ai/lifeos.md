@@ -6,13 +6,14 @@ import { motion } from 'framer-motion'
 // Body tab (skill constellation) retired 2026-07-11: skills live in ARBOR
 // (dev/arbor, port 5178), which syncs straight to the vault. Skill state and
 // its cloud events are kept so old ledgers still replay cleanly.
-export type Tab = 'dashboard' | 'habits' | 'wallet' | 'graph'
+// Wallet + Graph tabs retired 2026-07-13: LifeOS is a habit tracker, not a
+// currency/economy app (Rishabh's call) — see wiki/outputs/system-simplification-2026-07-13.
+// Spend ledger events + skill cloud events are kept so old history replays.
+export type Tab = 'dashboard' | 'habits'
 
 const TABS: { id: Tab; emoji: string; label: string }[] = [
   { id: 'dashboard', emoji: '🎛️', label: 'HUD' },
   { id: 'habits', emoji: '✅', label: 'Habits' },
-  { id: 'wallet', emoji: '💠', label: 'Wallet' },
-  { id: 'graph', emoji: '🕸️', label: 'Graph' },
 ]
 
 export function TabBar({
