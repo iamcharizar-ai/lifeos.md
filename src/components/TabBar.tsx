@@ -27,7 +27,7 @@ export function TabBar({
   alerts?: Partial<Record<Tab, boolean>>
 }) {
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 border-t border-line bg-ink/90 backdrop-blur">
+    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 border-t-4 border-black bg-neo-white">
       <div className="mx-auto flex max-w-md items-stretch justify-around sm:max-w-2xl lg:max-w-4xl">
         {TABS.map((t) => {
           const alerted = Boolean(alerts?.[t.id])
@@ -40,8 +40,7 @@ export function TabBar({
               {tab === t.id && (
                 <motion.span
                   layoutId="tab-glow"
-                  className="absolute -top-px h-0.5 w-9 bg-gold"
-                  style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 100%, 0 100%)' }}
+                  className="absolute top-0 h-1.5 w-12 bg-neo-blue border-x-2 border-b-2 border-black rounded-b-md"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
@@ -52,15 +51,15 @@ export function TabBar({
               >
                 {t.emoji}
                 {alerted && (
-                  <span className="absolute -right-1.5 -top-0.5 flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ember opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-ember" />
+                  <span className="absolute -right-1.5 -top-0.5 flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neo-red opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-black bg-neo-red" />
                   </span>
                 )}
               </span>
               <span
-                className={`font-display text-[9px] font-semibold uppercase tracking-[0.18em] ${
-                  tab === t.id ? 'text-gold' : alerted ? 'text-ember' : 'text-dim'
+                className={`font-display text-[10px] font-bold uppercase tracking-[0.1em] ${
+                  tab === t.id ? 'text-neo-blue' : alerted ? 'text-neo-red' : 'text-neo-gray-dark'
                 }`}
               >
                 {t.label}

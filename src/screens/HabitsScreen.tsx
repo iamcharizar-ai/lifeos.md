@@ -5,11 +5,9 @@ import { habitXp } from '../lib/xp'
 import { streakFor, type Ticks } from '../lib/store'
 import { MonthView } from '../components/MonthView'
 
-// Done is done — every completed habit wears the same gold, whatever it pays.
-// Tier only decides the XP number, never the color (green tea must read as
-// ticked exactly like L-sit does).
-const DONE_ACCENT = 'border-gold-dim bg-gold/10'
-const DONE_RING = 'text-gold'
+// Done is done — every completed habit wears the same vibrant green.
+const DONE_ACCENT = 'neo-card-green'
+const DONE_RING = 'text-black'
 
 // React Bits AnimatedList treatment: rows scale/fade with viewport visibility
 // inside a dedicated scroll well with edge gradients. One component per row —
@@ -76,10 +74,10 @@ export function HabitsScreen({
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`chip border px-3 py-1 font-display text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+              className={`neo-button px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wider transition-colors ${
                 view === v
-                  ? 'border-gold-dim bg-gold/10 text-gold'
-                  : 'border-line bg-plate text-ash hover:border-line2'
+                  ? 'neo-card-yellow text-black'
+                  : 'bg-neo-white text-neo-gray-dark hover:bg-neo-gray'
               }`}
             >
               {v}
@@ -88,15 +86,15 @@ export function HabitsScreen({
         </div>
         {view === 'today' && (
           <div className="flex items-center gap-2">
-            <span className="num text-[10px] text-dim">
+            <span className="num text-[11px] font-bold text-neo-gray-dark">
               {doneCount}/{habits.length}
             </span>
             <button
               onClick={() => setEditTiers((x) => !x)}
-              className={`chip border px-3 py-1 font-display text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+              className={`neo-button px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wider transition-colors ${
                 editTiers
-                  ? 'border-gold-dim bg-gold/10 text-gold'
-                  : 'border-line bg-plate text-ash hover:border-line2'
+                  ? 'neo-card-pink text-black'
+                  : 'bg-neo-white text-neo-gray-dark hover:bg-neo-gray'
               }`}
             >
               {editTiers ? 'done' : '⚙️ xp'}
@@ -110,7 +108,7 @@ export function HabitsScreen({
       ) : (
         <>
           {editTiers && (
-            <div className="mb-3 text-center text-[10px] text-dim">
+            <div className="mb-3 text-center text-[11px] font-bold text-neo-gray-dark">
               tap a habit to cycle its XP tier · {TIER_XP.core}/{TIER_XP.standard}/{TIER_XP.basic}
             </div>
           )}
@@ -133,11 +131,11 @@ export function HabitsScreen({
                   >
                     <motion.div
                       whileTap={{ scale: 0.97 }}
-                      className={`chip flex w-full items-center gap-3 border px-3.5 py-2 text-left transition-colors ${
-                        ticked ? DONE_ACCENT : 'border-line bg-plate hover:border-line2'
+                      className={`neo-button flex w-full items-center gap-3 px-3.5 py-2 text-left ${
+                        ticked ? DONE_ACCENT : 'bg-neo-white'
                       }`}
                     >
-                      <span className="num w-5 shrink-0 text-right text-[9px] text-dim">
+                      <span className={`num w-5 shrink-0 text-right text-[11px] font-bold ${ticked ? 'text-black/50' : 'text-neo-gray-dark'}`}>
                         {i + 1}
                       </span>
                       <motion.span
@@ -148,20 +146,20 @@ export function HabitsScreen({
                         {h.emoji}
                       </motion.span>
                       <span
-                        className={`flex-1 truncate text-[13px] font-medium ${
-                          ticked ? 'text-bone' : 'text-ash'
+                        className={`flex-1 truncate text-[14px] font-bold ${
+                          ticked ? 'text-black line-through opacity-80' : 'text-neo-black'
                         }`}
                       >
                         {h.name}
                       </span>
                       {streak >= 3 && (
-                        <span className="num shrink-0 text-[10px] font-semibold text-ember">
+                        <span className="num shrink-0 text-[11px] font-bold text-neo-red">
                           🔥{streak}
                         </span>
                       )}
                       <span
-                        className={`num shrink-0 text-xs font-bold ${
-                          ticked ? DONE_RING : 'text-dim'
+                        className={`num shrink-0 text-sm font-bold ${
+                          ticked ? DONE_RING : 'text-neo-gray-dark'
                         }`}
                       >
                         {ticked ? `+${xp}` : xp}
@@ -173,11 +171,11 @@ export function HabitsScreen({
             </div>
             {/* edge gradients — fade with scroll position, AnimatedList-style */}
             <div
-              className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-ink to-transparent transition-opacity duration-300"
+              className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#f4f4f0] to-transparent transition-opacity duration-300"
               style={{ opacity: topFade }}
             />
             <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-ink to-transparent transition-opacity duration-300"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#f4f4f0] to-transparent transition-opacity duration-300"
               style={{ opacity: bottomFade }}
             />
           </div>

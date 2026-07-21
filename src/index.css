@@ -1,145 +1,104 @@
-@import '@fontsource/chakra-petch/600.css';
-@import '@fontsource/chakra-petch/700.css';
-@import '@fontsource/ibm-plex-sans/400.css';
-@import '@fontsource/ibm-plex-sans/500.css';
-@import '@fontsource/ibm-plex-sans/600.css';
-@import '@fontsource/ibm-plex-mono/500.css';
-@import '@fontsource/ibm-plex-mono/600.css';
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 
-/* ── Forge-Terminal tokens ─────────────────────────────────────────
-   Identity law: gold = XP/currency · ember = effort/training/streaks.
-   Everything else stays near-mono; state carries color, not decoration. */
 @theme {
-  --color-ink: #0a0d13;
-  --color-plate: #10151e;
-  --color-plate2: #161d29;
-  --color-line: #232d3d;
-  --color-line2: #31405a;
-  --color-ash: #8b94a7;
-  --color-dim: #525b6e;
-  --color-bone: #e8ecf4;
-  --color-ember: #ff5c38;
-  --color-ember-dim: #b03a20;
-  --color-gold: #f0b429;
-  --color-gold-dim: #9a7418;
-  --color-sage: #7bd88a;
-  --color-haze: #5b8def;
+  --color-neo-bg: #f4f4f0;
+  --color-neo-black: #111111;
+  --color-neo-white: #ffffff;
+  
+  --color-neo-yellow: #FFD800;
+  --color-neo-pink: #FF90E8;
+  --color-neo-blue: #3B82F6;
+  --color-neo-green: #34D399;
+  --color-neo-orange: #FF7B00;
+  --color-neo-red: #FF3A3A;
+  
+  --color-neo-gray: #d1d5db;
+  --color-neo-gray-dark: #6b7280;
 
-  --font-display: 'Chakra Petch', 'Segoe UI', sans-serif;
-  --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans: 'Outfit', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html {
-  /* zoom / display-size changes must reflow text, never clip it */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  /* .bleed spans 100vw, which includes the scrollbar gutter on Windows —
-     clip the few px of horizontal overhang instead of growing a scrollbar */
   overflow-x: clip;
-  background: #0a0d13;
-  /* faint vertical seam texture — instrument panel, not decoration */
-  background-image: linear-gradient(rgba(35, 45, 61, 0.14) 1px, transparent 1px);
-  background-size: 100% 56px;
-  color: #e8ecf4;
-  font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  background: var(--color-neo-bg);
+  background-image: 
+    radial-gradient(circle, #000000 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0;
+  background-attachment: fixed;
+  color: var(--color-neo-black);
+  font-family: 'Outfit', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── F4 depth: one static film of scanline + grain over everything ──
-   2–3% opacity, zero animation — texture as material, not effect. */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  pointer-events: none;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
-    repeating-linear-gradient(
-      0deg,
-      rgba(10, 13, 19, 0.16) 0px,
-      rgba(10, 13, 19, 0.16) 1px,
-      transparent 1px,
-      transparent 3px
-    );
+/* ── Neo-Brutalist Layout ── */
+.neo-card {
+  background: var(--color-neo-white);
+  border: 3px solid var(--color-neo-black);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0px 0px var(--color-neo-black);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-/* ── Chamfer plate language — the one clipped corner is the motif ──
-   Two elevation levels. clip-path eats outer shadows, so depth is built
-   from inset light: a top edge catching light, a floor falling into dark. */
-.plate {
-  background: #10151e;
-  border: 1px solid #232d3d;
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(232, 236, 244, 0.04),
-    inset 0 -14px 22px -18px rgba(0, 0, 0, 0.5);
-}
-.plate-raised {
-  background: #161d29;
-  border-color: #31405a;
-  box-shadow:
-    inset 0 1px 0 rgba(232, 236, 244, 0.06),
-    inset 0 -14px 22px -18px rgba(0, 0, 0, 0.55);
-}
-.chip {
-  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
-}
-/* clip-path eats the border on the cut edge — restore it with a hairline seam */
-.plate {
-  position: relative;
-}
-.plate::after {
-  content: '';
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  width: 21px;
-  height: 21px;
-  background: linear-gradient(
-    135deg,
-    transparent calc(50% - 1px),
-    #31405a calc(50% - 1px),
-    #31405a 50%,
-    transparent 50%
-  );
-  pointer-events: none;
+.neo-button {
+  background: var(--color-neo-white);
+  border: 3px solid var(--color-neo-black);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0px 0px var(--color-neo-black);
+  cursor: pointer;
+  transition: all 0.15s ease-out;
 }
 
-/* ── HUD label — Chakra Petch eyebrow, used for every section head ── */
+.neo-button:active,
+.neo-button:hover {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0px 0px var(--color-neo-black);
+}
+
+.neo-card-yellow { background: var(--color-neo-yellow); }
+.neo-card-pink { background: var(--color-neo-pink); }
+.neo-card-blue { background: var(--color-neo-blue); color: white; }
+.neo-card-green { background: var(--color-neo-green); }
+
+
+
+/* ── HUD label — transformed to Neo-Brutalist heading ── */
 .hud-label {
-  font-family: 'Chakra Petch', sans-serif;
-  font-weight: 600;
-  font-size: 10px;
-  letter-spacing: 0.22em;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #8b94a7;
+  color: var(--color-neo-black);
+  border-bottom: 3px solid var(--color-neo-black);
+  display: inline-block;
+  padding-bottom: 2px;
 }
 
-/* ── Coin slot — an aperture cut into the machine (F4 signature) ── */
+/* ── Coin slot — Neo-brutalist inset ── */
 .coin-slot {
-  background: #0a0d13;
-  border: 1px solid #232d3d;
-  border-radius: 3px;
-  box-shadow:
-    inset 0 3px 6px rgba(0, 0, 0, 0.75),
-    0 1px 0 rgba(232, 236, 244, 0.05);
+  background: var(--color-neo-white);
+  border: 3px solid var(--color-neo-black);
+  border-radius: 4px;
+  box-shadow: inset 3px 3px 0px 0px rgba(0, 0, 0, 0.1);
 }
 .coin-slot-hot {
-  border-color: #f0b429;
-  box-shadow:
-    inset 0 3px 6px rgba(0, 0, 0, 0.75),
-    0 0 12px -2px rgba(240, 180, 41, 0.55);
+  background: var(--color-neo-yellow);
+  border-color: var(--color-neo-black);
+  box-shadow: inset 3px 3px 0px 0px rgba(0, 0, 0, 0.1);
 }
 
 /* ── Motion & state ── */

@@ -115,11 +115,11 @@ export default function App() {
 
   return (
     <div className="safe-x safe-top mx-auto max-w-md pb-28 sm:max-w-2xl lg:max-w-4xl">
-      <header className="mb-6 flex items-baseline justify-between">
-        <h1 className="font-display text-sm font-bold uppercase tracking-[0.3em] text-bone">
-          LifeOS<span className="text-ember">//</span>HUD
+      <header className="mb-6 flex items-baseline justify-between border-b-4 border-black pb-2">
+        <h1 className="font-display text-xl font-bold uppercase tracking-widest text-black">
+          LifeOS<span className="text-neo-red ml-1">// HUD</span>
         </h1>
-        <span className="num text-xs text-ash">{dateLabel}</span>
+        <span className="num text-sm font-bold text-black">{dateLabel}</span>
       </header>
 
       <motion.main
