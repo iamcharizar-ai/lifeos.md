@@ -33,6 +33,7 @@ export function HabitsScreen({
   const todayTicks = ticks[today] ?? {}
   const [isEditing, setIsEditing] = useState(false)
   const [editList, setEditList] = useState<Habit[]>(habits)
+  const [error, setError] = useState<string | null>(null)
 
   // New habit state
   const [newEmoji, setNewEmoji] = useState('⭐')
@@ -50,11 +51,39 @@ export function HabitsScreen({
 
   const handleStartEditing = () => {
     setEditList([...habits])
+    setError(null)
     setIsEditing(true)
   }
 
+  const handleCancelEdit = () => {
+    setError(null)
+    setIsEditing(false)
+  }
+
   const handleSaveEdit = () => {
-    onSaveHabits(editList)
+    const cleaned = editList.map((h) => ({
+      ...h,
+      name: h.name.trim(),
+      emoji: h.emoji.trim() || '⭐',
+    }))
+    if (cleaned.length === 0) {
+      setError('Keep at least one habit.')
+      return
+    }
+    if (cleaned.some((h) => !h.name)) {
+      setError('Every habit needs a name.')
+      return
+    }
+    const ids = new Set<string>()
+    for (const h of cleaned) {
+      if (ids.has(h.id)) {
+        setError(`Two habits share the id "${h.id}" — rename one.`)
+        return
+      }
+      ids.add(h.id)
+    }
+    setError(null)
+    onSaveHabits(cleaned)
     setIsEditing(false)
   }
 
@@ -75,23 +104,33 @@ export function HabitsScreen({
   }
 
   const handleDeleteItem = (index: number) => {
+    if (editList.length <= 1) {
+      setError('Keep at least one habit.')
+      return
+    }
     const updated = editList.filter((_, i) => i !== index)
     setEditList(updated)
   }
 
   const handleAddHabit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newName.trim()) return
-    const id = habitIdFor(newName.trim())
+    const name = newName.trim()
+    if (!name) return
+    const id = habitIdFor(name)
+    if (editList.some((h) => h.id === id)) {
+      setError(`"${name}" already exists.`)
+      return
+    }
     const newHabit: Habit = {
       id,
-      name: newName.trim(),
+      name,
       emoji: newEmoji.trim() || '⭐',
       tier: newTier,
     }
     setEditList([...editList, newHabit])
     setNewName('')
     setNewEmoji('⭐')
+    setError(null)
   }
 
   if (tab === 'monthly') {
@@ -131,19 +170,39 @@ export function HabitsScreen({
         <div className="hud-label border-black text-sm">
           {isEditing ? 'Habit Manager' : 'Daily Checklist'}
         </div>
-        <button
-          onClick={isEditing ? handleSaveEdit : handleStartEditing}
-          className={`neo-button px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wider ${
-            isEditing ? 'neo-card-green text-black' : 'neo-card-pink text-black'
-          }`}
-        >
-          {isEditing ? '✓ Save Changes' : '⚙️ Edit Habits'}
-        </button>
+        {isEditing ? (
+          <div className="flex gap-2">
+            <button
+              onClick={handleCancelEdit}
+              className="neo-button bg-white px-3 py-1.5 font-display text-xs font-bold uppercase tracking-wider text-black"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveEdit}
+              className="neo-button neo-card-green px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wider text-black"
+            >
+              ✓ Save Changes
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleStartEditing}
+            className="neo-button neo-card-pink px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wider text-black"
+          >
+            ⚙️ Edit Habits
+          </button>
+        )}
       </div>
 
       {/* Editor View vs Normal View */}
       {isEditing ? (
         <div className="space-y-3">
+          {error && (
+            <div className="neo-card bg-neo-red px-3 py-2 text-xs font-bold text-white">
+              {error}
+            </div>
+          )}
           <div className="neo-card p-4 space-y-3 bg-white">
             <div className="text-xs font-bold uppercase tracking-wider text-neo-gray-dark border-b-2 border-black pb-1">
               Reorder & Edit Habits
@@ -204,7 +263,8 @@ export function HabitsScreen({
                 {/* Delete button */}
                 <button
                   onClick={() => handleDeleteItem(i)}
-                  className="neo-button bg-neo-red text-white px-2 py-1 text-xs font-bold"
+                  disabled={editList.length <= 1}
+                  className="neo-button bg-neo-red text-white px-2 py-1 text-xs font-bold disabled:opacity-30 disabled:pointer-events-none"
                   title="Delete Habit"
                 >
                   🗑️
