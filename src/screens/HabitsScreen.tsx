@@ -1,185 +1,305 @@
-import { useCallback, useRef, useState } from 'react'
-import { motion, useInView } from 'framer-motion'
-import { TIER_XP, type Habit } from '../config/habits'
-import { habitXp } from '../lib/xp'
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { TIER_XP, habitIdFor, type Habit, type Tier } from '../config/habits'
+import { dayEarned, type Stores } from '../lib/ledger'
+import { habitXp, DAILY_CAP } from '../lib/xp'
 import { streakFor, type Ticks } from '../lib/store'
 import { MonthView } from '../components/MonthView'
+import { AnimatedNumber } from '../components/AnimatedNumber'
+import { ProgressRing } from '../components/ProgressRing'
+import type { Tab } from '../components/TabBar'
 
-// Done is done — every completed habit wears the same vibrant green.
 const DONE_ACCENT = 'neo-card-green'
 const DONE_RING = 'text-black'
 
-// React Bits AnimatedList treatment: rows scale/fade with viewport visibility
-// inside a dedicated scroll well with edge gradients. One component per row —
-// useInView is a hook, so the row owns its own ref.
-function AnimatedRow({
-  index,
-  children,
-  onClick,
-}: {
-  index: number
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { amount: 0.5 })
-  return (
-    <motion.div
-      ref={ref}
-      data-index={index}
-      initial={{ scale: 0.7, opacity: 0 }}
-      animate={inView ? { scale: 1, opacity: 1 } : { scale: 0.7, opacity: 0 }}
-      transition={{ duration: 0.2, delay: 0.05 }}
-      onClick={onClick}
-      className="cursor-pointer"
-    >
-      {children}
-    </motion.div>
-  )
-}
-
 export function HabitsScreen({
+  tab,
   habits,
   ticks,
   today,
+  stores,
   onToggle,
-  onCycleTier,
+  onSaveHabits,
 }: {
+  tab: Tab
   habits: Habit[]
   ticks: Ticks
   today: string
+  stores: Stores
   onToggle: (habitId: string) => void
-  onCycleTier: (habitId: string) => void
+  onCycleTier?: (habitId: string) => void
+  onSaveHabits: (newHabits: Habit[]) => void
 }) {
   const todayTicks = ticks[today] ?? {}
-  const [editTiers, setEditTiers] = useState(false)
-  const [view, setView] = useState<'today' | 'month'>('today')
-  const [topFade, setTopFade] = useState(0)
-  const [bottomFade, setBottomFade] = useState(1)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editList, setEditList] = useState<Habit[]>(habits)
+
+  // New habit state
+  const [newEmoji, setNewEmoji] = useState('⭐')
+  const [newName, setNewName] = useState('')
+  const [newTier, setNewTier] = useState<Tier>('standard')
+
+  const todayXp = dayEarned(stores, today)
   const doneCount = habits.filter((h) => todayTicks[h.id]).length
 
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
-    setTopFade(Math.min(scrollTop / 50, 1))
-    const bottomDistance = scrollHeight - (scrollTop + clientHeight)
-    setBottomFade(scrollHeight <= clientHeight ? 0 : Math.min(bottomDistance / 50, 1))
-  }, [])
+  const streaks = habits
+    .map((h) => ({ h, s: streakFor(ticks, h.id, today) }))
+    .filter((x) => x.s >= 2)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 3)
+
+  const handleStartEditing = () => {
+    setEditList([...habits])
+    setIsEditing(true)
+  }
+
+  const handleSaveEdit = () => {
+    onSaveHabits(editList)
+    setIsEditing(false)
+  }
+
+  const handleMove = (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= editList.length) return
+    const updated = [...editList]
+    const temp = updated[index]
+    updated[index] = updated[target]
+    updated[target] = temp
+    setEditList(updated)
+  }
+
+  const handleUpdateItem = (index: number, key: keyof Habit, val: string) => {
+    const updated = [...editList]
+    updated[index] = { ...updated[index], [key]: val }
+    setEditList(updated)
+  }
+
+  const handleDeleteItem = (index: number) => {
+    const updated = editList.filter((_, i) => i !== index)
+    setEditList(updated)
+  }
+
+  const handleAddHabit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newName.trim()) return
+    const id = habitIdFor(newName.trim())
+    const newHabit: Habit = {
+      id,
+      name: newName.trim(),
+      emoji: newEmoji.trim() || '⭐',
+      tier: newTier,
+    }
+    setEditList([...editList, newHabit])
+    setNewName('')
+    setNewEmoji('⭐')
+  }
+
+  if (tab === 'monthly') {
+    return <MonthView habits={habits} ticks={ticks} today={today} />
+  }
 
   return (
-    <div>
-      {/* view toggle */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex gap-1">
-          {(['today', 'month'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`neo-button px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                view === v
-                  ? 'neo-card-yellow text-black'
-                  : 'bg-neo-white text-neo-gray-dark hover:bg-neo-gray'
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-        {view === 'today' && (
-          <div className="flex items-center gap-2">
-            <span className="num text-[11px] font-bold text-neo-gray-dark">
-              {doneCount}/{habits.length}
-            </span>
-            <button
-              onClick={() => setEditTiers((x) => !x)}
-              className={`neo-button px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                editTiers
-                  ? 'neo-card-pink text-black'
-                  : 'bg-neo-white text-neo-gray-dark hover:bg-neo-gray'
-              }`}
-            >
-              {editTiers ? 'done' : '⚙️ xp'}
-            </button>
+    <div className="space-y-4">
+      {/* Neo-Brutalist Compact Hero Card */}
+      <div className="neo-card neo-card-yellow p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="hud-label border-black">Today&apos;s XP</div>
+            <div className="num mt-1 font-display text-3xl font-bold tracking-tight text-black">
+              <AnimatedNumber value={todayXp} />
+              <span className="ml-1.5 font-sans text-sm font-bold text-black/70">/ {DAILY_CAP}</span>
+            </div>
+            {streaks.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {streaks.map(({ h, s }) => (
+                  <span
+                    key={h.id}
+                    className="inline-flex items-center gap-1 border-2 border-black bg-white px-2 py-0.5 text-[11px] font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  >
+                    {h.emoji} 🔥{s}d
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+          <ProgressRing pct={habits.length > 0 ? doneCount / habits.length : 0} label={`${doneCount}/${habits.length}`} size={68} />
+        </div>
       </div>
 
-      {view === 'month' ? (
-        <MonthView habits={habits} ticks={ticks} today={today} />
-      ) : (
-        <>
-          {editTiers && (
-            <div className="mb-3 text-center text-[11px] font-bold text-neo-gray-dark">
-              tap a habit to cycle its XP tier · {TIER_XP.core}/{TIER_XP.standard}/{TIER_XP.basic}
-            </div>
-          )}
+      {/* Action Header */}
+      <div className="flex items-center justify-between">
+        <div className="hud-label border-black text-sm">
+          {isEditing ? 'Habit Manager' : 'Daily Checklist'}
+        </div>
+        <button
+          onClick={isEditing ? handleSaveEdit : handleStartEditing}
+          className={`neo-button px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wider ${
+            isEditing ? 'neo-card-green text-black' : 'neo-card-pink text-black'
+          }`}
+        >
+          {isEditing ? '✓ Save Changes' : '⚙️ Edit Habits'}
+        </button>
+      </div>
 
-          {/* the stack — one ordered scroll well, the day in sequence */}
-          <div className="relative">
-            <div
-              onScroll={handleScroll}
-              className="scroll-list max-h-[62vh] space-y-1.5 overflow-y-auto pb-2 pr-1"
-            >
-              {habits.map((h, i) => {
-                const ticked = Boolean(todayTicks[h.id])
-                const streak = streakFor(ticks, h.id, today)
-                const xp = habitXp(h.tier, ticked ? streak : streak + 1)
-                return (
-                  <AnimatedRow
-                    key={h.id}
-                    index={i}
-                    onClick={() => (editTiers ? onCycleTier(h.id) : onToggle(h.id))}
-                  >
-                    <motion.div
-                      whileTap={{ scale: 0.97 }}
-                      className={`neo-button flex w-full items-center gap-3 px-3.5 py-2 text-left ${
-                        ticked ? DONE_ACCENT : 'bg-neo-white'
-                      }`}
-                    >
-                      <span className={`num w-5 shrink-0 text-right text-[11px] font-bold ${ticked ? 'text-black/50' : 'text-neo-gray-dark'}`}>
-                        {i + 1}
-                      </span>
-                      <motion.span
-                        animate={ticked ? { scale: [1, 1.3, 1], rotate: [0, -8, 0] } : {}}
-                        transition={{ duration: 0.3 }}
-                        className="text-lg leading-none"
-                      >
-                        {h.emoji}
-                      </motion.span>
-                      <span
-                        className={`flex-1 truncate text-[14px] font-bold ${
-                          ticked ? 'text-black line-through opacity-80' : 'text-neo-black'
-                        }`}
-                      >
-                        {h.name}
-                      </span>
-                      {streak >= 3 && (
-                        <span className="num shrink-0 text-[11px] font-bold text-neo-red">
-                          🔥{streak}
-                        </span>
-                      )}
-                      <span
-                        className={`num shrink-0 text-sm font-bold ${
-                          ticked ? DONE_RING : 'text-neo-gray-dark'
-                        }`}
-                      >
-                        {ticked ? `+${xp}` : xp}
-                      </span>
-                    </motion.div>
-                  </AnimatedRow>
-                )
-              })}
+      {/* Editor View vs Normal View */}
+      {isEditing ? (
+        <div className="space-y-3">
+          <div className="neo-card p-4 space-y-3 bg-white">
+            <div className="text-xs font-bold uppercase tracking-wider text-neo-gray-dark border-b-2 border-black pb-1">
+              Reorder & Edit Habits
             </div>
-            {/* edge gradients — fade with scroll position, AnimatedList-style */}
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#f4f4f0] to-transparent transition-opacity duration-300"
-              style={{ opacity: topFade }}
-            />
-            <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#f4f4f0] to-transparent transition-opacity duration-300"
-              style={{ opacity: bottomFade }}
-            />
+            {editList.map((h, i) => (
+              <div
+                key={h.id + i}
+                className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-2 border-black p-2 bg-neo-bg rounded-md"
+              >
+                {/* Reorder Buttons */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleMove(i, -1)}
+                    disabled={i === 0}
+                    className="neo-button px-2 py-1 text-xs disabled:opacity-30 disabled:pointer-events-none"
+                    title="Move Up"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    onClick={() => handleMove(i, 1)}
+                    disabled={i === editList.length - 1}
+                    className="neo-button px-2 py-1 text-xs disabled:opacity-30 disabled:pointer-events-none"
+                    title="Move Down"
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                {/* Emoji Input */}
+                <input
+                  type="text"
+                  value={h.emoji}
+                  onChange={(e) => handleUpdateItem(i, 'emoji', e.target.value)}
+                  className="w-10 border-2 border-black px-1.5 py-1 text-center font-bold text-sm bg-white"
+                />
+
+                {/* Name Input */}
+                <input
+                  type="text"
+                  value={h.name}
+                  onChange={(e) => handleUpdateItem(i, 'name', e.target.value)}
+                  className="flex-1 border-2 border-black px-2 py-1 font-bold text-sm bg-white min-w-[120px]"
+                />
+
+                {/* Tier selector */}
+                <button
+                  onClick={() => {
+                    const tiers: Tier[] = ['core', 'standard', 'basic']
+                    const next = tiers[(tiers.indexOf(h.tier) + 1) % tiers.length]
+                    handleUpdateItem(i, 'tier', next)
+                  }}
+                  className="neo-button px-2 py-1 text-[11px] font-bold uppercase"
+                >
+                  {h.tier} ({TIER_XP[h.tier]} XP)
+                </button>
+
+                {/* Delete button */}
+                <button
+                  onClick={() => handleDeleteItem(i)}
+                  className="neo-button bg-neo-red text-white px-2 py-1 text-xs font-bold"
+                  title="Delete Habit"
+                >
+                  🗑️
+                </button>
+              </div>
+            ))}
           </div>
-        </>
+
+          {/* Add Habit Form */}
+          <form onSubmit={handleAddHabit} className="neo-card p-4 space-y-2 bg-white">
+            <div className="text-xs font-bold uppercase tracking-wider text-neo-gray-dark border-b-2 border-black pb-1">
+              + Add New Habit
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="text"
+                value={newEmoji}
+                onChange={(e) => setNewEmoji(e.target.value)}
+                placeholder="Emoji"
+                className="w-12 border-2 border-black px-2 py-1.5 text-center font-bold bg-neo-bg text-sm"
+              />
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Habit Title (e.g. Meditate)"
+                className="flex-1 border-2 border-black px-3 py-1.5 font-bold bg-neo-bg text-sm min-w-[140px]"
+              />
+              <select
+                value={newTier}
+                onChange={(e) => setNewTier(e.target.value as Tier)}
+                className="border-2 border-black px-2 py-1.5 font-bold bg-neo-bg text-xs"
+              >
+                <option value="core">Core ({TIER_XP.core} XP)</option>
+                <option value="standard">Standard ({TIER_XP.standard} XP)</option>
+                <option value="basic">Basic ({TIER_XP.basic} XP)</option>
+              </select>
+              <button
+                type="submit"
+                className="neo-button neo-card-yellow px-4 py-1.5 text-xs font-bold uppercase"
+              >
+                Add
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        /* Normal Habit List */
+        <div className="space-y-2">
+          {habits.map((h, i) => {
+            const ticked = Boolean(todayTicks[h.id])
+            const streak = streakFor(ticks, h.id, today)
+            const xp = habitXp(h.tier, ticked ? streak : streak + 1)
+            return (
+              <motion.div
+                key={h.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onToggle(h.id)}
+                className={`neo-button flex w-full items-center gap-3 px-4 py-3 text-left ${
+                  ticked ? DONE_ACCENT : 'bg-neo-white'
+                }`}
+              >
+                <span className={`num w-6 shrink-0 text-right text-xs font-bold ${ticked ? 'text-black/50' : 'text-neo-gray-dark'}`}>
+                  {i + 1}
+                </span>
+                <motion.span
+                  animate={ticked ? { scale: [1, 1.3, 1], rotate: [0, -8, 0] } : {}}
+                  transition={{ duration: 0.3 }}
+                  className="text-xl leading-none"
+                >
+                  {h.emoji}
+                </motion.span>
+                <span
+                  className={`flex-1 truncate text-base font-bold ${
+                    ticked ? 'text-black line-through opacity-80' : 'text-neo-black'
+                  }`}
+                >
+                  {h.name}
+                </span>
+                {streak >= 3 && (
+                  <span className="num shrink-0 text-xs font-bold text-neo-red">
+                    🔥{streak}
+                  </span>
+                )}
+                <span
+                  className={`num shrink-0 text-base font-bold ${
+                    ticked ? DONE_RING : 'text-neo-gray-dark'
+                  }`}
+                >
+                  {ticked ? `+${xp}` : xp}
+                </span>
+              </motion.div>
+            )
+          })}
+        </div>
       )}
     </div>
   )

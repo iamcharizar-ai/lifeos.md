@@ -9,11 +9,11 @@ import { motion } from 'framer-motion'
 // Wallet + Graph tabs retired 2026-07-13: LifeOS is a habit tracker, not a
 // currency/economy app (Rishabh's call) — see wiki/outputs/system-simplification-2026-07-13.
 // Spend ledger events + skill cloud events are kept so old history replays.
-export type Tab = 'dashboard' | 'habits'
+export type Tab = 'daily' | 'monthly'
 
 const TABS: { id: Tab; emoji: string; label: string }[] = [
-  { id: 'dashboard', emoji: '🎛️', label: 'HUD' },
-  { id: 'habits', emoji: '✅', label: 'Habits' },
+  { id: 'daily', emoji: '⚡', label: 'Daily' },
+  { id: 'monthly', emoji: '📅', label: 'Monthly' },
 ]
 
 export function TabBar({

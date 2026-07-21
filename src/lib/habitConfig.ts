@@ -112,3 +112,17 @@ export function configWithTier(habitId: string, tier: Tier): HabitConfig | null 
   if (sameHabits(habits, current.habits)) return null
   return { habits, at: new Date().toISOString(), source: 'app' }
 }
+
+/** Directly save an updated habits array (app edit: reorder, rename, add, delete). */
+export function saveHabits(habits: Habit[]): HabitConfig {
+  const cfg: HabitConfig = { habits, at: new Date().toISOString(), source: 'app' }
+  current = cfg
+  try {
+    localStorage.setItem(CFG_KEY, JSON.stringify(cfg))
+  } catch {
+    /* quota */
+  }
+  listeners.forEach((l) => l())
+  return cfg
+}
+
