@@ -1,5 +1,10 @@
 # LifeOS - a personal dashboard for daily life
 
+
+**Live**: https://redesign-life-os-ui.vercel.app · React + Supabase (TypeScript) · installable as a PWA
+
+**Status (as of 2026-07-27)**: v2.0 is a full rebuild — 2 tabs (Daily · Monthly), a rebuilt habit manager, and Supabase cloud sync as the only sync path. The "backs up to your Obsidian vault" section below describes the retired v1 design — **vault write-back was deliberately removed** and this app no longer writes to or reads from any notes vault. Everything else below (offline-first, append-only event log, PWA) still holds.
+
 LifeOS is a personal web app (built by Rishabh, for Rishabh) that acts like a single home screen for tracking day-to-day life - habits, health, body stats, spending, and a visual map of notes - instead of juggling five different apps.
 
 ## What it actually does
