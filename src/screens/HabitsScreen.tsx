@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { TIER_XP, habitIdFor, type Habit, type Tier } from '../config/habits'
+import { TIER_XP, type Habit, type Tier } from '../config/habits'
 import { dayEarned, type Stores } from '../lib/ledger'
 import { habitXp, DAILY_CAP } from '../lib/xp'
 import { streakFor, type Ticks } from '../lib/store'
-import { MonthView } from '../components/MonthView'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { ProgressRing } from '../components/ProgressRing'
-import type { Tab } from '../components/TabBar'
 
 const DONE_ACCENT = 'neo-card-green'
 const DONE_RING = 'text-black'
 
+/**
+ * Today's checklist plus the manager for it (order, names, tiers).
+ * `habits` is the live list only — creating habits and bringing dropped ones
+ * back lives in the Library tab, so there is one place that owns membership.
+ */
 export function HabitsScreen({
-  tab,
   habits,
   ticks,
   today,
@@ -21,7 +23,6 @@ export function HabitsScreen({
   onToggle,
   onSaveHabits,
 }: {
-  tab: Tab
   habits: Habit[]
   ticks: Ticks
   today: string
@@ -34,11 +35,6 @@ export function HabitsScreen({
   const [isEditing, setIsEditing] = useState(false)
   const [editList, setEditList] = useState<Habit[]>(habits)
   const [error, setError] = useState<string | null>(null)
-
-  // New habit state
-  const [newEmoji, setNewEmoji] = useState('⭐')
-  const [newName, setNewName] = useState('')
-  const [newTier, setNewTier] = useState<Tier>('standard')
 
   const todayXp = dayEarned(stores, today)
   const doneCount = habits.filter((h) => todayTicks[h.id]).length
@@ -103,38 +99,14 @@ export function HabitsScreen({
     setEditList(updated)
   }
 
-  const handleDeleteItem = (index: number) => {
+  // "Drop" is not a delete — saving archives the habit into the Library, where
+  // its history stays readable and one tap brings it back.
+  const handleDropItem = (index: number) => {
     if (editList.length <= 1) {
-      setError('Keep at least one habit.')
+      setError('Keep at least one habit on the checklist.')
       return
     }
-    const updated = editList.filter((_, i) => i !== index)
-    setEditList(updated)
-  }
-
-  const handleAddHabit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const name = newName.trim()
-    if (!name) return
-    const id = habitIdFor(name)
-    if (editList.some((h) => h.id === id)) {
-      setError(`"${name}" already exists.`)
-      return
-    }
-    const newHabit: Habit = {
-      id,
-      name,
-      emoji: newEmoji.trim() || '⭐',
-      tier: newTier,
-    }
-    setEditList([...editList, newHabit])
-    setNewName('')
-    setNewEmoji('⭐')
-    setError(null)
-  }
-
-  if (tab === 'monthly') {
-    return <MonthView habits={habits} ticks={ticks} today={today} />
+    setEditList(editList.filter((_, i) => i !== index))
   }
 
   return (
@@ -260,60 +232,33 @@ export function HabitsScreen({
                   {h.tier} ({TIER_XP[h.tier]} XP)
                 </button>
 
-                {/* Delete button */}
+                {/* Drop off the checklist — archives to the Library, keeps history */}
                 <button
-                  onClick={() => handleDeleteItem(i)}
+                  onClick={() => handleDropItem(i)}
                   disabled={editList.length <= 1}
-                  className="neo-button bg-neo-red text-white px-2 py-1 text-xs font-bold disabled:opacity-30 disabled:pointer-events-none"
-                  title="Delete Habit"
+                  className="neo-button bg-neo-red px-2 py-1 text-xs font-bold text-white disabled:pointer-events-none disabled:opacity-30"
+                  title="Drop off the checklist (stays in the Library)"
                 >
-                  🗑️
+                  ⤓
                 </button>
               </div>
             ))}
           </div>
 
-          {/* Add Habit Form */}
-          <form onSubmit={handleAddHabit} className="neo-card p-4 space-y-2 bg-white">
-            <div className="text-xs font-bold uppercase tracking-wider text-neo-gray-dark border-b-2 border-black pb-1">
-              + Add New Habit
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <input
-                type="text"
-                value={newEmoji}
-                onChange={(e) => setNewEmoji(e.target.value)}
-                placeholder="Emoji"
-                className="w-12 border-2 border-black px-2 py-1.5 text-center font-bold bg-neo-bg text-sm"
-              />
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Habit Title (e.g. Meditate)"
-                className="flex-1 border-2 border-black px-3 py-1.5 font-bold bg-neo-bg text-sm min-w-[140px]"
-              />
-              <select
-                value={newTier}
-                onChange={(e) => setNewTier(e.target.value as Tier)}
-                className="border-2 border-black px-2 py-1.5 font-bold bg-neo-bg text-xs"
-              >
-                <option value="core">Core ({TIER_XP.core} XP)</option>
-                <option value="standard">Standard ({TIER_XP.standard} XP)</option>
-                <option value="basic">Basic ({TIER_XP.basic} XP)</option>
-              </select>
-              <button
-                type="submit"
-                className="neo-button neo-card-yellow px-4 py-1.5 text-xs font-bold uppercase"
-              >
-                Add
-              </button>
-            </div>
-          </form>
+          <div className="neo-card bg-white px-4 py-3 text-xs font-bold text-neo-gray-dark">
+            Adding a habit, or bringing a dropped one back, happens in the 🗂️ Library tab — it
+            holds every habit you have ever made.
+          </div>
         </div>
       ) : (
         /* Normal Habit List */
         <div className="space-y-2">
+          {habits.length === 0 && (
+            <div className="neo-card bg-white px-4 py-6 text-center text-sm font-bold text-neo-gray-dark">
+              Nothing on today&apos;s checklist. Open the 🗂️ Library tab and tap the habits you
+              want back on.
+            </div>
+          )}
           {habits.map((h, i) => {
             const ticked = Boolean(todayTicks[h.id])
             const streak = streakFor(ticks, h.id, today)

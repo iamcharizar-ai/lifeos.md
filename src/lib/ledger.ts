@@ -1,6 +1,7 @@
 // Derived-state ledger over local events. Same shapes move to Supabase rows later —
 // balance is always computed, never stored.
 import { getHabits } from './habitConfig'
+import { isActiveOn } from '../config/habits'
 import { WATER_TARGET_ML } from '../config/foods'
 import { capDay, dayBonus, habitXp, sleepXp, stepsXp, waterXp, WORKOUT_XP } from './xp'
 import { dateISO, streakFor, type Ticks } from './store'
@@ -150,7 +151,9 @@ export function healthEarned(h: DayHealth | undefined): number {
 
 /** Total XP earned on one day: habits (streak-adjusted) + health + workout + bonuses, capped. */
 export function dayEarned(s: Stores, date: string): number {
-  const habits = getHabits()
+  // Score each day against the checklist as it stood *that* day — otherwise
+  // dropping a habit today silently rewrites every past day's XP and bonus.
+  const habits = getHabits().filter((h) => isActiveOn(h, date) || Boolean(s.ticks[date]?.[h.id]))
   let base = 0
   let done = 0
   for (const h of habits) {
@@ -162,8 +165,11 @@ export function dayEarned(s: Stores, date: string): number {
   base += healthEarned(s.health[date])
   if (s.workouts[date]) base += WORKOUT_XP
   if (base === 0) return 0
+  // No habits scheduled that day → no "all done" bonus to award, or a day with
+  // an empty checklist would pay 50 XP for a workout alone.
   const bonus =
-    dayBonus(done, habits.length) + (metricsComplete(s.metrics[date]) ? METRICS_BONUS : 0)
+    (habits.length > 0 ? dayBonus(done, habits.length) : 0) +
+    (metricsComplete(s.metrics[date]) ? METRICS_BONUS : 0)
   return capDay(base + bonus)
 }
 

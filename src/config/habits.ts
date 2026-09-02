@@ -6,11 +6,83 @@
 
 export type Tier = 'core' | 'standard' | 'basic'
 
+/**
+ * One stretch of days a habit was live: `[from, to)` — `to === null` means
+ * still running. Half-open so archiving on day D makes D the first dead day
+ * and no span ever claims a day twice.
+ */
+export interface Span {
+  from: string // YYYY-MM-DD
+  to: string | null // YYYY-MM-DD, exclusive
+}
+
+/**
+ * A habit is a permanent registry entry, never deleted by an edit — dropping
+ * one closes its current span, re-adding opens a new one. Month views read the
+ * spans to tell "wasn't a habit yet" (grey) apart from "had it, missed it"
+ * (red), which a single active/inactive flag cannot express.
+ */
 export interface Habit {
   id: string
   name: string
   emoji: string
   tier: Tier
+  spans: Span[] // chronological, non-overlapping; only the last may be open
+}
+
+/** Stand-in start day for habits that predate span tracking — "always existed". */
+export const EPOCH_DAY = '1970-01-01'
+
+/** Fill in spans on a habit read from an old localStorage blob or cloud event. */
+export function migrateHabit(h: Habit): Habit {
+  if (Array.isArray(h.spans) && h.spans.length > 0) return h
+  return { ...h, spans: [{ from: EPOCH_DAY, to: null }] }
+}
+
+/** Was this habit part of the checklist on `day`? */
+export function isActiveOn(h: Habit, day: string): boolean {
+  return h.spans.some((s) => day >= s.from && (s.to === null || day < s.to))
+}
+
+/** Currently on the checklist (i.e. the newest span is still open). */
+export function isLive(h: Habit): boolean {
+  return h.spans.length > 0 && h.spans[h.spans.length - 1].to === null
+}
+
+/** First day the habit ever counted. */
+export function firstDay(h: Habit): string {
+  return h.spans[0]?.from ?? EPOCH_DAY
+}
+
+/** Put a habit back on the checklist from `day` onward. No-op when already live. */
+export function activateOn(h: Habit, day: string): Habit {
+  if (isLive(h)) return h
+  const last = h.spans[h.spans.length - 1]
+  // Re-activating on the same day it was dropped just reopens that span, so a
+  // mis-tap never leaves a zero-length dead interval behind.
+  if (last && last.to === day) {
+    const spans = h.spans.slice(0, -1).concat({ from: last.from, to: null })
+    return { ...h, spans }
+  }
+  return { ...h, spans: [...h.spans, { from: day, to: null }] }
+}
+
+/** Drop a habit off the checklist from `day` onward (day itself no longer counts). */
+export function archiveOn(h: Habit, day: string): Habit {
+  if (!isLive(h)) return h
+  const last = h.spans[h.spans.length - 1]
+  // Created and dropped the same day → the span never covered a day; drop it.
+  const spans =
+    last.from >= day
+      ? h.spans.slice(0, -1)
+      : h.spans.slice(0, -1).concat({ from: last.from, to: day })
+  return { ...h, spans }
+}
+
+/** The day a habit was last dropped, or null when it is live / never ran. */
+export function archivedOn(h: Habit): string | null {
+  if (isLive(h) || h.spans.length === 0) return null
+  return h.spans[h.spans.length - 1].to
 }
 
 // Economy v2 (2026-07-09): essentials are table stakes, not needle-movers —
@@ -21,7 +93,7 @@ export const TIER_XP: Record<Tier, number> = {
   basic: 1,
 }
 
-export const DEFAULT_HABITS: Habit[] = [
+const BASE_HABITS: Omit<Habit, 'spans'>[] = [
   { id: 'cat-prep', name: 'CAT prep', emoji: '📚', tier: 'core' },
   { id: 'gym', name: 'Gym', emoji: '🏋️', tier: 'core' },
   { id: 'morning-walk', name: 'Morning walk 5K', emoji: '🌞', tier: 'core' },
@@ -44,6 +116,13 @@ export const DEFAULT_HABITS: Habit[] = [
   { id: 'green-tea', name: 'Green tea / moringa', emoji: '🍵', tier: 'basic' },
   { id: 'bath', name: 'Bath', emoji: '🛁', tier: 'basic' },
 ]
+
+// The seed list has always been live — spans start at the epoch so no early
+// history is ever greyed out as "not a habit yet".
+export const DEFAULT_HABITS: Habit[] = BASE_HABITS.map((h) => ({
+  ...h,
+  spans: [{ from: EPOCH_DAY, to: null }],
+}))
 
 // Pre-v0.5 ids that a plain slug of the name would NOT reproduce. Ticks in the
 // ledger are keyed on these — the map keeps history folding onto the right habit.

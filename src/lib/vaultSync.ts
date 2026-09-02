@@ -3,8 +3,8 @@
 // mirrors today's state into daily/YYYY-MM-DD.md in the existing template
 // format — HABITS/MONTHLY/NOW dataview stay untouched.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Habit } from '../config/habits'
-import { getHabits } from './habitConfig'
+import { isActiveOn, type Habit } from '../config/habits'
+import { getHabits, getLiveHabits } from './habitConfig'
 import { idbDel, idbGet, idbSet } from './idb'
 import type { Stores } from './ledger'
 import { renderWorkoutMarkdown } from './workout'
@@ -18,7 +18,7 @@ function escapeRegex(s: string): string {
 }
 
 function fallbackTemplate(date: string): string {
-  return `# ${date}\n\n## Habits\n${getHabits()
+  return `# ${date}\n\n## Habits\n${getLiveHabits()
     .map((h) => `- [ ] ${h.name} ${h.emoji}`)
     .join('\n')}\n\n## Metrics\nweight::\nkcal::\nprotein::\n\n## Diary\n-\n`
 }
@@ -57,7 +57,9 @@ function upsertField(text: string, field: string, value: string): string {
 }
 
 export function renderDay(existing: string, stores: Stores, date: string): string {
-  const habits = getHabits()
+  // Write back the checklist as it stood on `date`, not today's — otherwise
+  // re-rendering an old note injects habits that did not exist back then.
+  const habits = getHabits().filter((h) => isActiveOn(h, date))
   let text = ensureHabitLines(existing, habits)
   const dayTicks = stores.ticks[date] ?? {}
   for (const h of habits) {
