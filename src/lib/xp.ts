@@ -21,9 +21,15 @@ export function habitXp(tier: Tier, streakDays: number): number {
   return Math.round(TIER_XP[tier] * streakMultiplier(streakDays))
 }
 
+/**
+ * Clean-sweep bonus. Proportional, not a fixed count — the old `>= 15` rule was
+ * written for a 47-habit stack and pays nothing at all once the checklist is
+ * shorter than that.
+ */
 export function dayBonus(doneCount: number, totalHabits: number): number {
+  if (totalHabits === 0) return 0
   if (doneCount >= totalHabits) return 50
-  if (doneCount >= 15) return 20
+  if (doneCount / totalHabits >= 0.8) return 20
   return 0
 }
 

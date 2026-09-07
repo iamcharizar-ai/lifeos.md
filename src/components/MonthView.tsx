@@ -1,24 +1,30 @@
-// Month review. Reads the whole habit library, not today's checklist, and
-// scores every day against the checklist as it stood *that day*:
-//   done   — ticked
-//   missed — was on the checklist, not ticked
-//   n/a    — not a habit yet, or already dropped (grey; never counted)
-//   future — hasn't happened
-// That is what stops a mid-month edit from rewriting the earlier bars, and it
-// keeps a habit added on the 20th from looking like nineteen failures.
-import { useCallback, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
-import { archivedOn, isActiveOn, isLive, type Habit } from '../config/habits'
+// Month review, rendered from exactly one thing: a month snapshot.
+//
+// A finished month reads its sealed snapshot — the roster and the day codes
+// as they stood when the month closed. Nothing you do afterwards touches it,
+// which is the whole point: delete habits freely, the past stays put.
+//
+// The running month has no seal yet, so it is derived live from the registry
+// and today's ticks. That month is still yours to change.
+import { useMemo, useState } from 'react'
+import type { Habit } from '../config/habits'
 import type { Ticks } from '../lib/store'
-
-function pad2(n: number): string {
-  return String(n).padStart(2, '0')
-}
+import {
+  buildMonth,
+  dayIso,
+  daysInMonth,
+  frozenSnapshot,
+  shiftYm,
+  useMonths,
+  ymOf,
+  type MonthSnapshot,
+} from '../lib/monthSnapshot'
 
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-const HIDDEN_KEY = 'lifeos.monthview.hidden.v1'
 
 type Cell = 'done' | 'missed' | 'na' | 'future'
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
 
 /** bar colour scales with completion so the month reads at a glance */
 function barTone(pct: number): string {
@@ -29,45 +35,36 @@ function barTone(pct: number): string {
   return 'bg-white/40'
 }
 
-function loadHidden(): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? '[]') as string[]
-    return Array.isArray(raw) ? raw : []
-  } catch {
-    return []
-  }
-}
-
 export function MonthView({
   habits,
   ticks,
   today,
 }: {
-  /** the full library — dropped habits still have months to show */
   habits: Habit[]
   ticks: Ticks
   today: string
 }) {
-  const [ym, setYm] = useState(() => today.slice(0, 7)) // YYYY-MM
-  const [hidden, setHidden] = useState<string[]>(loadHidden)
-  const [showDropped, setShowDropped] = useState(true)
+  const [ym, setYm] = useState(() => ymOf(today))
+  useMonths() // re-render when a month seals or one arrives from another device
 
-  const persistHidden = useCallback((next: string[]) => {
-    setHidden(next)
-    try {
-      localStorage.setItem(HIDDEN_KEY, JSON.stringify(next))
-    } catch {
-      /* quota — hiding is a view preference, safe to lose */
-    }
-  }, [])
+  const nowYm = ymOf(today)
+  const when: 'past' | 'current' | 'ahead' = ym < nowYm ? 'past' : ym > nowYm ? 'ahead' : 'current'
+  const sealed = frozenSnapshot(ym)
+  // Only the running month is derived live. A finished month is whatever its
+  // seal says — and if it has no seal, we simply never recorded it. Rebuilding
+  // it from today's library would invent a month of misses out of nothing.
+  const snap: MonthSnapshot = useMemo(
+    () =>
+      when === 'current'
+        ? buildMonth(ym, habits, ticks)
+        : (sealed ?? { ym, frozenAt: null, habits: [], cells: {} }),
+    [when, sealed, ym, habits, ticks],
+  )
 
-  const { year, month, days, label } = useMemo(() => {
+  const { days, label } = useMemo(() => {
     const [y, m] = ym.split('-').map(Number)
-    const count = new Date(y, m, 0).getDate()
     return {
-      year: y,
-      month: m,
-      days: Array.from({ length: count }, (_, i) => i + 1),
+      days: Array.from({ length: daysInMonth(ym) }, (_, i) => i + 1),
       label: new Date(y, m - 1, 1).toLocaleDateString('en-IN', {
         month: 'long',
         year: 'numeric',
@@ -75,42 +72,25 @@ export function MonthView({
     }
   }, [ym])
 
-  const iso = useCallback(
-    (d: number) => `${year}-${pad2(month)}-${pad2(d)}`,
-    [year, month],
-  )
+  const iso = (d: number) => dayIso(ym, d)
   const isFuture = (d: number) => iso(d) > today
-  const dow = (d: number) => new Date(year, month - 1, d).getDay()
-  const isWeekend = (d: number) => dow(d) === 0 || dow(d) === 6
+  const dowOf = (d: number) => new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, d).getDay()
+  const isWeekend = (d: number) => dowOf(d) === 0 || dowOf(d) === 6
 
-  /** Habits with any life (or any tick) inside this month — the rows worth showing. */
-  const monthHabits = useMemo(
-    () =>
-      habits.filter((h) =>
-        days.some((d) => isActiveOn(h, iso(d)) || Boolean(ticks[iso(d)]?.[h.id])),
-      ),
-    [habits, days, iso, ticks],
-  )
+  const rows = snap.habits
+  const cellOf = (habitId: string, d: number): Cell => {
+    if (isFuture(d)) return 'future'
+    const c = snap.cells[habitId]?.[d - 1]
+    return c === '1' ? 'done' : c === '0' ? 'missed' : 'na'
+  }
 
-  /** One cell's meaning. A tick always wins: no logged day is ever hidden. */
-  const cellOf = useCallback(
-    (h: Habit, d: number): Cell => {
-      const day = iso(d)
-      if (ticks[day]?.[h.id]) return 'done'
-      if (day > today) return 'future'
-      return isActiveOn(h, day) ? 'missed' : 'na'
-    },
-    [iso, ticks, today],
-  )
-
-  /** Per-day done / expected, where "expected" is that day's own checklist size. */
   const dayStats = useMemo(
     () =>
       days.map((d) => {
         let done = 0
         let expected = 0
-        for (const h of monthHabits) {
-          const c = cellOf(h, d)
+        for (const h of rows) {
+          const c = cellOf(h.id, d)
           if (c === 'done') {
             done++
             expected++
@@ -118,39 +98,27 @@ export function MonthView({
         }
         return { done, expected, pct: expected === 0 ? null : done / expected }
       }),
-    [days, monthHabits, cellOf],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [days, rows, snap, today],
   )
-
-  const nav = (delta: number) => {
-    const d = new Date(year, month - 1 + delta, 1)
-    setYm(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}`)
-  }
 
   const scored = dayStats.filter((s) => s.pct !== null)
   const avgPct = scored.length
     ? Math.round((scored.reduce((a, s) => a + (s.pct as number), 0) / scored.length) * 100)
     : 0
-  const bestPct = scored.length ? Math.round(Math.max(...scored.map((s) => s.pct as number)) * 100) : 0
+  const bestPct = scored.length
+    ? Math.round(Math.max(...scored.map((s) => s.pct as number)) * 100)
+    : 0
   const perfectDays = scored.filter((s) => (s.pct as number) >= 1).length
   const zeroDays = scored.filter((s) => s.done === 0).length
   const totalTicks = dayStats.reduce((a, s) => a + s.done, 0)
-
-  const droppedIds = useMemo(
-    () => new Set(monthHabits.filter((h) => !isLive(h)).map((h) => h.id)),
-    [monthHabits],
-  )
-
-  const rows = monthHabits.filter(
-    (h) => !hidden.includes(h.id) && (showDropped || !droppedIds.has(h.id)),
-  )
-  const hiddenCount = monthHabits.length - rows.length
 
   return (
     <div className="space-y-4">
       {/* Month nav & stats */}
       <div className="neo-card flex items-center justify-between bg-white p-3">
         <button
-          onClick={() => nav(-1)}
+          onClick={() => setYm(shiftYm(ym, -1))}
           className="neo-button px-3 py-1 text-sm font-bold"
           aria-label="Previous month"
         >
@@ -161,18 +129,32 @@ export function MonthView({
             {label}
           </div>
           <div className="num text-xs font-bold text-neo-gray-dark">
-            Monthly Average: <span className="text-black">{avgPct}%</span>
+            Average: <span className="text-black">{avgPct}%</span>
             <span className="mx-1.5 text-black/30">|</span>
-            {monthHabits.length} habits ran
+            {rows.length} habits ran
           </div>
         </div>
         <button
-          onClick={() => nav(1)}
+          onClick={() => setYm(shiftYm(ym, 1))}
           className="neo-button px-3 py-1 text-sm font-bold"
           aria-label="Next month"
         >
           Next ►
         </button>
+      </div>
+
+      <div
+        className={`neo-card px-3 py-2 text-[11px] font-bold ${
+          when === 'current' ? 'neo-card-yellow text-black' : 'bg-white text-neo-gray-dark'
+        }`}
+      >
+        {when === 'current'
+          ? '✏️ Running month. It follows your library live, and seals itself the day the month turns over.'
+          : when === 'ahead'
+            ? '📆 Hasn’t happened yet.'
+            : sealed
+              ? '🔒 Sealed. This month was written down when it ended — editing or deleting habits now cannot change it.'
+              : '📭 No record for this month. Nothing was tracked before the app started keeping monthly seals.'}
       </div>
 
       {/* Month stat strip */}
@@ -194,9 +176,7 @@ export function MonthView({
 
       {/* Completion graph */}
       <div className="neo-card neo-card-pink p-4">
-        <div className="hud-label mb-3 border-black text-xs">
-          Daily Completion Rate — against that day&apos;s own checklist
-        </div>
+        <div className="hud-label mb-3 border-black text-xs">Daily Completion Rate</div>
         <div className="flex h-40 items-end gap-1 border-b-2 border-black pb-1">
           {days.map((d, i) => {
             const isToday = iso(d) === today
@@ -223,15 +203,19 @@ export function MonthView({
                     {Math.round(pct * 100)}
                   </div>
                 )}
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{
-                    height: `${pct === null ? (future ? 0 : 100) : Math.max(pct * 100, 3)}%`,
+                {/* Height is plain CSS, not an entrance animation — a bar that
+                    never gets a frame (background tab, reduced motion) must
+                    still be the right height. */}
+                <div
+                  style={{
+                    // a day with nothing scheduled gets a stub, not a full-height
+                    // ghost bar that reads as 100% at a glance
+                    height: `${pct === null ? (future ? 0 : 6) : Math.max(pct * 100, 3)}%`,
+                    transitionDelay: `${i * 12}ms`,
                   }}
-                  transition={{ delay: i * 0.012, type: 'spring', stiffness: 150, damping: 22 }}
-                  className={`w-full border-x border-t-2 border-black ${
+                  className={`w-full border-x border-t-2 border-black transition-[height] duration-500 ease-out ${
                     pct === null
-                      ? 'bg-neo-gray/30 border-dashed'
+                      ? 'border-dashed bg-neo-gray/30'
                       : isToday
                         ? 'bg-neo-yellow'
                         : barTone(pct)
@@ -241,7 +225,6 @@ export function MonthView({
             )
           })}
         </div>
-        {/* day-number axis, one tick per bar so a % lines up with its date */}
         <div className="mt-1 flex gap-1">
           {days.map((d) => (
             <div
@@ -256,29 +239,9 @@ export function MonthView({
         </div>
       </div>
 
-      {/* Brutalist Grid — habits left, days across */}
+      {/* Habit × day matrix */}
       <div className="neo-card overflow-hidden bg-white p-3">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="hud-label border-black text-xs">Habit Completion Matrix</div>
-          <div className="flex flex-wrap items-center gap-2">
-            {droppedIds.size > 0 && (
-              <button
-                onClick={() => setShowDropped((s) => !s)}
-                className="neo-button bg-white px-2.5 py-1 text-[10px] font-bold uppercase"
-              >
-                {showDropped ? `Hide dropped (${droppedIds.size})` : `Show dropped (${droppedIds.size})`}
-              </button>
-            )}
-            {hidden.length > 0 && (
-              <button
-                onClick={() => persistHidden([])}
-                className="neo-button neo-card-yellow px-2.5 py-1 text-[10px] font-bold uppercase"
-              >
-                ↺ Reset rows ({hidden.length})
-              </button>
-            )}
-          </div>
-        </div>
+        <div className="mb-3 hud-label border-black text-xs">Habit Completion Matrix</div>
 
         <div className="mb-2 flex flex-wrap gap-3 text-[10px] font-bold text-neo-gray-dark">
           <span className="flex items-center gap-1">
@@ -289,10 +252,7 @@ export function MonthView({
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block h-3 w-3 border-2 border-dashed border-black/30 bg-neo-gray/30" />{' '}
-            not a habit then
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block h-3 w-3 border-2 border-black bg-neo-red" /> dropped habit
+            not on the checklist then
           </span>
         </div>
 
@@ -317,7 +277,7 @@ export function MonthView({
                     }`}
                   >
                     <div>{d}</div>
-                    <div className="text-[9px] font-bold text-black/40">{DOW[dow(d)]}</div>
+                    <div className="text-[9px] font-bold text-black/40">{DOW[dowOf(d)]}</div>
                   </div>
                 )
               })}
@@ -326,49 +286,25 @@ export function MonthView({
               </div>
             </div>
 
-            {/* Habit rows */}
             {rows.map((h, idx) => {
-              const cells = days.map((d) => cellOf(h, d))
+              const cells = days.map((d) => cellOf(h.id, d))
               const rowDone = cells.filter((c) => c === 'done').length
               const rowEligible = cells.filter((c) => c === 'done' || c === 'missed').length
               const rowPct = rowEligible === 0 ? null : Math.round((rowDone / rowEligible) * 100)
-              const isDropped = droppedIds.has(h.id)
-              const dropDay = archivedOn(h)
               return (
                 <div
                   key={h.id}
                   className={`flex items-center border-b border-black/30 ${
-                    isDropped ? 'bg-neo-red/10' : idx % 2 === 0 ? 'bg-white' : 'bg-neo-bg'
+                    idx % 2 === 0 ? 'bg-white' : 'bg-neo-bg'
                   }`}
                 >
-                  {/* Sticky left habit title */}
-                  <div
-                    className={`sticky left-0 z-10 flex w-40 shrink-0 items-center gap-1.5 border-r-2 border-black px-2 py-2 text-xs font-bold shadow-[2px_0_4px_rgba(0,0,0,0.05)] lg:w-48 ${
-                      isDropped ? 'bg-neo-red/20 text-neo-red' : 'bg-white text-neo-black'
-                    }`}
-                  >
-                    <button
-                      onClick={() => persistHidden([...hidden, h.id])}
-                      title={`Hide ${h.name} from this table`}
-                      aria-label={`Hide ${h.name}`}
-                      className="shrink-0 border-2 border-black bg-white px-1 text-[10px] leading-none text-black"
-                    >
-                      🚫
-                    </button>
+                  <div className="sticky left-0 z-10 flex w-40 shrink-0 items-center gap-1.5 border-r-2 border-black bg-white px-2 py-2 text-xs font-bold text-neo-black shadow-[2px_0_4px_rgba(0,0,0,0.05)] lg:w-48">
                     <span className="text-sm">{h.emoji}</span>
-                    <span
-                      className={`truncate ${isDropped ? 'line-through decoration-2' : ''}`}
-                      title={
-                        isDropped && dropDay
-                          ? `${h.name} — dropped ${dropDay}`
-                          : h.name
-                      }
-                    >
+                    <span className="truncate" title={h.name}>
                       {h.name}
                     </span>
                   </div>
 
-                  {/* Day boxes */}
                   {days.map((d, i) => {
                     const c = cells[i]
                     const isToday = iso(d) === today
@@ -400,9 +336,7 @@ export function MonthView({
                                 ? 'border-dashed border-black/25 bg-neo-gray/30'
                                 : c === 'future'
                                   ? 'border-black/20 bg-neo-gray/30'
-                                  : isToday
-                                    ? 'border-black bg-white font-bold'
-                                    : 'border-black bg-white'
+                                  : 'border-black bg-white'
                           }`}
                         >
                           {c === 'done' ? '✓' : ''}
@@ -411,7 +345,6 @@ export function MonthView({
                     )
                   })}
 
-                  {/* Summary Total */}
                   <div className="num w-12 shrink-0 border-l-2 border-black bg-white py-1 text-center text-xs font-bold leading-tight text-black">
                     <div>{rowDone}</div>
                     <div className="text-[9px] font-bold text-neo-gray-dark">
@@ -424,7 +357,7 @@ export function MonthView({
 
             {rows.length === 0 && (
               <div className="px-3 py-6 text-center text-xs font-bold text-neo-gray-dark">
-                No habit rows to show for {label}.
+                {when === 'ahead' ? `${label} hasn’t happened yet.` : `No habits ran in ${label}.`}
               </div>
             )}
 
@@ -456,13 +389,6 @@ export function MonthView({
             </div>
           </div>
         </div>
-
-        {hiddenCount > 0 && (
-          <div className="mt-2 text-[10px] font-bold text-neo-gray-dark">
-            {hiddenCount} row{hiddenCount === 1 ? '' : 's'} hidden from the table. Percentages above
-            still count every habit that ran.
-          </div>
-        )}
       </div>
     </div>
   )

@@ -1,8 +1,13 @@
-// Habit types, XP tiers, defaults, and the vault-template parser.
-// Authority chain: templates/daily-template.md (names/emoji/order/membership)
-// → habit config events in the ledger → every device. Tiers are app-owned.
-// Ids must stay stable forever — they key the event ledger and the vault
-// write-back. LEGACY_IDS pins the pre-v0.5 ids; new habits get slugified names.
+// Habit types, XP tiers and defaults.
+//
+// A habit is a registry entry with a list of live spans. Spans exist for one
+// job only: scoring the *current* month, where a habit added on the 20th must
+// not read as nineteen misses. Finished months don't use them — they are frozen
+// into month snapshots (lib/monthSnapshot.ts), which is what makes deleting a
+// habit safe: the past is already written down elsewhere.
+//
+// Ids must stay stable for the life of a habit — they key tick events in the
+// append-only cloud ledger.
 
 export type Tier = 'core' | 'standard' | 'basic'
 
@@ -16,12 +21,6 @@ export interface Span {
   to: string | null // YYYY-MM-DD, exclusive
 }
 
-/**
- * A habit is a permanent registry entry, never deleted by an edit — dropping
- * one closes its current span, re-adding opens a new one. Month views read the
- * spans to tell "wasn't a habit yet" (grey) apart from "had it, missed it"
- * (red), which a single active/inactive flag cannot express.
- */
 export interface Habit {
   id: string
   name: string
@@ -39,7 +38,7 @@ export function migrateHabit(h: Habit): Habit {
   return { ...h, spans: [{ from: EPOCH_DAY, to: null }] }
 }
 
-/** Was this habit part of the checklist on `day`? */
+/** Was this habit on the checklist on `day`? */
 export function isActiveOn(h: Habit, day: string): boolean {
   return h.spans.some((s) => day >= s.from && (s.to === null || day < s.to))
 }
@@ -58,8 +57,8 @@ export function firstDay(h: Habit): string {
 export function activateOn(h: Habit, day: string): Habit {
   if (isLive(h)) return h
   const last = h.spans[h.spans.length - 1]
-  // Re-activating on the same day it was dropped just reopens that span, so a
-  // mis-tap never leaves a zero-length dead interval behind.
+  // Re-activating on the same day it was switched off just reopens that span, so
+  // a mis-tap never leaves a zero-length dead interval behind.
   if (last && last.to === day) {
     const spans = h.spans.slice(0, -1).concat({ from: last.from, to: null })
     return { ...h, spans }
@@ -67,11 +66,11 @@ export function activateOn(h: Habit, day: string): Habit {
   return { ...h, spans: [...h.spans, { from: day, to: null }] }
 }
 
-/** Drop a habit off the checklist from `day` onward (day itself no longer counts). */
+/** Take a habit off the checklist from `day` onward (day itself no longer counts). */
 export function archiveOn(h: Habit, day: string): Habit {
   if (!isLive(h)) return h
   const last = h.spans[h.spans.length - 1]
-  // Created and dropped the same day → the span never covered a day; drop it.
+  // Created and switched off the same day → the span never covered a day; drop it.
   const spans =
     last.from >= day
       ? h.spans.slice(0, -1)
@@ -79,7 +78,7 @@ export function archiveOn(h: Habit, day: string): Habit {
   return { ...h, spans }
 }
 
-/** The day a habit was last dropped, or null when it is live / never ran. */
+/** The day a habit was last switched off, or null when it is live / never ran. */
 export function archivedOn(h: Habit): string | null {
   if (isLive(h) || h.spans.length === 0) return null
   return h.spans[h.spans.length - 1].to
@@ -92,6 +91,8 @@ export const TIER_XP: Record<Tier, number> = {
   standard: 10,
   basic: 1,
 }
+
+export const TIERS: Tier[] = ['core', 'standard', 'basic']
 
 const BASE_HABITS: Omit<Habit, 'spans'>[] = [
   { id: 'cat-prep', name: 'CAT prep', emoji: '📚', tier: 'core' },
@@ -124,84 +125,6 @@ export const DEFAULT_HABITS: Habit[] = BASE_HABITS.map((h) => ({
   spans: [{ from: EPOCH_DAY, to: null }],
 }))
 
-// Pre-v0.5 ids that a plain slug of the name would NOT reproduce. Ticks in the
-// ledger are keyed on these — the map keeps history folding onto the right habit.
-// The 2026-07-04 habit-stack entries map continuing habits onto their old ids
-// so streaks survive the rename (per-name keys must match the template EXACTLY
-// after the trailing emoji is stripped, inner emoji included).
-const LEGACY_IDS: Record<string, string> = {
-  'Morning walk 5K': 'morning-walk',
-  'Night walk 5K': 'night-walk',
-  'Push-ups / pull-ups': 'pushups-pullups',
-  'Stretching / calisthenics': 'stretching',
-  'Fiber — chia / isabgol / bran': 'fiber',
-  'Green tea / moringa': 'green-tea',
-  'Work diary + planning': 'work-diary',
-  // habit-stack (2026-07-04) continuations
-  'Weight ⚖️ / Incense 🔥 / Calendar': 'weigh-in',
-  'AM Skincare': 'skincare',
-  'Morning Walk 👟 / Sun ☀️ / Day Prep': 'morning-walk',
-  'Guitar — session 1': 'guitar',
-  'Reading on the taxi': 'reading',
-  'Night Walk 5K': 'night-walk',
-  'Family Time 🐻 / Dinner': 'family-time',
-  'Work Diary 📗 / Plan 💭 / English Shadow': 'work-diary',
-  'Bath 🧼 / Brush': 'bath',
-  Isabgol: 'fiber',
-}
-
-// Demo XP assignment for the 2026-07-04 stack (Rishabh: "you decide the xp by
-// importance for my goals"). Keyed by id; only applies to habits the live
-// config hasn't seen yet — existing habits keep their app-owned tier.
-const STACK_TIERS: Record<string, Tier> = {
-  // core 20 XP — moves the mission (PS2 / CAT / LeetCode / cut / discipline)
-  'leetcode-1-easy': 'core',
-  'ai-dev-time': 'core',
-  'day-tasks-9-5': 'core',
-  calisthenics: 'core',
-  'sleep-before-10': 'core',
-  'no-junk-food': 'core',
-  'no-goon': 'core',
-  // standard 10 XP — training volume & compounding skills
-  'push-ups': 'standard',
-  'pull-ups': 'standard',
-  'lateral-raises': 'standard',
-  'l-sit': 'standard',
-  'ab-roller': 'standard',
-  'guitar-session-2': 'standard',
-  'weekly-goal-work': 'standard',
-  'green-blend': 'standard',
-  'walk-14k-steps': 'standard',
-  'logged-work-next-day-plan': 'standard',
-  // basic 1 XP — hygiene, fuel, logistics
-  'pull-guitar-out': 'basic',
-  'make-bed': 'basic',
-  'water-1l-morning': 'basic',
-  'water-1l-midday': 'basic',
-  'water-1l-afternoon': 'basic',
-  'water-1l-evening': 'basic',
-  'chia-seeds-15g': 'basic',
-  breakfast: 'basic',
-  lunch: 'basic',
-  'eye-drops': 'basic',
-  'anime-movie-game': 'basic',
-  'pm-skincare': 'basic',
-  'creatine-medicine': 'basic',
-  'crafts-youtube': 'basic',
-}
-
-export const DEFAULT_TIERS: Record<string, Tier> = {
-  ...Object.fromEntries(DEFAULT_HABITS.map((h) => [h.id, h.tier])),
-  ...STACK_TIERS,
-}
-
-// Hydration left the habit stack (2026-07-09) — it lives on the Health tab as
-// one water meter now. Ticks keyed on these ids stay in the ledger as history;
-// the live list just never shows them again.
-export function isWaterHabit(id: string): boolean {
-  return /^water-1l/.test(id)
-}
-
 export function slugify(name: string): string {
   return name
     .toLowerCase()
@@ -209,34 +132,10 @@ export function slugify(name: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-export function habitIdFor(name: string): string {
-  return LEGACY_IDS[name] ?? slugify(name)
-}
-
-/**
- * Parse habit lines out of the daily template's `## Habits` section.
- * Line shape: `- [ ] Name Emoji` — the emoji is the last whitespace-separated
- * token; lines whose last token isn't pictographic keep it as part of the name.
- * Returns null when no Habits section (or zero habits) is found, so a broken
- * template can never wipe the live list.
- */
-export function parseTemplateHabits(text: string): { name: string; emoji: string }[] | null {
-  const lines = text.split(/\r?\n/)
-  const start = lines.findIndex((l) => /^##\s+Habits\b/i.test(l))
-  if (start === -1) return null
-  const out: { name: string; emoji: string }[] = []
-  for (let i = start + 1; i < lines.length; i++) {
-    const line = lines[i]
-    if (/^##\s/.test(line)) break
-    const m = line.match(/^\s*-\s*\[[ xX]\]\s+(.+?)\s*$/)
-    if (!m) continue
-    const body = m[1]
-    const split = body.match(/^(.*\S)\s+(\S+)$/)
-    if (split && /\p{Extended_Pictographic}/u.test(split[2])) {
-      out.push({ name: split[1], emoji: split[2] })
-    } else {
-      out.push({ name: body, emoji: '✅' })
-    }
-  }
-  return out.length > 0 ? out : null
+/** Id for a freshly created habit. Falls back to a suffix when the slug collides. */
+export function habitIdFor(name: string, taken: Iterable<string> = []): string {
+  const base = slugify(name) || 'habit'
+  const used = new Set(taken)
+  if (!used.has(base)) return base
+  for (let n = 2; ; n++) if (!used.has(`${base}-${n}`)) return `${base}-${n}`
 }

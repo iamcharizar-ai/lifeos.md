@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "graph": "node scripts/build-graph.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,7 +15,6 @@
     "@fontsource/ibm-plex-sans": "^5.2.8",
     "@supabase/supabase-js": "^2.110.0",
     "@tailwindcss/vite": "^4.3.2",
-    "force-graph": "^1.51.4",
     "framer-motion": "^12.42.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

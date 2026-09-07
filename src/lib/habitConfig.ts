@@ -1,35 +1,38 @@
 // Live habit config — a tiny external store over localStorage, updated by
-// last-write-wins `config` events from the ledger and by the PC vault poller.
-// Everything that renders or scores habits reads getHabits()/useHabits() so a
-// template edit in Obsidian propagates to every device without a redeploy.
+// last-write-wins `config` events from the cloud ledger. Everything that renders
+// or scores habits reads getHabits()/useHabits().
+//
+// Delete is real. A deleted habit's id goes on a tombstone list that travels
+// with the config, so no stale peer can re-adopt it during a merge and no
+// replay of the append-only ledger can resurrect it. Past months are safe
+// because they live in frozen month snapshots, not in this registry.
 import { useSyncExternalStore } from 'react'
 import {
   DEFAULT_HABITS,
-  DEFAULT_TIERS,
   activateOn,
   archiveOn,
-  habitIdFor,
   isLive,
-  isWaterHabit,
   migrateHabit,
-  parseTemplateHabits,
   type Habit,
   type Tier,
 } from '../config/habits'
 import { dateISO } from './store'
 
-// Water habits are retired from the stack (hydration = Health-tab meter);
-// strip them at every ingress so no source can resurrect them.
-const stripWater = (habits: Habit[]): Habit[] => habits.filter((h) => !isWaterHabit(h.id))
+// Hydration left the habit stack in 2026-07 and lives nowhere now. Seeded as
+// tombstones so a replay of a pre-2026-07 config event can't bring it back.
+const LEGACY_TOMBSTONES = [
+  'water-1l-morning',
+  'water-1l-midday',
+  'water-1l-afternoon',
+  'water-1l-evening',
+]
 
-// Every ingress (localStorage, cloud event, vault template) runs through this,
-// so the rest of the app can assume `spans` is always present and sane.
-const normalize = (habits: Habit[]): Habit[] => stripWater(habits).map(migrateHabit)
-
-export type ConfigSource = 'default' | 'vault' | 'app' | 'cloud'
+export type ConfigSource = 'default' | 'app' | 'cloud'
 
 export interface HabitConfig {
   habits: Habit[]
+  /** ids erased for good — never re-adopted from any source */
+  deleted: string[]
   at: string // ISO timestamp — LWW ordering across devices
   source: ConfigSource
 }
@@ -37,18 +40,38 @@ export interface HabitConfig {
 const CFG_KEY = 'lifeos.habitcfg.v1'
 const EPOCH = '1970-01-01T00:00:00.000Z'
 
+/** Every ingress runs through this, so the rest of the app can assume sane spans. */
+function normalize(habits: Habit[], deleted: Iterable<string>): Habit[] {
+  const gone = new Set(deleted)
+  const seen = new Set<string>()
+  const out: Habit[] = []
+  for (const h of habits) {
+    if (!h?.id || gone.has(h.id) || seen.has(h.id)) continue
+    seen.add(h.id)
+    out.push(migrateHabit(h))
+  }
+  return out
+}
+
 function load(): HabitConfig {
   try {
     const raw = localStorage.getItem(CFG_KEY)
     if (raw) {
       const cfg = JSON.parse(raw) as HabitConfig
-      if (Array.isArray(cfg.habits) && cfg.habits.length > 0 && cfg.at)
-        return { ...cfg, habits: normalize(cfg.habits) }
+      if (Array.isArray(cfg.habits) && cfg.at) {
+        const deleted = [...new Set([...(cfg.deleted ?? []), ...LEGACY_TOMBSTONES])]
+        return { ...cfg, deleted, habits: normalize(cfg.habits, deleted) }
+      }
     }
   } catch {
     /* corrupted → default */
   }
-  return { habits: DEFAULT_HABITS, at: EPOCH, source: 'default' }
+  return {
+    habits: DEFAULT_HABITS,
+    deleted: [...LEGACY_TOMBSTONES],
+    at: EPOCH,
+    source: 'default',
+  }
 }
 
 let current: HabitConfig = load()
@@ -56,10 +79,10 @@ const listeners = new Set<() => void>()
 
 export const getConfig = (): HabitConfig => current
 
-/** The whole library — live habits and dropped ones alike. Month views need both. */
+/** The whole library — habits on the checklist and switched-off ones alike. */
 export const getHabits = (): Habit[] => current.habits
 
-/** Only what is on the checklist today. Daily list, XP and vault write-back use this. */
+/** Only what is on the checklist today. */
 export const getLiveHabits = (): Habit[] => current.habits.filter(isLive)
 
 export function subscribeHabits(cb: () => void): () => void {
@@ -94,87 +117,60 @@ function sameHabits(a: Habit[], b: Habit[]): boolean {
 
 /**
  * Union two registries. The winner's list is authoritative for the habits it
- * names; anything only the loser knows is adopted *dropped* rather than thrown
- * away, so nothing can delete a habit's history for good:
- *   - a device that never saw a habit can't erase it by making the next edit;
- *   - a pre-span config event, where deleting meant vanishing from the payload,
- *     replays as "was dropped that day" instead of resurrecting on the checklist.
- * The cost is that a purge can be undone by a stale peer — cheap, since purge
- * only ever removes never-ticked entries.
+ * names; a habit only the loser knows is adopted (switched off, so it can't
+ * silently rejoin the checklist) — that way a device that has been offline can
+ * still teach us habits it created. Tombstoned ids are the exception: they are
+ * gone from both sides for good.
  */
-function mergeRegistries(winner: Habit[], loser: Habit[], on: string): Habit[] {
+function mergeRegistries(winner: Habit[], loser: Habit[], gone: Set<string>, on: string): Habit[] {
   const known = new Set(winner.map((h) => h.id))
-  const extra = loser.filter((h) => !known.has(h.id)).map((h) => archiveOn(h, on))
+  const extra = loser
+    .filter((h) => !known.has(h.id) && !gone.has(h.id))
+    .map((h) => archiveOn(h, on))
   return [...winner, ...extra]
 }
 
 /**
- * Fold one config event in. Newer wins on the fields of a habit both sides know,
- * but habits only the *other* side knows are always adopted — an older event
- * from a device that has been offline still teaches us the habits it created.
+ * Fold one config event in. Newer wins on the fields of a habit both sides know.
+ * Tombstones always union — a delete is never undone by an older peer.
  * Returns true when the visible list changed.
  */
 export function applyConfig(cfg: HabitConfig): boolean {
-  if (!Array.isArray(cfg.habits) || cfg.habits.length === 0) return false
-  const incoming = normalize(cfg.habits)
-  if (incoming.length === 0) return false
+  if (!Array.isArray(cfg.habits)) return false
+  const deleted = [...new Set([...current.deleted, ...(cfg.deleted ?? [])])]
+  const gone = new Set(deleted)
+  const incoming = normalize(cfg.habits, gone)
   const newer = cfg.at > current.at
-  // Habits the winner dropped are closed as of the winning config's own day, so
-  // replaying history lands the archive date where it actually happened.
+  // Habits the winner doesn't list are closed as of the winning config's own
+  // day, so replaying history lands the archive date where it actually happened.
   const on = (newer ? cfg.at : current.at).slice(0, 10)
+  const mine = normalize(current.habits, gone)
   const habits = newer
-    ? mergeRegistries(incoming, current.habits, on)
-    : mergeRegistries(current.habits, incoming, on)
+    ? mergeRegistries(incoming, mine, gone, on)
+    : mergeRegistries(mine, incoming, gone, on)
   const at = newer ? cfg.at : current.at
   const changed = !sameHabits(habits, current.habits)
-  if (!changed && at === current.at) return false
-  current = { habits, at, source: newer ? cfg.source : current.source }
+  if (!changed && at === current.at && deleted.length === current.deleted.length) return false
+  current = { habits, deleted, at, source: newer ? cfg.source : current.source }
+  persist()
+  if (changed) listeners.forEach((l) => l())
+  return changed
+}
+
+function persist(): void {
   try {
     localStorage.setItem(CFG_KEY, JSON.stringify(current))
   } catch {
     /* quota — state still lives in the ledger */
   }
-  if (changed) listeners.forEach((l) => l())
-  return changed
 }
 
-/**
- * Build a config from the vault's daily template, or null when nothing changed.
- * Template owns names/emoji/order/membership; tiers carry over from the current
- * config (new habits default to their legacy tier, else 'standard').
- *
- * Missing from the template means *dropped*, never *deleted* — the habit keeps
- * its registry entry with a closed span, so its history stays readable and a
- * later template edit can bring it back without losing the gap.
- */
-export function configFromTemplate(text: string, today: string = dateISO()): HabitConfig | null {
-  const parsed = parseTemplateHabits(text)
-  if (!parsed) return null
-  const prev = new Map(current.habits.map((h) => [h.id, h]))
-  const seen = new Set<string>()
-  const habits: Habit[] = []
-  for (const { name, emoji } of parsed) {
-    const id = habitIdFor(name)
-    if (seen.has(id)) continue // duplicate line in template — keep the first
-    if (isWaterHabit(id)) continue // hydration lives on the Health tab now
-    seen.add(id)
-    const old = prev.get(id)
-    if (old) habits.push({ ...activateOn(old, today), name, emoji })
-    else
-      habits.push({
-        id,
-        name,
-        emoji,
-        tier: DEFAULT_TIERS[id] ?? 'standard',
-        spans: [{ from: today, to: null }],
-      })
-  }
-  if (habits.length === 0) return null
-  // Everything the template no longer lists keeps its place in the library.
-  for (const h of current.habits) if (!seen.has(h.id)) habits.push(archiveOn(h, today))
-  if (sameHabits(habits, current.habits)) return null
-  return { habits, at: new Date().toISOString(), source: 'vault' }
-}
+const stamp = (habits: Habit[], deleted = current.deleted): HabitConfig => ({
+  habits,
+  deleted,
+  at: new Date().toISOString(),
+  source: 'app',
+})
 
 /** Flip one habit on/off the checklist as of `today`, or null if it is a no-op. */
 export function configWithLive(
@@ -186,7 +182,7 @@ export function configWithLive(
     h.id === habitId ? (live ? activateOn(h, today) : archiveOn(h, today)) : h,
   )
   if (sameHabits(habits, current.habits)) return null
-  return { habits, at: new Date().toISOString(), source: 'app' }
+  return stamp(habits)
 }
 
 /** Append a brand-new habit, live from `today`. Null when the id already exists. */
@@ -195,25 +191,59 @@ export function configWithNewHabit(
   today: string = dateISO(),
 ): HabitConfig | null {
   if (current.habits.some((h) => h.id === habit.id)) return null
-  const habits = [...current.habits, { ...habit, spans: [{ from: today, to: null }] }]
-  return { habits, at: new Date().toISOString(), source: 'app' }
+  // A re-created id must clear its tombstone, or normalize() would drop it again.
+  const deleted = current.deleted.filter((id) => id !== habit.id)
+  return stamp([...current.habits, { ...habit, spans: [{ from: today, to: null }] }], deleted)
 }
 
+/** Edit a habit's label / emoji / tier in place. Null when nothing changed. */
+export function configWithEdit(
+  habitId: string,
+  patch: Partial<Pick<Habit, 'name' | 'emoji' | 'tier'>>,
+): HabitConfig | null {
+  const habits = current.habits.map((h) => (h.id === habitId ? { ...h, ...patch } : h))
+  if (sameHabits(habits, current.habits)) return null
+  return stamp(habits)
+}
+
+/** New config with one habit's tier changed, or null if a no-op. */
+export const configWithTier = (habitId: string, tier: Tier): HabitConfig | null =>
+  configWithEdit(habitId, { tier })
+
 /**
- * Erase a habit from the library outright. Only for entries with no history —
- * anything that was ever ticked must stay so past months keep rendering it.
+ * Erase a habit for good. No history guard: finished months are already frozen
+ * into snapshots, and the current month is meant to be editable. The id is
+ * tombstoned so no merge or ledger replay can bring it back.
  */
 export function configWithoutHabit(habitId: string): HabitConfig | null {
   const habits = current.habits.filter((h) => h.id !== habitId)
-  if (habits.length === current.habits.length || habits.length === 0) return null
-  return { habits, at: new Date().toISOString(), source: 'app' }
+  if (habits.length === current.habits.length) return null
+  return stamp(habits, [...new Set([...current.deleted, habitId])])
 }
 
-/** New config with one habit's tier changed (app-owned edit), or null if a no-op. */
-export function configWithTier(habitId: string, tier: Tier): HabitConfig | null {
-  const habits = current.habits.map((h) => (h.id === habitId ? { ...h, tier } : h))
+/** Erase several habits at once (Clean up → multi-select). */
+export function configWithoutHabits(ids: string[]): HabitConfig | null {
+  const gone = new Set(ids)
+  const habits = current.habits.filter((h) => !gone.has(h.id))
+  if (habits.length === current.habits.length) return null
+  return stamp(habits, [...new Set([...current.deleted, ...ids])])
+}
+
+/**
+ * Reorder the registry. `orderedIds` may cover a subset (e.g. only the live
+ * habits the user just dragged); the listed ids are rearranged among the
+ * positions they already occupy, so everything else keeps its place.
+ */
+export function configWithOrder(orderedIds: string[]): HabitConfig | null {
+  const inScope = new Set(orderedIds)
+  const queue = orderedIds
+    .map((id) => current.habits.find((h) => h.id === id))
+    .filter((h): h is Habit => Boolean(h))
+  if (queue.length === 0) return null
+  let next = 0
+  const habits = current.habits.map((h) => (inScope.has(h.id) ? queue[next++] : h))
   if (sameHabits(habits, current.habits)) return null
-  return { habits, at: new Date().toISOString(), source: 'app' }
+  return stamp(habits)
 }
 
 /**
@@ -221,36 +251,9 @@ export function configWithTier(habitId: string, tier: Tier): HabitConfig | null 
  * a local edit is always the newest intent on this device.
  */
 export function commitConfig(cfg: HabitConfig): HabitConfig {
-  const next = { ...cfg, habits: normalize(cfg.habits) }
-  current = next
-  try {
-    localStorage.setItem(CFG_KEY, JSON.stringify(next))
-  } catch {
-    /* quota — state still lives in the ledger */
-  }
+  const deleted = [...new Set(cfg.deleted ?? current.deleted)]
+  current = { ...cfg, deleted, habits: normalize(cfg.habits, deleted) }
+  persist()
   listeners.forEach((l) => l())
-  return next
+  return current
 }
-
-/**
- * Save the daily checklist after a manager edit (reorder / rename / retier).
- * `liveList` is only the habits that stay on the checklist: registry entries it
- * omits are archived rather than dropped, and already-archived ones are carried
- * through untouched so the library never shrinks behind the user's back.
- */
-export function saveHabits(liveList: Habit[], today: string = dateISO()): HabitConfig {
-  const edited = new Map(liveList.map((h) => [h.id, h]))
-  const habits: Habit[] = liveList.map((h) => {
-    const old = current.habits.find((x) => x.id === h.id)
-    // Keep the registry's spans — the manager edits labels and order, not history.
-    if (old) return { ...h, spans: activateOn(old, today).spans }
-    // Unknown id (a habit added straight from the manager) starts today.
-    return { ...h, spans: h.spans?.length ? h.spans : [{ from: today, to: null }] }
-  })
-  for (const h of current.habits) {
-    if (edited.has(h.id)) continue
-    habits.push(isLive(h) ? archiveOn(h, today) : h)
-  }
-  return commitConfig({ habits, at: new Date().toISOString(), source: 'app' })
-}
-

@@ -6,13 +6,13 @@
 // Boot sequence: fetch all events → fold into local state → re-apply the offline
 // outbox → flush outbox → subscribe realtime (own-device events are skipped).
 // First boot against an empty table seeds it from existing localStorage history.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { dateISO, type Ticks } from './store'
-import type { HealthMap, MetricsMap, Spend, Stores, WorkoutMap } from './ledger'
-import type { SkillState, SkillStatus } from '../config/skills'
+import type { HealthMap, MetricsMap, Stores, WorkoutMap } from './ledger'
 import type { Habit } from '../config/habits'
 import { applyConfig, getConfig } from './habitConfig'
+import { adoptSnapshot, frozenSnapshots, type MonthSnapshot } from './monthSnapshot'
 import { parseSummary } from './workout'
 import { supabase } from './supabase'
 
@@ -25,9 +25,8 @@ export type EventType =
   | 'health'
   | 'workout'
   | 'workout_clear'
-  | 'spend'
-  | 'skill'
   | 'config'
+  | 'month'
 
 export interface LifeEvent {
   device: string
@@ -42,14 +41,10 @@ export interface CloudSetters {
   setMetrics: Dispatch<SetStateAction<MetricsMap>>
   setHealth: Dispatch<SetStateAction<HealthMap>>
   setWorkouts: Dispatch<SetStateAction<WorkoutMap>>
-  setSpends: Dispatch<SetStateAction<Spend[]>>
-  setSkills: Dispatch<SetStateAction<SkillState>>
 }
 
 export interface CloudSnapshot {
   stores: Stores
-  spends: Spend[]
-  skills: SkillState
 }
 
 const DEVICE_KEY = 'lifeos.device.v1'
@@ -121,25 +116,21 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
         return next
       })
       break
-    case 'spend':
-      s.setSpends((prev) =>
-        prev.some((sp) => sp.id === p.id)
-          ? prev
-          : [
-              ...prev,
-              { id: String(p.id), at: String(p.at), hours: Number(p.hours), xp: Number(p.xp) },
-            ],
-      )
-      break
-    case 'skill':
-      s.setSkills((prev) => ({ ...prev, [String(p.skillId)]: String(p.status) as SkillStatus }))
-      break
     case 'config':
       // Habit config lives in its own external store, not React state — LWW by `at`
       try {
         const habits = JSON.parse(String(p.habits)) as Habit[]
-        if (Array.isArray(habits) && habits.length > 0)
-          applyConfig({ habits, at: ev.at, source: 'cloud' })
+        const deleted = p.deleted ? (JSON.parse(String(p.deleted)) as string[]) : []
+        if (Array.isArray(habits))
+          applyConfig({ habits, deleted, at: ev.at, source: 'cloud' })
+      } catch {
+        /* malformed payload — ignore */
+      }
+      break
+    case 'month':
+      // A sealed month from any device. First seal wins, so this is idempotent.
+      try {
+        adoptSnapshot(JSON.parse(String(p.snapshot)) as MonthSnapshot)
       } catch {
         /* malformed payload — ignore */
       }
@@ -172,22 +163,13 @@ function seedEvents(snap: CloudSnapshot, device: string): LifeEvent[] {
         ...(w.session ? { session: JSON.stringify(w.session) } : {}),
       },
     })
-  for (const sp of snap.spends)
+  for (const m of frozenSnapshots())
     out.push({
       device,
-      at: sp.at,
-      day: sp.at.slice(0, 10),
-      type: 'spend',
-      payload: { id: sp.id, at: sp.at, hours: sp.hours, xp: sp.xp },
-    })
-  const today = dateISO()
-  for (const [skillId, status] of Object.entries(snap.skills))
-    out.push({
-      device,
-      at: new Date().toISOString(),
-      day: today,
-      type: 'skill',
-      payload: { skillId, status },
+      at: m.frozenAt as string,
+      day: `${m.ym}-01`,
+      type: 'month',
+      payload: { ym: m.ym, snapshot: JSON.stringify(m) },
     })
   const cfg = getConfig()
   if (cfg.source !== 'default')
@@ -196,7 +178,7 @@ function seedEvents(snap: CloudSnapshot, device: string): LifeEvent[] {
       at: cfg.at,
       day: cfg.at.slice(0, 10),
       type: 'config',
-      payload: { habits: JSON.stringify(cfg.habits) },
+      payload: { habits: JSON.stringify(cfg.habits), deleted: JSON.stringify(cfg.deleted) },
     })
   return out
 }
@@ -321,5 +303,9 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
     }
   }, [flush])
 
-  return { status, pending, emit, emitField }
+  // Stable identity: callers put `cloud` in effect deps.
+  return useMemo(
+    () => ({ status, pending, emit, emitField }),
+    [status, pending, emit, emitField],
+  )
 }

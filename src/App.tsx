@@ -1,36 +1,35 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { dateISO, loadTicks, saveTicks, type Ticks } from './lib/store'
 import {
   loadHealth,
   loadMetrics,
-  loadSpends,
   loadWorkouts,
   saveHealth,
   saveMetrics,
-  saveSpends,
   saveWorkouts,
   type HealthMap,
   type MetricsMap,
-  type Spend,
   type Stores,
   type WorkoutMap,
 } from './lib/ledger'
-import { loadSkills, saveSkills, type SkillState } from './config/skills'
-import { isLive, type Habit, type Tier } from './config/habits'
+import { habitIdFor, isLive, type Habit, type Tier } from './config/habits'
 import {
   commitConfig,
+  configWithEdit,
   configWithLive,
   configWithNewHabit,
-  configWithTier,
+  configWithOrder,
   configWithoutHabit,
-  saveHabits,
+  configWithoutHabits,
+  getConfig,
   useHabits,
+  type HabitConfig,
 } from './lib/habitConfig'
+import { ensureMonths } from './lib/monthSnapshot'
 import { useCloudSync } from './lib/cloudSync'
 import { TabBar, type Tab } from './components/TabBar'
-import { HabitsScreen } from './screens/HabitsScreen'
-import { LibraryScreen } from './screens/LibraryScreen'
+import { HabitsScreen, type HabitActions } from './screens/HabitsScreen'
 import { MonthView } from './components/MonthView'
 
 export default function App() {
@@ -39,19 +38,17 @@ export default function App() {
   const [metrics, setMetrics] = useState<MetricsMap>(() => loadMetrics())
   const [health, setHealth] = useState<HealthMap>(() => loadHealth())
   const [workouts, setWorkouts] = useState<WorkoutMap>(() => loadWorkouts())
-  const [spends, setSpends] = useState<Spend[]>(() => loadSpends())
-  const [skills, setSkills] = useState<SkillState>(() => loadSkills())
   const today = dateISO()
-  // `habits` is the whole library; the daily checklist is the live slice of it.
+  // `habits` is the whole library, in one canonical order; the checklist is its
+  // live slice and the shelf is the rest — same order, two sections.
   const habits = useHabits()
-  const liveHabits = useMemo(() => habits.filter(isLive), [habits])
+  const live = useMemo(() => habits.filter(isLive), [habits])
+  const shelf = useMemo(() => habits.filter((h) => !isLive(h)), [habits])
 
   useEffect(() => saveTicks(ticks), [ticks])
   useEffect(() => saveMetrics(metrics), [metrics])
   useEffect(() => saveHealth(health), [health])
   useEffect(() => saveWorkouts(workouts), [workouts])
-  useEffect(() => saveSpends(spends), [spends])
-  useEffect(() => saveSkills(skills), [skills])
 
   const stores = useMemo<Stores>(
     () => ({ ticks, metrics, health, workouts }),
@@ -59,10 +56,42 @@ export default function App() {
   )
 
   // Phone↔PC sync via Supabase event ledger
-  const cloud = useCloudSync(
-    { stores, spends, skills },
-    { setTicks, setMetrics, setHealth, setWorkouts, setSpends, setSkills },
+  const cloud = useCloudSync({ stores }, { setTicks, setMetrics, setHealth, setWorkouts })
+
+  // Keep the running month's draft current and seal every month behind it.
+  // Runs after each change so the draft is always one boot away from being the
+  // sealed record — that is what lets habits be deleted without losing history.
+  //
+  // Held back until the ledger has finished replaying: a fresh device that
+  // sealed first would stamp empty months over real history. (An earlier seal
+  // from a peer still wins on merge, but not sealing garbage is cheaper.)
+  useEffect(() => {
+    if (cloud.status === 'connecting') return
+    for (const snap of ensureMonths(habits, ticks, today))
+      cloud.emit('month', { ym: snap.ym, snapshot: JSON.stringify(snap) }, `${snap.ym}-01`)
+  }, [habits, ticks, today, cloud])
+
+  // A drag fires onReorder on every frame it crosses a neighbour. Committing
+  // locally each time is what makes the rows shove each other around; the cloud
+  // only needs where they landed, so that half is coalesced.
+  const emitTimer = useRef<number | undefined>(undefined)
+  const emitConfig = useCallback(
+    (cfg: HabitConfig) =>
+      cloud.emit('config', {
+        habits: JSON.stringify(cfg.habits),
+        deleted: JSON.stringify(cfg.deleted),
+      }),
+    [cloud],
   )
+  useEffect(() => () => window.clearTimeout(emitTimer.current), [])
+
+  const pushConfig = (cfg: HabitConfig | null, coalesce = false) => {
+    if (!cfg) return
+    const next = commitConfig(cfg)
+    window.clearTimeout(emitTimer.current)
+    if (!coalesce) return emitConfig(next)
+    emitTimer.current = window.setTimeout(() => emitConfig(getConfig()), 500)
+  }
 
   const toggle = (habitId: string) => {
     const wasTicked = Boolean(ticks[today]?.[habitId])
@@ -77,37 +106,24 @@ export default function App() {
     else cloud.emit('tick', { habitId, at })
   }
 
-  const cycleTier = (habitId: string) => {
-    const order: Tier[] = ['core', 'standard', 'basic']
-    const h = habits.find((x) => x.id === habitId)
-    if (!h) return
-    const next = order[(order.indexOf(h.tier) + 1) % order.length]
-    const cfg = configWithTier(habitId, next)
-    if (cfg) cloud.emit('config', { habits: JSON.stringify(commitConfig(cfg).habits) })
-  }
-
-  const handleSaveHabits = (newHabits: Habit[]) => {
-    const cfg = saveHabits(newHabits, today)
-    cloud.emit('config', { habits: JSON.stringify(cfg.habits) })
-  }
-
-  /** Library tap: put a habit on today's checklist, or take it off. */
-  const toggleLive = (habitId: string) => {
-    const h = habits.find((x) => x.id === habitId)
-    if (!h) return
-    const cfg = configWithLive(habitId, !isLive(h), today)
-    if (cfg) cloud.emit('config', { habits: JSON.stringify(commitConfig(cfg).habits) })
-  }
-
-  const addHabit = (habit: Omit<Habit, 'spans'>) => {
-    const cfg = configWithNewHabit(habit, today)
-    if (cfg) cloud.emit('config', { habits: JSON.stringify(commitConfig(cfg).habits) })
-  }
-
-  /** Permanent erase — the Library only offers it for habits with no ticks. */
-  const purgeHabit = (habitId: string) => {
-    const cfg = configWithoutHabit(habitId)
-    if (cfg) cloud.emit('config', { habits: JSON.stringify(commitConfig(cfg).habits) })
+  const actions: HabitActions = {
+    onToggle: toggle,
+    onToggleLive: (habitId, isOn) => pushConfig(configWithLive(habitId, isOn, today)),
+    onEdit: (habitId, patch) => pushConfig(configWithEdit(habitId, patch)),
+    onDelete: (habitId) => pushConfig(configWithoutHabit(habitId)),
+    onDeleteMany: (ids) => pushConfig(configWithoutHabits(ids)),
+    onReorder: (orderedIds) => pushConfig(configWithOrder(orderedIds), true),
+    onAdd: ({ name, emoji, tier }: { name: string; emoji: string; tier: Tier }) => {
+      const clash = habits.find((h) => h.name.toLowerCase() === name.toLowerCase())
+      if (clash) return `"${clash.name}" is already in the library.`
+      const id = habitIdFor(
+        name,
+        habits.map((h) => h.id),
+      )
+      const habit: Omit<Habit, 'spans'> = { id, name, emoji, tier }
+      pushConfig(configWithNewHabit(habit, today))
+      return null
+    },
   }
 
   const dateLabel = new Date().toLocaleDateString('en-IN', {
@@ -126,7 +142,7 @@ export default function App() {
     >
       <header className="mb-6 flex items-baseline justify-between border-b-4 border-black pb-2">
         <h1 className="font-display text-xl font-bold uppercase tracking-widest text-black">
-          LifeOS<span className="text-neo-blue ml-1.5">// TRACKER</span>
+          LifeOS<span className="ml-1.5 text-neo-blue">// TRACKER</span>
         </h1>
         <span className="num text-sm font-bold text-black">{dateLabel}</span>
       </header>
@@ -139,29 +155,20 @@ export default function App() {
       >
         {tab === 'daily' && (
           <HabitsScreen
-            habits={liveHabits}
+            habits={habits}
+            live={live}
+            shelf={shelf}
             ticks={ticks}
             today={today}
             stores={stores}
-            onToggle={toggle}
-            onCycleTier={cycleTier}
-            onSaveHabits={handleSaveHabits}
-          />
-        )}
-        {tab === 'library' && (
-          <LibraryScreen
-            habits={habits}
-            ticks={ticks}
-            onToggleLive={toggleLive}
-            onAdd={addHabit}
-            onPurge={purgeHabit}
+            actions={actions}
           />
         )}
         {tab === 'monthly' && <MonthView habits={habits} ticks={ticks} today={today} />}
       </motion.main>
 
-      <footer className="hud-label mt-8 text-center !text-[10px] !text-neo-gray-dark border-none">
-        v2.0 · cloud sync habit tracker ·{' '}
+      <footer className="hud-label mt-8 border-none text-center !text-[10px] !text-neo-gray-dark">
+        v2.1 · habit tracker ·{' '}
         {cloud.status === 'live' && '☁️ cloud sync live'}
         {cloud.status === 'connecting' && '☁️ connecting…'}
         {cloud.status === 'error' && '☁️ sync error'}
@@ -173,4 +180,3 @@ export default function App() {
     </div>
   )
 }
-
