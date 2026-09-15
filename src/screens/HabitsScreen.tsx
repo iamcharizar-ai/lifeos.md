@@ -605,7 +605,7 @@ export function HabitsScreen({
                 <p className="flex-1 text-[11px] font-bold leading-relaxed text-neo-gray-dark">
                   {picking
                     ? 'Pick the ones to erase. Sealed months keep showing them; this month will not.'
-                    : 'Off the checklist, still in the library. Tap one to put it back on today, drag to reorder, ⋯ to rename or delete it.'}
+                    : 'Off the checklist, and off this month’s graph until you put one back. Tap one to return it to today, drag to reorder, ⋯ to rename or delete it.'}
                 </p>
                 {picking ? (
                   <div className="flex gap-2">

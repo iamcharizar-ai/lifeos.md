@@ -4,13 +4,16 @@
 // as they stood when the month closed. Nothing you do afterwards touches it,
 // which is the whole point: delete habits freely, the past stays put.
 //
-// The running month has no seal yet, so it is derived live from the registry
-// and today's ticks. That month is still yours to change.
+// The running month has no seal yet, so it is derived live from the checklist
+// and today's ticks. Its roster is whatever is switched on in the Daily tab
+// right now — take a habit off the checklist and it leaves this month's graph
+// and matrix immediately; put it back and it returns. That month is still
+// yours to change, right up until it seals.
 import { useMemo, useState } from 'react'
 import type { Habit } from '../config/habits'
 import type { Ticks } from '../lib/store'
 import {
-  buildMonth,
+  buildDraft,
   dayIso,
   daysInMonth,
   frozenSnapshot,
@@ -56,7 +59,7 @@ export function MonthView({
   const snap: MonthSnapshot = useMemo(
     () =>
       when === 'current'
-        ? buildMonth(ym, habits, ticks)
+        ? buildDraft(ym, habits, ticks)
         : (sealed ?? { ym, frozenAt: null, habits: [], cells: {} }),
     [when, sealed, ym, habits, ticks],
   )
@@ -149,7 +152,7 @@ export function MonthView({
         }`}
       >
         {when === 'current'
-          ? '✏️ Running month. It follows your library live, and seals itself the day the month turns over.'
+          ? '✏️ Running month. It shows exactly the habits on your checklist right now, and seals itself the day the month turns over.'
           : when === 'ahead'
             ? '📆 Hasn’t happened yet.'
             : sealed

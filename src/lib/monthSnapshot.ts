@@ -14,7 +14,7 @@
 // Day codes: '1' done · '0' was on the checklist, not ticked · '-' wasn't a
 // habit then. Future-ness is not encoded — the view derives it from today.
 import { useSyncExternalStore } from 'react'
-import { isActiveOn, type Habit, type Tier } from '../config/habits'
+import { isActiveOn, isLive, type Habit, type Tier } from '../config/habits'
 import type { Ticks } from './store'
 
 export type CellCode = '1' | '0' | '-'
@@ -111,6 +111,9 @@ const trim = (h: Habit): SnapHabit => ({ id: h.id, name: h.name, emoji: h.emoji,
  * Derive a month from live state. The roster is every habit that was on the
  * checklist at any point that month, plus anything ticked in it — a habit you
  * switched off on the 20th still deserves its first nineteen days.
+ *
+ * This is the *historical* rule, used only to rebuild a past month that never
+ * got a draft. The running month uses buildDraft() instead.
  */
 export function buildMonth(ym: string, habits: Habit[], ticks: Ticks): MonthSnapshot {
   const n = daysInMonth(ym)
@@ -134,6 +137,21 @@ export function buildMonth(ym: string, habits: Habit[], ticks: Ticks): MonthSnap
     cells[h.id] = row
   }
   return { ym, frozenAt: null, habits: roster, cells }
+}
+
+/**
+ * The running month's roster is exactly the checklist as it stands right now.
+ * Switch a habit off on the Daily tab and its row leaves this month — ticks and
+ * all; switch it back on and the row returns with those ticks intact, because
+ * nothing was ever deleted, only filtered. Per-day codes still honour spans, so
+ * a habit added on the 20th shows grey for the first nineteen days rather than
+ * nineteen misses.
+ *
+ * Past months are unaffected: they are sealed, and a seal is written from the
+ * draft that was standing when the month turned over.
+ */
+export function buildDraft(ym: string, habits: Habit[], ticks: Ticks): MonthSnapshot {
+  return buildMonth(ym, habits.filter(isLive), ticks)
 }
 
 /**
@@ -189,7 +207,7 @@ export function ensureMonths(habits: Habit[], ticks: Ticks, today: string): Mont
     dirty = true
   }
 
-  const draft = buildMonth(nowYm, habits, ticks)
+  const draft = buildDraft(nowYm, habits, ticks)
   const prev = store[nowYm]
   if (!prev?.frozenAt && JSON.stringify(prev) !== JSON.stringify(draft)) {
     store[nowYm] = draft
