@@ -34,6 +34,8 @@ export interface LifeEvent {
   day: string // YYYY-MM-DD the event applies to
   type: EventType
   payload: Record<string, string | number>
+  /** server clock; set on rows read back from Supabase — the catch-up cursor */
+  inserted_at?: string
 }
 
 export interface CloudSetters {
@@ -46,6 +48,33 @@ export interface CloudSetters {
 export interface CloudSnapshot {
   stores: Stores
 }
+
+// PostgREST returns at most 1000 rows per request, silently. The ledger passed
+// that, and a plain select then dropped the *newest* events — ticks made on the
+// phone never reached a freshly opened desktop. Always page.
+const PAGE = 1000
+const COLS = 'device, at, day, type, payload, inserted_at'
+
+async function fetchEvents(
+  sb: NonNullable<typeof supabase>,
+  since?: string,
+): Promise<LifeEvent[] | null> {
+  const out: LifeEvent[] = []
+  for (let from = 0; ; from += PAGE) {
+    let q = sb.from('events').select(COLS)
+    if (since) q = q.gt('inserted_at', since)
+    const { data, error } = await q
+      .order(since ? 'inserted_at' : 'at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) return null
+    out.push(...(data as LifeEvent[]))
+    if (data.length < PAGE) break
+  }
+  return out
+}
+
+const byAt = (a: LifeEvent, b: LifeEvent) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)
 
 const DEVICE_KEY = 'lifeos.device.v1'
 const OUTBOX_KEY = 'lifeos.outbox.v1'
@@ -200,6 +229,9 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
   const snapRef = useRef(snapshot)
   snapRef.current = snapshot
   const fieldTimers = useRef<Record<string, number>>({})
+  /** newest server-side insert time folded so far */
+  const cursor = useRef<string>('')
+  const booted = useRef(false)
 
   const flush = useCallback(async () => {
     if (!supabase) return
@@ -256,29 +288,46 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
     let cancelled = false
 
     const boot = async () => {
-      const { data, error } = await sb
-        .from('events')
-        .select('device, at, day, type, payload')
-        .order('at', { ascending: true })
+      const data = await fetchEvents(sb)
       if (cancelled) return
-      if (error) {
+      if (!data) {
         setStatus('error')
         return
       }
+      for (const ev of data) if (ev.inserted_at && ev.inserted_at > cursor.current) cursor.current = ev.inserted_at
       if (data.length === 0) {
         // Empty ledger + existing local history → seed it (chunked inserts)
         const seeds = seedEvents(snapRef.current, device.current)
         for (let i = 0; i < seeds.length; i += 200)
           await sb.from('events').insert(seeds.slice(i, i + 200))
       } else {
-        for (const ev of data as LifeEvent[]) applyEvent(ev, settersRef.current)
+        for (const ev of data) applyEvent(ev, settersRef.current)
         // Offline edits made on this device win over folded history
         for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
       }
       await flush()
+      booted.current = true
       if (!cancelled) setStatus('live')
     }
     void boot()
+
+    // Pull anything other devices wrote while this tab was asleep, offline or
+    // between realtime reconnects. Cheap: only rows newer than the cursor.
+    let catching = false
+    const catchUp = async () => {
+      if (!booted.current || catching || document.visibilityState === 'hidden') return
+      catching = true
+      try {
+        const fresh = await fetchEvents(sb, cursor.current || undefined)
+        if (cancelled || !fresh) return
+        for (const ev of fresh) if (ev.inserted_at && ev.inserted_at > cursor.current) cursor.current = ev.inserted_at
+        for (const ev of fresh.filter((e) => e.device !== device.current).sort(byAt))
+          applyEvent(ev, settersRef.current)
+        for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
+      } finally {
+        catching = false
+      }
+    }
 
     const channel = sb
       .channel('events-feed')
@@ -287,18 +336,32 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
         { event: 'INSERT', schema: 'public', table: 'events' },
         (msg) => {
           const ev = msg.new as LifeEvent
+          if (ev.inserted_at && ev.inserted_at > cursor.current) cursor.current = ev.inserted_at
           if (ev.device !== device.current) applyEvent(ev, settersRef.current)
         },
       )
       .subscribe((s) => {
         if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') setStatus('error')
+        if (s === 'SUBSCRIBED') void catchUp() // covers the gap while the socket was down
       })
 
-    const onOnline = () => void flush()
+    const onOnline = () => {
+      void flush()
+      void catchUp()
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void catchUp()
+    }
     window.addEventListener('online', onOnline)
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    const poll = window.setInterval(() => void catchUp(), 45_000) // safety net if realtime drops silently
     return () => {
       cancelled = true
+      window.clearInterval(poll)
       window.removeEventListener('online', onOnline)
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
       void sb.removeChannel(channel)
     }
   }, [flush])
