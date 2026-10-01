@@ -15,6 +15,7 @@ import { applyConfig, getConfig } from './habitConfig'
 import { adoptSnapshot, frozenSnapshots, type MonthSnapshot } from './monthSnapshot'
 import { parseSummary } from './workout'
 import { supabase } from './supabase'
+import { GYM_HABIT, applyArborEvents, markStrongLinked } from './arborLink'
 
 export type CloudStatus = 'off' | 'connecting' | 'live' | 'error'
 
@@ -27,13 +28,16 @@ export type EventType =
   | 'workout_clear'
   | 'config'
   | 'month'
+  // written by Arbor / Strong / the Arbor block here; folded by lib/arborLink
+  | 'skill'
+  | 'plan'
 
 export interface LifeEvent {
   device: string
   at: string // ISO timestamp
   day: string // YYYY-MM-DD the event applies to
   type: EventType
-  payload: Record<string, string | number>
+  payload: Record<string, string | number | boolean | null>
   /** server clock; set on rows read back from Supabase — the catch-up cursor */
   inserted_at?: string
 }
@@ -136,6 +140,11 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
         ...prev,
         [ev.day]: { type: String(p.type), at: String(p.at), ...(session ? { session } : {}) },
       }))
+      if (typeof p.gear === 'string') markStrongLinked() // this came from the new Strong: the link is live
+      // Strong finishing a session is what ticks Gym — once linked, it cannot be ticked by hand.
+      s.setTicks((prev) =>
+        prev[ev.day]?.[GYM_HABIT] ? prev : { ...prev, [ev.day]: { ...(prev[ev.day] ?? {}), [GYM_HABIT]: String(p.at ?? ev.at) } },
+      )
       break
     }
     case 'workout_clear':
@@ -144,6 +153,16 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
         delete next[ev.day]
         return next
       })
+      s.setTicks((prev) => {
+        if (!prev[ev.day]?.[GYM_HABIT]) return prev
+        const day = { ...prev[ev.day] }
+        delete day[GYM_HABIT]
+        return { ...prev, [ev.day]: day }
+      })
+      break
+    case 'skill':
+    case 'plan':
+      applyArborEvents([ev])
       break
     case 'config':
       // Habit config lives in its own external store, not React state — LWW by `at`
@@ -301,7 +320,8 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
         for (let i = 0; i < seeds.length; i += 200)
           await sb.from('events').insert(seeds.slice(i, i + 200))
       } else {
-        for (const ev of data) applyEvent(ev, settersRef.current)
+        applyArborEvents(data.filter((e) => e.type === 'skill' || e.type === 'plan'))
+        for (const ev of data) if (ev.type !== 'skill' && ev.type !== 'plan') applyEvent(ev, settersRef.current)
         // Offline edits made on this device win over folded history
         for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
       }

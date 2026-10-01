@@ -17,6 +17,7 @@ import { habitIdFor, isLive, type Habit, type Tier } from './config/habits'
 import {
   commitConfig,
   configWithEdit,
+  configWithLinkedHabit,
   configWithLive,
   configWithNewHabit,
   configWithOrder,
@@ -31,6 +32,9 @@ import { useCloudSync } from './lib/cloudSync'
 import { TabBar, type Tab } from './components/TabBar'
 import { HabitsScreen, type HabitActions } from './screens/HabitsScreen'
 import { MonthView } from './components/MonthView'
+import { ARBOR_HABIT, applyArborEvents, isLocked, planToday, useArbor } from './lib/arborLink'
+import { practicedOn } from './arbor-core/model.ts'
+import { SKILL_BY_ID } from './arbor-core/skills.ts'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('daily')
@@ -93,7 +97,70 @@ export default function App() {
     emitTimer.current = window.setTimeout(() => emitConfig(getConfig()), 500)
   }
 
+  // ── linked habits (Arbor block, Strong-fed Gym) ──
+  const arbor = useArbor()
+  const { plan, frozen } = useMemo(() => planToday(arbor, today), [arbor, today])
+  // True once the ledger has replayed successfully (or there is no ledger). It
+  // stays true if realtime later drops: everything gated on it only needs the
+  // history to have been folded once, and must never act on a half-loaded state.
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    if (cloud.status === 'live' || cloud.status === 'off') setSettled(true)
+  }, [cloud.status])
+
+  /** Apply one of our own Arbor events locally, then send it to the ledger. */
+  const emitArbor = useCallback(
+    (type: 'skill' | 'plan', payload: Record<string, string | number | boolean | null>) => {
+      applyArborEvents([{ device: 'local', at: new Date().toISOString(), day: today, type, payload }])
+      cloud.emit(type, payload, today)
+    },
+    [cloud, today],
+  )
+
+  // Freeze today's plan once we know no other device already did, so the phone,
+  // the desktop and Strong all show the same skills all day.
+  useEffect(() => {
+    if (!settled || frozen || plan.morning.length + plan.gym.length === 0) return
+    emitArbor('plan', { morning: JSON.stringify(plan.morning), gym: JSON.stringify(plan.gym) })
+  }, [settled, frozen, plan, emitArbor])
+
+  // Introduce the Arbor block once (second row; drag it wherever it belongs).
+  useEffect(() => {
+    if (!settled) return
+    const cfg = configWithLinkedHabit({ id: ARBOR_HABIT, name: 'Arbor skills', emoji: '🌳', tier: 'core' }, 1, today)
+    if (cfg) emitConfig(commitConfig(cfg))
+  }, [settled, today, emitConfig])
+
+  // The Arbor habit ticks itself when every planned skill is practised.
+  useEffect(() => {
+    if (!settled || plan.morning.length === 0) return
+    const all = plan.morning.every((id) => practicedOn(arbor, today, id))
+    const ticked = Boolean(ticks[today]?.[ARBOR_HABIT])
+    if (all === ticked) return
+    const at = new Date().toISOString()
+    setTicks((prev) => {
+      const day = { ...(prev[today] ?? {}) }
+      if (all) day[ARBOR_HABIT] = at
+      else delete day[ARBOR_HABIT]
+      return { ...prev, [today]: day }
+    })
+    if (all) cloud.emit('tick', { habitId: ARBOR_HABIT, at })
+    else cloud.emit('untick', { habitId: ARBOR_HABIT })
+  }, [settled, plan, arbor, ticks, today, cloud])
+
+  const onSkill = (skillId: string, done: boolean, value?: number) => {
+    const skill = SKILL_BY_ID.get(skillId)
+    if (!skill) return
+    const payload: Record<string, string | number | boolean | null> = { skillId, done }
+    if (done && typeof value === 'number' && Number.isFinite(value)) {
+      payload.value = value
+      payload.kind = skill.unit ? 'cur' : 'lvl'
+    }
+    emitArbor('skill', payload)
+  }
+
   const toggle = (habitId: string) => {
+    if (isLocked(habitId)) return // fed by Strong / Arbor — not ticked by hand
     const wasTicked = Boolean(ticks[today]?.[habitId])
     const at = new Date().toISOString()
     setTicks((prev) => {
@@ -162,6 +229,7 @@ export default function App() {
             today={today}
             stores={stores}
             actions={actions}
+            linked={{ workout: workouts[today], arbor, plan, onSkill }}
           />
         )}
         {tab === 'monthly' && <MonthView habits={habits} ticks={ticks} today={today} />}

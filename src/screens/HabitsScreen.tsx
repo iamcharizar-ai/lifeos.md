@@ -13,6 +13,9 @@ import { habitXp, DAILY_CAP } from '../lib/xp'
 import { streakFor, type Ticks } from '../lib/store'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { ProgressRing } from '../components/ProgressRing'
+import { ArborHead, ArborSkills, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { linkOf, useStrongLinked } from '../lib/arborLink'
+import { practicedOn } from '../arbor-core/model.ts'
 
 export interface HabitActions {
   onToggle: (habitId: string) => void
@@ -196,6 +199,7 @@ function ChecklistRow({
   onNudge,
   tickCount,
   actions,
+  linked,
 }: {
   habit: Habit
   ticks: Ticks
@@ -205,11 +209,19 @@ function ChecklistRow({
   onNudge: (dir: -1 | 1) => void
   tickCount: number
   actions: HabitActions
+  linked: LinkedCtx
 }) {
   const controls = useDragControls()
   const ticked = Boolean(ticks[today]?.[habit.id])
   const streak = streakFor(ticks, habit.id, today)
   const xp = habitXp(habit.tier, ticked ? streak : streak + 1)
+  // Linked habits are fed by Strong / Arbor and wear that app's look.
+  const link = linkOf(habit.id)
+  const strongLinked = useStrongLinked()
+  const planned = linked.plan.morning
+  const practised = planned.filter((id) => practicedOn(linked.arbor, today, id)).length
+  const [skillsOpen, setSkillsOpen] = useState<boolean | null>(null)
+  const showSkills = link === 'arbor' && planned.length > 0 && (skillsOpen ?? !ticked)
 
   return (
     <Reorder.Item
@@ -226,7 +238,7 @@ function ChecklistRow({
     >
       <div
         className={`neo-button flex w-full items-center gap-1 py-1 pl-1 pr-3 text-left ${
-          ticked ? 'neo-card-green' : 'bg-neo-white'
+          link ? `tile-${link} ${ticked ? 'is-done' : ''}` : ticked ? 'neo-card-green' : 'bg-neo-white'
         } ${open ? 'mb-0' : ''}`}
       >
         <Grip
@@ -237,6 +249,27 @@ function ChecklistRow({
             controls.start(e)
           }}
         />
+        {link === 'strong' ? (
+          <StrongTile
+            name={habit.name}
+            xp={xp}
+            ticked={ticked}
+            today={today}
+            workout={linked.workout}
+            locked={strongLinked}
+            onToggle={() => actions.onToggle(habit.id)}
+          />
+        ) : link === 'arbor' ? (
+          <ArborHead
+            name={habit.name}
+            xp={xp}
+            ticked={ticked}
+            done={practised}
+            total={planned.length}
+            open={showSkills}
+            onToggle={() => setSkillsOpen(!showSkills)}
+          />
+        ) : (
         <div
           role="button"
           tabIndex={0}
@@ -274,6 +307,7 @@ function ChecklistRow({
             {ticked ? `+${xp}` : xp}
           </span>
         </div>
+        )}
         <button
           onClick={() => onOpen(open ? null : habit.id)}
           aria-label={`Edit ${habit.name}`}
@@ -283,6 +317,7 @@ function ChecklistRow({
           {open ? '✕' : '⋯'}
         </button>
       </div>
+      {showSkills && <ArborSkills ctx={linked} today={today} />}
       {open && (
         <RowEditor
           habit={habit}
@@ -476,6 +511,7 @@ export function HabitsScreen({
   today,
   stores,
   actions,
+  linked,
 }: {
   /** whole registry, in order */
   habits: Habit[]
@@ -485,6 +521,7 @@ export function HabitsScreen({
   today: string
   stores: Stores
   actions: HabitActions
+  linked: LinkedCtx
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [shelfOpen, setShelfOpen] = useState(false)
@@ -580,6 +617,7 @@ export function HabitsScreen({
               onOpen={setOpenId}
               tickCount={tickCounts[h.id] ?? 0}
               actions={actions}
+              linked={linked}
             />
           ))}
         </Reorder.Group>

@@ -23,6 +23,15 @@ The moment a month is behind you, the app writes it down for good — the habits
 
 Deleted habits are remembered as deleted, so a phone and a PC that disagree can never resurrect one.
 
+## Linked habits (Arbor and Strong)
+
+Two habits are fed by other apps through the same event ledger and wear those apps' looks:
+
+- **Gym** is ticked by Strong. Finishing a workout there writes a `workout` event; Life OS ticks Gym from it. Once the first workout has come through, Gym can no longer be ticked by hand (until then it still can, so you are never locked out).
+- **Arbor skills** opens into the calisthenics skills the Arbor coach picked for this morning. Tick each one here; type a number first to log a new best. Every tick is a `skill` event that Arbor reads, and the habit ticks itself when all of them are done. The day's plan is published once (a `plan` event) so the phone, the desktop and Strong all show the same thing.
+
+`src/arbor-core/` is copied from the Arbor repo (`npm run core` there): the skill tree, the coach and the pixel figures. Do not edit it here.
+
 ## How your data is handled
 
 - **Instant, offline-first**: everything you tick or type is saved straight to your device immediately - no waiting on a server.

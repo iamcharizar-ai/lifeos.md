@@ -247,6 +247,22 @@ export function configWithOrder(orderedIds: string[]): HabitConfig | null {
 }
 
 /**
+ * Config with a linked habit inserted at `index`, live from `today`. Null when
+ * it already exists or was deliberately deleted (tombstoned) — a one-time
+ * introduction must never resurrect something the user threw away.
+ */
+export function configWithLinkedHabit(
+  habit: Omit<Habit, 'spans'>,
+  index: number,
+  today: string = dateISO(),
+): HabitConfig | null {
+  if (current.habits.some((h) => h.id === habit.id) || current.deleted.includes(habit.id)) return null
+  const habits = [...current.habits]
+  habits.splice(Math.min(index, habits.length), 0, { ...habit, spans: [{ from: today, to: null }] })
+  return stamp(habits)
+}
+
+/**
  * Commit a locally-built config. Unlike applyConfig this never loses to LWW —
  * a local edit is always the newest intent on this device.
  */
