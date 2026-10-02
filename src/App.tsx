@@ -34,6 +34,10 @@ import { HabitsScreen, type HabitActions } from './screens/HabitsScreen'
 import { MonthView } from './components/MonthView'
 import { ARBOR_HABIT, applyArborEvents, isLocked, planToday, useArbor } from './lib/arborLink'
 import { practicedOn } from './arbor-core/model.ts'
+import { GUITAR_HABIT, applyShedEvents, sessionToday, useShed } from './lib/guitarLink'
+import { tempoFor } from './woodshed-core/coach.ts'
+import { ITEM_BY_ID } from './woodshed-core/course.ts'
+import { statsOf, type Feel } from './woodshed-core/model.ts'
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
 
 export default function App() {
@@ -159,8 +163,59 @@ export default function App() {
     emitArbor('skill', payload)
   }
 
+  // ── Guitar: today's Woodshed session ──
+  const shed = useShed()
+  const { plan: session, frozen: sessionFrozen } = useMemo(() => sessionToday(shed, today), [shed, today])
+
+  /** Apply one of our own Woodshed events locally, then send it to the ledger. */
+  const emitGuitar = useCallback(
+    (type: 'guitar' | 'guitar_plan', payload: Record<string, string | number | boolean | null>) => {
+      applyShedEvents([{ device: 'local', at: new Date().toISOString(), day: today, type, payload }])
+      cloud.emit(type, payload, today)
+    },
+    [cloud, today],
+  )
+
+  // Freeze today's session once we know no other device already did, so it is
+  // the same list here and in Woodshed all day.
+  useEffect(() => {
+    if (!settled || sessionFrozen || session.length === 0) return
+    emitGuitar('guitar_plan', { items: JSON.stringify(session) })
+  }, [settled, sessionFrozen, session, emitGuitar])
+
+  // The Guitar habit ticks itself when the whole session is logged. It only
+  // un-ticks when a log was taken back, so a tick made by hand before the
+  // session existed is left alone.
+  useEffect(() => {
+    if (!settled || session.length === 0) return
+    const logs = session.map((id) => shed.logs[id]?.[today])
+    const all = logs.every((l) => l?.done)
+    const undone = logs.some((l) => l && !l.done)
+    const ticked = Boolean(ticks[today]?.[GUITAR_HABIT])
+    if (all === ticked || (!all && !undone)) return
+    const at = new Date().toISOString()
+    setTicks((prev) => {
+      const day = { ...(prev[today] ?? {}) }
+      if (all) day[GUITAR_HABIT] = at
+      else delete day[GUITAR_HABIT]
+      return { ...prev, [today]: day }
+    })
+    if (all) cloud.emit('tick', { habitId: GUITAR_HABIT, at })
+    else cloud.emit('untick', { habitId: GUITAR_HABIT })
+  }, [settled, session, shed, ticks, today, cloud])
+
+  const onGuitar = (itemId: string, feel: Feel | null) => {
+    const item = ITEM_BY_ID.get(itemId)
+    if (!item) return
+    if (feel === null) return emitGuitar('guitar', { itemId, done: false })
+    // logged from here, it is taken to have been practised at today's tempo
+    const bpm = tempoFor(item, statsOf(item, shed))
+    emitGuitar('guitar', { itemId, done: true, feel, ...(bpm ? { bpm } : {}) })
+  }
+
   const toggle = (habitId: string) => {
     if (isLocked(habitId)) return // fed by Strong / Arbor — not ticked by hand
+    if (habitId === GUITAR_HABIT && session.length > 0) return // ticks itself when the session is logged
     const wasTicked = Boolean(ticks[today]?.[habitId])
     const at = new Date().toISOString()
     setTicks((prev) => {
@@ -229,7 +284,7 @@ export default function App() {
             today={today}
             stores={stores}
             actions={actions}
-            linked={{ workout: workouts[today], arbor, plan, onSkill }}
+            linked={{ workout: workouts[today], arbor, plan, onSkill, guitar: { shed, session, onLog: onGuitar } }}
           />
         )}
         {tab === 'monthly' && <MonthView habits={habits} ticks={ticks} today={today} />}

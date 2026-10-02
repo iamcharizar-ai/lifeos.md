@@ -1,9 +1,11 @@
-// Tiles for the two habits that other apps feed (see lib/arborLink.ts). Each
-// wears its own app's look so it is obvious at a glance that it is not an
-// ordinary tick: Strong's is a yellow neo-brutalist slab with a padlock,
-// Arbor's is a dark pixel-art panel that opens into today's skills.
+// Tiles for the habits that other apps feed (see lib/arborLink.ts and
+// lib/guitarLink.ts). Each wears its own app's look so it is obvious at a
+// glance that it is not an ordinary tick: Strong's is a yellow neo-brutalist
+// slab with a padlock, Arbor's is a dark pixel-art panel that opens into
+// today's skills, Woodshed's is a painted guitar body with cream plates that
+// opens into today's practice session.
 import { useMemo, useState } from 'react'
-import { targetFor } from '../arbor-core/coach.ts'
+import { targetFor as skillTarget } from '../arbor-core/coach.ts'
 import { practicedOn, valueOf, type ArborState, type DayPlan } from '../arbor-core/model.ts'
 import { G, renderPose } from '../arbor-core/pixel/figure.js'
 import { POSES } from '../arbor-core/pixel/poses.js'
@@ -11,6 +13,10 @@ import { poseOf } from '../arbor-core/pixel/skillPoses.js'
 import { gymDayFor } from '../arbor-core/schedule.ts'
 import { SKILL_BY_ID } from '../arbor-core/skills.ts'
 import { ARBOR_URL, STRONG_URL } from '../lib/arborLink'
+import { WOODSHED_URL } from '../lib/guitarLink'
+import { analyse, targetFor } from '../woodshed-core/coach.ts'
+import { ITEMS, ITEM_BY_ID } from '../woodshed-core/course.ts'
+import { LANE_NAME, type Feel, type ShedState } from '../woodshed-core/model.ts'
 import type { DayWorkout } from '../lib/ledger'
 
 export interface LinkedCtx {
@@ -18,6 +24,13 @@ export interface LinkedCtx {
   arbor: ArborState
   plan: DayPlan
   onSkill: (skillId: string, done: boolean, value?: number) => void
+  guitar: {
+    shed: ShedState
+    /** today's session: item ids, in order */
+    session: string[]
+    /** log an item with how it felt; null takes today's log back */
+    onLog: (itemId: string, feel: Feel | null) => void
+  }
 }
 
 // ── pixel pictograms (same engine Arbor draws its tree with) ────────────────
@@ -157,7 +170,7 @@ export function ArborSkills({ ctx, today }: { ctx: LinkedCtx; today: string }) {
             <img src={figureURL(sk.id, done)} alt="" width={40} height={40} className="arbor-fig" />
             <span className="min-w-0 flex-1">
               <span className="arbor-skill-name block truncate">{sk.name}</span>
-              <span className="arbor-skill-target block">{targetFor(sk, ctx.arbor.progress)}</span>
+              <span className="arbor-skill-target block">{skillTarget(sk, ctx.arbor.progress)}</span>
             </span>
             {sk.unit && (
               <input
@@ -188,6 +201,62 @@ export function ArborSkills({ ctx, today }: { ctx: LinkedCtx; today: string }) {
         )
       })}
       <a href={ARBOR_URL} target="_blank" rel="noreferrer" className="arbor-link">open the tree ↗</a>
+    </div>
+  )
+}
+
+/** Header of the Guitar row: tap to fold today's session in or out. */
+export function GuitarHead({ name, xp, ticked, done, total, open, onToggle }: { name: string; xp: number; ticked: boolean; done: number; total: number; open: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left">
+      <span className="shed-frets" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="shed-title block truncate">{name}</span>
+        <span className="block truncate text-[11px] opacity-80">
+          {total === 0 ? 'Nothing in rotation' : ticked ? 'Session done' : `${done}/${total} practised · ${open ? 'tap to fold' : 'tap to open'}`}
+        </span>
+      </span>
+      <span className="shed-count num shrink-0">{done}/{total}</span>
+      <span className="num shrink-0 text-base font-bold">{ticked ? `+${xp}` : xp}</span>
+    </button>
+  )
+}
+
+const FEELS: [Feel, string][] = [[0, 'Rough'], [1, 'Nearly'], [2, 'Clean']]
+
+/** Today's coach-picked practice session. Log each item by how it went; Woodshed has the tab and the metronome. */
+export function GuitarItems({ ctx, today }: { ctx: LinkedCtx; today: string }) {
+  const { shed, session, onLog } = ctx.guitar
+  const view = useMemo(() => analyse(ITEMS, shed), [shed])
+  const items = useMemo(() => session.map((id) => ITEM_BY_ID.get(id)).filter((x): x is NonNullable<typeof x> => Boolean(x)), [session])
+  return (
+    <div className="shed-panel">
+      {items.map((it) => {
+        const log = shed.logs[it.id]?.[today]
+        const done = Boolean(log?.done)
+        const st = view.stats.get(it.id)
+        return (
+          <div key={it.id} className={`shed-item ${done ? 'is-done' : ''}`}>
+            <span className="min-w-0">
+              <span className="shed-item-name block">{it.name}</span>
+              <span className="shed-item-target block">
+                {view.rank.get(it.id) === 3 ? 'Review' : LANE_NAME[it.lane]} · {it.mins} min{st ? ` · ${targetFor(it, st)}` : ''}
+              </span>
+            </span>
+            <span className="shed-feels" role="group" aria-label={`How ${it.name} went`}>
+              {FEELS.map(([feel, label]) => {
+                const on = done && log?.feel === feel
+                return (
+                  <button key={feel} type="button" aria-pressed={on} className={on ? 'on' : ''} onClick={() => onLog(it.id, on ? null : feel)}>
+                    {label}
+                  </button>
+                )
+              })}
+            </span>
+          </div>
+        )
+      })}
+      <a href={WOODSHED_URL} target="_blank" rel="noreferrer" className="shed-link">tabs and metronome in Woodshed ↗</a>
     </div>
   )
 }

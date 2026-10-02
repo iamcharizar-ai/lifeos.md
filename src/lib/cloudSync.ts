@@ -16,6 +16,7 @@ import { adoptSnapshot, frozenSnapshots, type MonthSnapshot } from './monthSnaps
 import { parseSummary } from './workout'
 import { supabase } from './supabase'
 import { GYM_HABIT, applyArborEvents, markStrongLinked } from './arborLink'
+import { applyShedEvents } from './guitarLink'
 
 export type CloudStatus = 'off' | 'connecting' | 'live' | 'error'
 
@@ -31,6 +32,9 @@ export type EventType =
   // written by Arbor / Strong / the Arbor block here; folded by lib/arborLink
   | 'skill'
   | 'plan'
+  // written by Woodshed / the Guitar block here; folded by lib/guitarLink
+  | 'guitar'
+  | 'guitar_plan'
 
 export interface LifeEvent {
   device: string
@@ -77,6 +81,9 @@ async function fetchEvents(
   }
   return out
 }
+
+/** Event types whose whole history is folded in one pass at boot (by the shared cores). */
+const FOLDED_IN_BULK = new Set<EventType>(['skill', 'plan', 'guitar', 'guitar_plan'])
 
 const byAt = (a: LifeEvent, b: LifeEvent) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)
 
@@ -163,6 +170,10 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
     case 'skill':
     case 'plan':
       applyArborEvents([ev])
+      break
+    case 'guitar':
+    case 'guitar_plan':
+      applyShedEvents([ev])
       break
     case 'config':
       // Habit config lives in its own external store, not React state — LWW by `at`
@@ -321,7 +332,8 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
           await sb.from('events').insert(seeds.slice(i, i + 200))
       } else {
         applyArborEvents(data.filter((e) => e.type === 'skill' || e.type === 'plan'))
-        for (const ev of data) if (ev.type !== 'skill' && ev.type !== 'plan') applyEvent(ev, settersRef.current)
+        applyShedEvents(data.filter((e) => e.type === 'guitar' || e.type === 'guitar_plan'))
+        for (const ev of data) if (!FOLDED_IN_BULK.has(ev.type)) applyEvent(ev, settersRef.current)
         // Offline edits made on this device win over folded history
         for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
       }

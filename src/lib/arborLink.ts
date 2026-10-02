@@ -1,7 +1,8 @@
 // The Arbor + Strong side of LifeOS.
 //
-// Two habits are "linked": they are fed by the other apps through the shared
-// ledger instead of being ticked by hand.
+// Three habits are "linked": they are fed by the other apps through the shared
+// ledger instead of being ticked by hand. (The third, Guitar, lives in
+// lib/guitarLink.ts.)
 //   • gym            → ticked by a `workout` event from Strong (locked here)
 //   • arbor-morning  → expands into today's coach-picked skills; each one is
 //                      tickable here and writes a `skill` event Arbor reads
@@ -12,12 +13,13 @@ import { useSyncExternalStore } from 'react'
 import { planFor } from '../arbor-core/coach.ts'
 import { emptyArbor, foldArbor, type ArborState, type LedgerEvent } from '../arbor-core/model.ts'
 import { SKILLS } from '../arbor-core/skills.ts'
+import { GUITAR_HABIT } from './guitarLink'
 
 export const GYM_HABIT = 'gym'
 export const ARBOR_HABIT = 'arbor-morning'
-export type Link = 'strong' | 'arbor'
+export type Link = 'strong' | 'arbor' | 'woodshed'
 export const linkOf = (habitId: string): Link | null =>
-  habitId === GYM_HABIT ? 'strong' : habitId === ARBOR_HABIT ? 'arbor' : null
+  habitId === GYM_HABIT ? 'strong' : habitId === ARBOR_HABIT ? 'arbor' : habitId === GUITAR_HABIT ? 'woodshed' : null
 
 // Gym stays hand-tickable until Strong has proven the link works (one workout
 // event from it has been folded). Locking it before that would leave no way to

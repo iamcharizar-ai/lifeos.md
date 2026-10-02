@@ -13,7 +13,7 @@ import { habitXp, DAILY_CAP } from '../lib/xp'
 import { streakFor, type Ticks } from '../lib/store'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { ProgressRing } from '../components/ProgressRing'
-import { ArborHead, ArborSkills, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { ArborHead, ArborSkills, GuitarHead, GuitarItems, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
 import { practicedOn } from '../arbor-core/model.ts'
 
@@ -222,6 +222,9 @@ function ChecklistRow({
   const practised = planned.filter((id) => practicedOn(linked.arbor, today, id)).length
   const [skillsOpen, setSkillsOpen] = useState<boolean | null>(null)
   const showSkills = link === 'arbor' && planned.length > 0 && (skillsOpen ?? !ticked)
+  const session = linked.guitar.session
+  const played = session.filter((id) => linked.guitar.shed.logs[id]?.[today]?.done).length
+  const showSession = link === 'woodshed' && session.length > 0 && (skillsOpen ?? !ticked)
 
   return (
     <Reorder.Item
@@ -268,6 +271,16 @@ function ChecklistRow({
             total={planned.length}
             open={showSkills}
             onToggle={() => setSkillsOpen(!showSkills)}
+          />
+        ) : link === 'woodshed' ? (
+          <GuitarHead
+            name={habit.name}
+            xp={xp}
+            ticked={ticked}
+            done={played}
+            total={session.length}
+            open={showSession}
+            onToggle={() => (session.length > 0 ? setSkillsOpen(!showSession) : actions.onToggle(habit.id))}
           />
         ) : (
         <div
@@ -318,6 +331,7 @@ function ChecklistRow({
         </button>
       </div>
       {showSkills && <ArborSkills ctx={linked} today={today} />}
+      {showSession && <GuitarItems ctx={linked} today={today} />}
       {open && (
         <RowEditor
           habit={habit}

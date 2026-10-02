@@ -249,6 +249,53 @@ body {
 .arbor-link { align-self: flex-end; font-size: 11px; color: #8d87a6; text-decoration: none; padding: 2px 4px; }
 .arbor-link:hover { color: #f2c14e; }
 
+/* Woodshed: a painted guitar body, with a cream three-ply plate for each item of today's session */
+.tile-woodshed {
+  background: radial-gradient(140% 160% at 10% -30%, #2b7186 0%, #1c5263 45%, #123a47 100%);
+  color: #f2e9d2;
+  border-color: #111;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #f2e9d2;
+}
+.tile-woodshed.is-done { box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #c2932a; }
+.tile-woodshed:active, .tile-woodshed:hover { box-shadow: 1px 1px 0 0 #111, inset 0 0 0 3px #f2e9d2; }
+.tile-woodshed > button:first-child span, .tile-woodshed > button:last-child { color: #b9beb8; }
+.shed-title { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 900; font-size: 20px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
+.tile-woodshed.is-done .shed-title { text-decoration: line-through; opacity: 0.85; }
+.shed-count { font-size: 12px; padding: 2px 7px; border: 1.5px solid #f2e9d2; border-radius: 999px; }
+/* three frets and four strings, drawn with gradients so it needs no asset */
+.shed-frets {
+  width: 22px; height: 22px; margin: 0 6px 0 8px; flex: none; border-radius: 3px;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 3px, #f2e9d2 3px 4.5px, transparent 4.5px 5.5px),
+    repeating-linear-gradient(to right, #3a2620 0 6px, #b9beb8 6px 7.5px);
+}
+.shed-panel {
+  background: #123a47;
+  border: 3px solid #111;
+  border-top: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.shed-item {
+  display: grid; grid-template-columns: 1fr; gap: 8px; padding: 9px 11px; background: #f2e9d2; color: #17140f; border-radius: 10px;
+  box-shadow: 0 0 0 1.5px #ece6d3, 0 0 0 3px #17140f, 0 0 0 4.5px #ece6d3;
+  margin: 4.5px;
+}
+.shed-item.is-done { background: #e6dbbd; }
+.shed-item-name { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 700; font-size: 17px; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.02em; }
+.shed-item-target { font-size: 11px; line-height: 1.35; color: #5b5547; margin-top: 2px; }
+.shed-feels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.shed-feels button { padding: 8px 4px; border: 1.5px solid #17140f; border-radius: 7px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; background: transparent; color: #17140f; }
+.shed-feels button.on { background: #17140f; color: #f2e9d2; }
+.shed-link { align-self: flex-end; font-size: 11px; color: #b9beb8; text-decoration: none; padding: 2px 4px; }
+.shed-link:hover { color: #f2e9d2; }
+@media (min-width: 640px) {
+  .shed-item { grid-template-columns: 1fr 250px; align-items: center; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile-strong::before, .tile-arbor { animation: none; }
 }
