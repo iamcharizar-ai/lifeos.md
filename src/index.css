@@ -72,6 +72,9 @@ body {
 .neo-card-pink { background: var(--color-neo-pink); }
 .neo-card-blue { background: var(--color-neo-blue); color: white; }
 .neo-card-green { background: var(--color-neo-green); }
+/* Unlayered like .neo-button, so it can actually override its white background —
+   a Tailwind bg-* utility can't, which left white text on a white button. */
+.neo-card-red { background: var(--color-neo-red); color: white; }
 
 
 
@@ -294,6 +297,33 @@ body {
 .shed-link:hover { color: #f2e9d2; }
 @media (min-width: 640px) {
   .shed-item { grid-template-columns: 1fr 250px; align-items: center; }
+}
+
+/* Sunday reset: a lavender sticker sheet with a dashed cut-line, its title stamped on at a slant */
+.sunday-panel {
+  background-color: #e4d8ff;
+  background-image: radial-gradient(circle, rgba(17, 17, 17, 0.14) 1.2px, transparent 1.2px);
+  background-size: 14px 14px;
+  border: 3px solid var(--color-neo-black);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 0 var(--color-neo-black);
+  outline: 3px dashed var(--color-neo-black);
+  outline-offset: -11px;
+  padding: 18px;
+}
+.sunday-stamp {
+  display: inline-block;
+  background: var(--color-neo-black);
+  color: var(--color-neo-yellow);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  transform: rotate(-1.5deg);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

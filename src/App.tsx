@@ -32,6 +32,9 @@ import { useCloudSync } from './lib/cloudSync'
 import { TabBar, type Tab } from './components/TabBar'
 import { HabitsScreen, type HabitActions } from './screens/HabitsScreen'
 import { MonthView } from './components/MonthView'
+import type { WeeklyCtx } from './components/WeeklyPanels'
+import { REVIEW_ID, reviewDay, reviewsToShow } from './lib/monthReview'
+import { commitSundayTasks, isSunday, useSundayTasks, type SundayTask } from './lib/sundayTasks'
 import { ARBOR_HABIT, applyArborEvents, isLocked, planToday, useArbor } from './lib/arborLink'
 import { practicedOn } from './arbor-core/model.ts'
 import { GUITAR_HABIT, applyShedEvents, sessionToday, useShed } from './lib/guitarLink'
@@ -235,6 +238,43 @@ export default function App() {
     else cloud.emit('tick', { habitId, at })
   }
 
+  // ── not-every-day blocks: month-end review + Sunday reset ──
+  const sundayTasks = useSundayTasks()
+  const reviews = useMemo(() => reviewsToShow(ticks, today), [ticks, today])
+  // Month the review's "Graph" button asked Monthly to open on (null = running month)
+  const [monthFocus, setMonthFocus] = useState<string | null>(null)
+
+  // A review is filed under the first day of the month it closes, not today —
+  // so ticking it from the 1st of the next month still lands on the right month.
+  const toggleReview = (ym: string) => {
+    const day = reviewDay(ym)
+    const wasDone = Boolean(ticks[day]?.[REVIEW_ID])
+    const at = new Date().toISOString()
+    setTicks((prev) => {
+      const d = { ...(prev[day] ?? {}) }
+      if (wasDone) delete d[REVIEW_ID]
+      else d[REVIEW_ID] = at
+      return { ...prev, [day]: d }
+    })
+    if (wasDone) cloud.emit('untick', { habitId: REVIEW_ID }, day)
+    else cloud.emit('tick', { habitId: REVIEW_ID, at }, day)
+  }
+
+  const saveSundayTasks = (tasks: SundayTask[]) => {
+    const next = commitSundayTasks(tasks)
+    cloud.emit('sunday', { tasks: JSON.stringify(next.tasks) })
+  }
+
+  const weekly: WeeklyCtx = {
+    reviews,
+    onToggleReview: toggleReview,
+    onOpenMonth: (ym) => {
+      setMonthFocus(ym)
+      setTab('monthly')
+    },
+    sunday: { tasks: sundayTasks, isSunday: isSunday(today), onChange: saveSundayTasks },
+  }
+
   const actions: HabitActions = {
     onToggle: toggle,
     onToggleLive: (habitId, isOn) => pushConfig(configWithLive(habitId, isOn, today)),
@@ -292,9 +332,12 @@ export default function App() {
             stores={stores}
             actions={actions}
             linked={{ workout: workouts[today], arbor, plan, onSkill, guitar: { shed, session, onLog: onGuitar } }}
+            weekly={weekly}
           />
         )}
-        {tab === 'monthly' && <MonthView habits={habits} ticks={ticks} today={today} />}
+        {tab === 'monthly' && (
+          <MonthView habits={habits} ticks={ticks} today={today} initialYm={monthFocus ?? undefined} />
+        )}
       </motion.main>
 
       <footer className="hud-label mt-8 border-none text-center !text-[10px] !text-neo-gray-dark">
@@ -306,7 +349,13 @@ export default function App() {
         {cloud.pending > 0 && ` · ${cloud.pending} queued`}
       </footer>
 
-      <TabBar tab={tab} onChange={setTab} />
+      <TabBar
+        tab={tab}
+        onChange={(t) => {
+          setMonthFocus(null)
+          setTab(t)
+        }}
+      />
     </div>
   )
 }

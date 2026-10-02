@@ -42,12 +42,15 @@ export function MonthView({
   habits,
   ticks,
   today,
+  initialYm,
 }: {
   habits: Habit[]
   ticks: Ticks
   today: string
+  /** open on this month instead of the running one (month-end review's "Graph" jump) */
+  initialYm?: string
 }) {
-  const [ym, setYm] = useState(() => ymOf(today))
+  const [ym, setYm] = useState(() => initialYm ?? ymOf(today))
   useMonths() // re-render when a month seals or one arrives from another device
 
   const nowYm = ymOf(today)

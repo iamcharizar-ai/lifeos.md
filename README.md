@@ -36,6 +36,13 @@ Three habits are fed by other apps through the same event ledger and wear those 
 
 `src/arbor-core/` is copied from the Arbor repo (`npm run core` there): the skill tree, the coach and the pixel figures. Do not edit it here.
 
+## Sunday reset and the month-end review
+
+Two things that are not daily habits live on the Daily screen. Neither pays XP or appears in the Monthly graph.
+
+- **Sunday reset** is its own panel (lavender, dashed cut-line) with its own list of one-off tasks — cut nails, face pack, clean the room, watch a film. On Sundays it is a checklist that starts clear each week. Monday to Saturday the tasks are hidden; only a folded "Sunday reset" bar remains, and opening it lets you add, rename, reorder and delete tasks. The list syncs between devices (`sunday` events); each tick is an ordinary `tick` event with the id `sun:<task>`.
+- **Month-end review** appears at the top of Today on the last day of every month and stays there, month after month, until you tap it. Its "Graph" button jumps to that month on the Monthly tab. A review is a `tick` with the id `month-review`, filed under the first day of the month it closes. The first month that can owe a review is September 2026 (`FIRST_REVIEW_YM` in `src/lib/monthReview.ts`).
+
 ## How your data is handled
 
 - **Instant, offline-first**: everything you tick or type is saved straight to your device immediately - no waiting on a server.

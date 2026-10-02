@@ -17,6 +17,7 @@ import { parseSummary } from './workout'
 import { supabase } from './supabase'
 import { GYM_HABIT, applyArborEvents, markStrongLinked } from './arborLink'
 import { applyShedEvents } from './guitarLink'
+import { SEED_AT, applySundayList, getSundayList, type SundayTask } from './sundayTasks'
 
 export type CloudStatus = 'off' | 'connecting' | 'live' | 'error'
 
@@ -29,6 +30,8 @@ export type EventType =
   | 'workout_clear'
   | 'config'
   | 'month'
+  // the Sunday reset task list (the ticks themselves are plain `tick` events)
+  | 'sunday'
   // written by Arbor / Strong / the Arbor block here; folded by lib/arborLink
   | 'skill'
   | 'plan'
@@ -186,6 +189,15 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
         /* malformed payload — ignore */
       }
       break
+    case 'sunday':
+      // Sunday list lives in its own external store — LWW by `at`
+      try {
+        const tasks = JSON.parse(String(p.tasks)) as SundayTask[]
+        if (Array.isArray(tasks)) applySundayList({ tasks, at: ev.at })
+      } catch {
+        /* malformed payload — ignore */
+      }
+      break
     case 'month':
       // A sealed month from any device. First seal wins, so this is idempotent.
       try {
@@ -238,6 +250,15 @@ function seedEvents(snap: CloudSnapshot, device: string): LifeEvent[] {
       day: cfg.at.slice(0, 10),
       type: 'config',
       payload: { habits: JSON.stringify(cfg.habits), deleted: JSON.stringify(cfg.deleted) },
+    })
+  const sunday = getSundayList()
+  if (sunday.at !== SEED_AT)
+    out.push({
+      device,
+      at: sunday.at,
+      day: sunday.at.slice(0, 10),
+      type: 'sunday',
+      payload: { tasks: JSON.stringify(sunday.tasks) },
     })
   return out
 }

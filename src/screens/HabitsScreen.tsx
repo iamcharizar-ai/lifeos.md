@@ -14,6 +14,7 @@ import { streakFor, type Ticks } from '../lib/store'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { ProgressRing } from '../components/ProgressRing'
 import { ArborHead, ArborSkills, GuitarHead, GuitarItems, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
 import { practicedOn } from '../arbor-core/model.ts'
 
@@ -156,7 +157,7 @@ function RowEditor({
             <>
               <button
                 onClick={() => onDelete(habit.id)}
-                className="neo-button bg-neo-red px-3 py-1.5 text-[11px] font-bold uppercase text-white"
+                className="neo-button neo-card-red px-3 py-1.5 text-[11px] font-bold uppercase"
               >
                 Delete for good
               </button>
@@ -526,6 +527,7 @@ export function HabitsScreen({
   stores,
   actions,
   linked,
+  weekly,
 }: {
   /** whole registry, in order */
   habits: Habit[]
@@ -536,6 +538,8 @@ export function HabitsScreen({
   stores: Stores
   actions: HabitActions
   linked: LinkedCtx
+  /** month-end review + Sunday reset — the not-every-day blocks */
+  weekly: WeeklyCtx
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [shelfOpen, setShelfOpen] = useState(false)
@@ -607,6 +611,12 @@ export function HabitsScreen({
         </div>
       </div>
 
+      <MonthReviews
+        reviews={weekly.reviews}
+        onToggle={weekly.onToggleReview}
+        onOpen={weekly.onOpenMonth}
+      />
+
       <div className="flex items-center justify-between">
         <div className="hud-label border-black text-sm">Today</div>
         <div className="text-[10px] font-bold uppercase tracking-wider text-neo-gray-dark">
@@ -636,6 +646,15 @@ export function HabitsScreen({
           ))}
         </Reorder.Group>
       )}
+
+      <SundayPanel
+        tasks={weekly.sunday.tasks}
+        isSunday={weekly.sunday.isSunday}
+        ticks={ticks}
+        today={today}
+        onToggle={actions.onToggle}
+        onChange={weekly.sunday.onChange}
+      />
 
       <AddHabit onAdd={actions.onAdd} />
 
@@ -673,7 +692,7 @@ export function HabitsScreen({
                         actions.onDeleteMany(picked)
                         endPicking()
                       }}
-                      className="neo-button bg-neo-red px-3 py-1.5 text-[11px] font-bold uppercase text-white disabled:pointer-events-none disabled:opacity-40"
+                      className="neo-button neo-card-red px-3 py-1.5 text-[11px] font-bold uppercase disabled:pointer-events-none disabled:opacity-40"
                     >
                       Delete {picked.length}
                     </button>
