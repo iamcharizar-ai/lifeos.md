@@ -11,7 +11,8 @@ import { planFor } from '../woodshed-core/coach.ts'
 import { ITEMS } from '../woodshed-core/course.ts'
 import { emptyShed, foldShed, type LedgerEvent, type ShedState } from '../woodshed-core/model.ts'
 
-export const GUITAR_HABIT = 'guitar'
+// A habit of its own, not the old 'guitar' id (which is on the deleted list).
+export const GUITAR_HABIT = 'woodshed-guitar'
 export const WOODSHED_URL: string = import.meta.env.VITE_WOODSHED_URL ?? 'http://localhost:5180'
 
 const listeners = new Set<() => void>()

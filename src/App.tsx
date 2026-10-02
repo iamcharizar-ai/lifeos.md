@@ -135,6 +135,13 @@ export default function App() {
     if (cfg) emitConfig(commitConfig(cfg))
   }, [settled, today, emitConfig])
 
+  // Introduce the Woodshed block once (third row; drag it wherever it belongs).
+  useEffect(() => {
+    if (!settled) return
+    const cfg = configWithLinkedHabit({ id: GUITAR_HABIT, name: 'Woodshed', emoji: '🎸', tier: 'core' }, 2, today)
+    if (cfg) emitConfig(commitConfig(cfg))
+  }, [settled, today, emitConfig])
+
   // The Arbor habit ticks itself when every planned skill is practised.
   useEffect(() => {
     if (!settled || plan.morning.length === 0) return
