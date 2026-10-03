@@ -289,6 +289,8 @@ const DRILLS: Item[] = [
 // ── songs ───────────────────────────────────────────────────────────────────
 const BB = 'bone-bottom'
 const BW = 'bilewater'
+const LV = 'theme-of-laura-v2'
+const MK = 'mantis-lords'
 const LOW_GEAR =
   'Written for a guitar tuned far below a normal six-string. In D standard, drop your low string one more step to C and play the same frets: the shapes and the picking are identical, it just sounds higher than the record.'
 
@@ -387,42 +389,42 @@ const SONGS: Item[] = [
       ]],
     ],
   ),
-  laura('la-1', 'Theme of Laura: opening line', ['v-slide'], 1, 3, [
+  laura('la-1', 'Laura solo: opening line', ['v-slide'], 1, 3, [
     'Starts on the D string 9th fret, then climbs the G string: 9, 9, 11, 11, 12, 12, 11, 9. Index on 9, ring on 11, pinky on 12.',
     'Bars 2 and 3 move up to the B string. Two notes in the last bar are written together (B 10 with G 9, B 12 with G 9): pluck both at once with thumb and finger, or hold the G string 9 and play the B string on top.',
     'Written in E standard. In D standard the fingering is identical and it sounds a step lower; tune up only to play with the recording.',
   ]),
-  laura('la-2', 'Theme of Laura: the low answer', ['la-1', 'v-hammer'], 4, 7, [
+  laura('la-2', 'Laura solo: the low answer', ['la-1', 'v-hammer'], 4, 7, [
     'Bar 4: A string 7, D string 5, then a slide on the G string from 7 up to 9, then D string 9 and 7.',
     'Bar 5 is the D string walking down: 7, then a hammer-on from 7 to 9, then 5, 4, 5. Pick the 7 and hammer the 9 without picking it.',
     'Bars 6 and 7 start from D string 9, 7 with an A string 7 and a G string 7 mixed in, and finish with a slide from 7 to 9 on the D string.',
   ]),
-  laura('la-3', 'Theme of Laura: answer and chords', ['la-2', 'r-strum'], 8, 11, [
+  laura('la-3', 'Laura solo: answer and chords', ['la-2', 'r-strum'], 8, 11, [
     'Bars 8 to 10 play the low answer again, with a new ending: a G string 4 and a D string 7 together, then G 7 sliding to 9.',
     'Bar 11 is two open E minor chords: first the low four strings (G 0, D 2, A 2, E 0), then all six with the high e on the 2nd fret. Let them ring.',
     'Then three single notes walk down the A string: 4, 3, 2.',
   ]),
-  laura('la-4', 'Theme of Laura: second theme', ['la-1', 'v-hammer'], 12, 15, [
+  laura('la-4', 'Laura solo: second theme', ['la-1', 'v-hammer'], 12, 15, [
     'D string 7 twice, then the B string: 8, 7, 7, then 7-8-7 in one pick stroke (hammer-on to 8, pull-off back to 7).',
     'It ends on B 5 and G 4. The second time through, the end changes: G string 9, then a jump up to 14, then the high e string 12.',
   ]),
-  laura('la-5', 'Theme of Laura: climbing line', ['la-4'], 16, 21, [
+  laura('la-5', 'Laura solo: climbing line', ['la-4'], 16, 21, [
     'One line played three times with different endings. It starts D 7, G 5, then a slide on the G string from 7 to 9.',
     'Then the B string: 8, 10, back to G 9, then B 8, 8, 7 and a slide from 8 to 10.',
     'The third time, the slide 8 to 10 is followed by 10 to 12 and the last note is held.',
   ]),
-  laura('la-6', 'Theme of Laura: bridge', ['la-5'], 22, 29, [
+  laura('la-6', 'Laura solo: bridge', ['la-5'], 22, 29, [
     'The G string 9 is home base. Bars 22 and 23 go G 9, B 10, G 9, G 9, B 12, G 9 and finish on the D string, 10 then 9.',
     'Bars 24 to 26 run the B string 8, 8, 8, 7, 7, 8 and slide 8 to 10, then a D string slide up to 9.',
     'Bars 27 to 29 are the same shapes with a walk down the G string: 9, 8, 8, 6, 8, 9.',
   ]),
-  laura('la-7', 'Theme of Laura: closing arpeggios', ['p-ring'], 30, 35, [
+  laura('la-7', 'Laura solo: closing arpeggios', ['p-ring'], 30, 35, [
     'Let every note ring. Two groups repeat: A 3, D 2, open G, D 2, then A 5, D 4, open G, D 4.',
     'The third group climbs to A 7, D 5, G 7, then A 7, D 5, and falls back through A 5, D 4.',
     'The last bar is the open E minor chord again, then all six strings.',
   ]),
   {
-    id: 'la', name: 'Theme of Laura', lane: 'songs', fret: 5, kind: 'song', mins: 8, inferred: true,
+    id: 'la', name: 'Laura solo: Whole piece', lane: 'songs', fret: 5, kind: 'song', mins: 8, inferred: true,
     req: ['la-1', 'la-2', 'la-3', 'la-4', 'la-5', 'la-6', 'la-7'],
     why: 'A single-guitar melody with no second part to hide behind. Slides, hammer-ons and two open chords.',
     how: ['Play it through with the recording, top to bottom.', 'Written in E standard, so tune up a whole step from D standard for this one.', 'Log it clean only when the whole pass was clean.'],
@@ -467,6 +469,63 @@ const SONGS: Item[] = [
       ['bw-c2-2', 'Bilewater C2: the high answer', 13, 15, ['bw-c2-1'], [
         'The same start, then a leap to the 22nd fret and a whole-note on the 23rd.',
         'Slide your whole hand up for the leap. Do not stretch for it.',
+      ]],
+    ],
+  ),
+  ...part(
+    { id: 'lv-effects', name: 'Laura band: Effects Guitar', fret: 8, song: LV, track: 3, bars: [6, 76], start: 60, target: 100,
+      why: 'The accompaniment of the band version: open-position arpeggios in eighth notes, never above the 7th fret. The same picking idea as the Bone Bottom clean guitars, with a much smaller stretch.' },
+    [
+      ['lv-e-1', 'Laura band Effects: intro line', 6, 10, ['p-ring'], [
+        'Bar 6 starts on the open B string. Bars 7 and 8 climb the high e string: 0, 0, 2, 2, 3, 3, 2, 0.',
+        'Bar 9 jumps to the 7th fret on the high e (7, 7, 5) and then plays B string 5, 5. Bar 10 goes back to 7, 7 and the open high e.',
+      ]],
+      ['lv-e-2', 'Laura band Effects: the arpeggio', 11, 18, ['lv-e-1'], [
+        'Odd bars (11, 13, 15, 17): A 3, D 2, G 0, D 2, D 0, D 4, G 0, D 4. Eight notes, one pick stroke each.',
+        'Even bars: D 2, G 0, B 0, B 3, B 0, G 0, D 4. Let every note ring into the next.',
+      ]],
+      ['lv-e-3', 'Laura band Effects: three-string chords', 27, 34, ['lv-e-1'], [
+        'Chords on the top three strings (e, B, G), a half note each: frets 3-5-5, then 2-3-4, then all three open.',
+        'Strum them softly or play the three notes together with thumb and fingers.',
+      ]],
+      ['lv-e-4', 'Laura band Effects: high melody', 35, 41, ['lv-e-3'], [
+        'Bar 36 on the high e string: 3, 2, 3, 5, 0. Bar 38 starts the same way with a quick 3-2 turn, then G string 2.',
+        'Bar 40 climbs 3, 2, 3, 4, 5, 7 and holds the 7th fret through bar 41.',
+      ]],
+      ['lv-e-5', 'Laura band Effects: second arpeggio', 42, 58, ['lv-e-2'], [
+        'Bar 42 is eight open high e notes. Then two bars alternate until bar 58.',
+        'First bar: D 2, G 0, G 2, G 0, D 0, G 0, G 2, D 0. Second bar: A 3, D 2, G 0, A 3, A 2, D 1, D 4, A 2.',
+      ]],
+      ['lv-e-6', 'Laura band Effects: return', 59, 76, ['lv-e-2'], [
+        'A held three-string chord (G open, D 2, A 3) in bars 59 and 60, then the first arpeggio from bars 11 to 18 comes back for the rest of the part.',
+      ]],
+    ],
+  ),
+  ...part(
+    { id: 'lv-lead', name: 'Laura band: Lead Guitar', fret: 9, song: LV, track: 1, bars: [11, 90], start: 60, target: 100,
+      why: 'The melody of the band version. Mostly open strings and the first five frets, with one jump to the 12th fret. Long notes that have to be held their full length.' },
+    [
+      ['lv-l-1', 'Laura band Lead: theme', 11, 18, ['t-dotted'], [
+        'Bar 11: D 2, open G, open B, open high e, back down to B and G 2. Bars 12 to 14 stay on the G, B and D strings between frets 0 and 4.',
+        'Bars 15 to 18 repeat the first half and end on the open B string and the open high e string.',
+      ]],
+      ['lv-l-2', 'Laura band Lead: held chord', 19, 26, ['lv-l-1'], [
+        'The open low E string, held. Then a four-string chord, all played at once: high e 2, B 3, open G, D 2.',
+        'Leave the chord ringing for the rest of this bar and the whole next one. The two-bar figure repeats four times.',
+      ]],
+      ['lv-l-3', 'Laura band Lead: second melody', 27, 34, ['lv-l-1'], [
+        'A rest, then G 2, G 2, high e 3. Bar 28 plays high e 3 held, 2, 2, 3, 2, and bar 29 lands on the open high e and open B.',
+        'Bars 31 to 34 repeat it, but bar 32 reaches the 5th fret and bars 33 and 34 leap up to the 12th fret on the high e.',
+      ]],
+      ['lv-l-4', 'Laura band Lead: rising line', 35, 40, ['lv-l-3'], [
+        'A rest, then G 2, B 1, B 3, e 0, e 3, e 5, e 0, and the open high e held for a whole bar. Played three times.',
+      ]],
+      ['lv-l-5', 'Laura band Lead: high-string theme', 43, 57, ['lv-l-3'], [
+        'High e string: 3, 3, 3, 2, 2, 3, 5, with the 5 held into an open e. Bar 44 then plays open B, e 2, open B; bar 45 ends on the open e.',
+        'The three-bar figure plays four times (bars 43 to 57) with a rest bar between each.',
+      ]],
+      ['lv-l-6', 'Laura band Lead: ending', 77, 90, ['lv-l-2'], [
+        'The held-chord figure from bars 19 to 26 returns and the chord rings out until the end of the song.',
       ]],
     ],
   ),
@@ -523,6 +582,44 @@ const SONGS: Item[] = [
       ], { start: 46, own: 4 }],
       ['bw-l2-6', 'Bilewater L2: ending', 65, 69, ['bw-l2-4', 'f-shift'], [
         'Eighth-note climbs in the scale shape, ending on a slide from 14 to 19 on the high e.',
+      ]],
+    ],
+  ),
+  ...part(
+    { id: 'lv-rhythm', name: 'Laura band: Rhythm Guitar', fret: 12, song: LV, track: 2, bars: [11, 90], start: 60, target: 100,
+      why: 'The distorted backing of the band version: two-note shapes on the low strings, never above the 5th fret.' },
+    [
+      ['lv-r-1', 'Laura band Rhythm: low pairs', 11, 18, ['r-power'], [
+        'Bar 11: four eighth notes with a barre across the low E and A strings at the 3rd fret, then four on the open A and D strings.',
+        'Bar 12: seven hits on the A and D strings at the 2nd fret, then one open. The pair of bars repeats.',
+      ]],
+      ['lv-r-2', 'Laura band Rhythm: held lows', 19, 26, ['lv-r-1'], [
+        'A whole-note open low E, then a bar of open low E (held), open D, A string 4, A string 3. Repeats four times.',
+      ]],
+      ['lv-r-3', 'Laura band Rhythm: climbing line', 27, 34, ['lv-r-1'], [
+        'A single-note line that climbs the strings: A 3, D 2, G 0 held; D 2, G 2, B 0 held; D 2, G 0, B 0. Bar 30 ends on open G, open B, e 3.',
+        'Bars 31 to 33 repeat. Bar 34 plays four short e-string 3s, then 5, 3, 2.',
+      ]],
+      ['lv-r-4', 'Laura band Rhythm: held shapes', 35, 42, ['lv-r-3'], [
+        'Held two-note shapes (D string 2 with the open A string) in bars 35 to 40, repeated three times.',
+        'Bar 41 plays quarter-note hits on G 1, D 2, A 2. Bar 42 plays palm-muted eighth notes on the same shape.',
+      ]],
+      ['lv-r-5', 'Laura band Rhythm: high line', 45, 60, ['lv-r-3'], [
+        'High strings: e 3, 2, 3, B 3, e 3, 2 in the first bar and e 0, B 0, e 0, B 4, 2, 4 in the second. The four-bar figure repeats to bar 60.',
+      ]],
+    ],
+  ),
+  ...part(
+    { id: 'lv-acoustic', name: 'Laura band: Acoustic Guitar', fret: 13, song: LV, track: 0, bars: [2, 10], start: 50, target: 100,
+      why: 'Nine bars of four-string chord strums in eighths and sixteenths that open the band version. Short, and good practice for a steady strumming hand.' },
+    [
+      ['lv-a-1', 'Laura band Acoustic: first strums', 2, 5, ['r-strum'], [
+        'Bar 2 is a rest and one quick chord on the last sixteenth: B 1, open G, D 2, A 3.',
+        'Bars 3 and 5 play that chord three times, then A 3, D 5, G 5 twice, a sixteenth rest, and a chord of B 3, G 4, D 4, A 5 three times.',
+        'Bar 4 changes shape: high e 3, B 5, G 4, D 2.',
+      ]],
+      ['lv-a-2', 'Laura band Acoustic: repeat', 6, 10, ['lv-a-1'], [
+        'The same bars again, ending with the figure from bar 3 played twice in a row.',
       ]],
     ],
   ),
@@ -613,6 +710,71 @@ const SONGS: Item[] = [
         'Long notes high on the e string: 18, 15, 17, 18, 20, a full bend on 20, then 21.',
         'The song ends on a half-step bend at 17 that hangs. Hold it in tune until it dies.',
       ]],
+    ],
+  ),
+  ...part(
+    { id: 'mk-l', name: 'Mantis Lords: Lead Guitar', fret: 17, song: MK, track: 0, bars: [2, 44], start: 40, target: 95, extraReq: ['p-sext'],
+      gear: 'Written on a 7-string, but this part never uses the lowest string: the top six are plain E standard. Tune up a whole step from D standard (or play it in D standard, a step lower). Bar 37 reaches the 22nd fret: leave those notes out if your neck ends sooner.',
+      why: 'Mostly six notes to a beat at 95 bpm, with big position jumps and hammer-ons. The hardest thing in the course. Expect months, and expect it to stay in rotation. That is normal.' },
+    [
+      ['mk-l-1', 'Mantis Lords Lead: intro riff', 2, 3, ['p-sext', 'f-high', 'v-hammer'], [
+        'Alternate picking on the G string: a high note, then fret 5, every other note. The high notes go 17, 13, 12, 13, 12, 10, 12, 10.',
+        'The end of each bar adds hammer-ons from 5 to 8 and 5 to 7. Bar 3 finishes with a slide from 5 to 10, then 10, 12 and B string 9, 10, 11, 12.',
+        'Start far below tempo. Six notes to a beat is the speed this whole song is built on.',
+      ], { own: 4 }],
+      ['mk-l-2', 'Mantis Lords Lead: descending pairs', 4, 6, ['mk-l-1'], [
+        'Each note is played twice. Bar 4 walks down the B string 9, 8, 6 then the G string 8, 7. Bar 5 continues G 5 and the D and A strings with palm muting.',
+        'Bar 6 ends on six repeats each of D 4, D 5 and G 4.',
+      ], { own: 4 }],
+      ['mk-l-3', 'Mantis Lords Lead: theme', 7, 10, ['mk-l-2', 't-triplet'], [
+        'Bar 7 is the main theme in eighth-note triplets (three to a beat): B 13, G 13, 12, 13, rest, 12, 10, 13, rest, 12. Bar 8 moves along the B string between frets 12 and 16.',
+        'Bars 9 and 10 play that shape as pairs on frets 12 to 16 across the B and high e strings.',
+      ], { own: 4 }],
+      ['mk-l-4', 'Mantis Lords Lead: verse riff', 11, 17, ['mk-l-3', 'p-palm'], [
+        'Bars 11 and 12 are triplets at frets 3 to 8 on the G and D strings, with palm muting on the repeated notes.',
+        'Bar 13: palm-muted pairs of G 5, D 6, G 5, then G 7, G 8, B 8. Bars 14 to 17 move that figure around. Bar 14 is a short two-beat bar.',
+      ], { own: 4 }],
+      ['mk-l-5', 'Mantis Lords Lead: run', 18, 19, ['mk-l-4'], [
+        'Bar 18: palm-muted G 12 with a hammer-on to 13 on every beat. Bar 19 is a 24-note run climbing in threes up the G, B and high e strings, finishing with a slide to 18.',
+      ], { own: 4 }],
+      ['mk-l-6', 'Mantis Lords Lead: second theme', 20, 26, ['mk-l-3'], [
+        'Eighth-note triplets on the B and G strings (13, 13, 12, 13, 12) played three times, each a little lower (bars 20 to 22). Bars 24 and 25 move it to frets 10 to 14.',
+        'Bar 26 plays two strings at once: e 13 with G 10, then 14 with 11, 16 with 13, 14 with 11.',
+      ], { own: 4 }],
+      ['mk-l-7', 'Mantis Lords Lead: build', 27, 37, ['mk-l-6'], [
+        'Bar 27 hits D 12 with G 11. Bars 28 and 29 repeat each note six times, a whole beat per note: G 10, 11, 13, 11, then G 11, G 12, B 10, B 11.',
+        'Bars 30 to 32 are the triplet theme walking down the strings. Bar 33 is a palm-muted run climbing the D, G and B strings.',
+        'Bars 34 and 35 return to the theme at frets 11 to 16. Bar 36 is three-string stabs (G 13, B 15, e 16), and bar 37 slides them up to 19, 21 and 22.',
+      ], { own: 4 }],
+      ['mk-l-8', 'Mantis Lords Lead: return and ending', 38, 44, ['mk-l-1'], [
+        'The intro riff comes back in bars 38 and 39, then pairs run down the high strings (bars 40 to 42).',
+        'The song ends on a held two-note chord, B 4 with G 5.',
+      ], { own: 4 }],
+    ],
+  ),
+  ...part(
+    { id: 'mk-r', name: 'Mantis Lords: Rhythm Guitar', fret: 18, song: MK, track: 1, bars: [2, 44], start: 40, target: 95,
+      gear: 'Written for a 7-string guitar: it plays the lowest string (a B) in most bars. It cannot be played as written on a six-string. Take it out of rotation, or leave it for the day you have a 7-string.',
+      why: 'A palm-muted gallop on the lowest string with chord stabs on top. It is here for completeness: it needs a 7-string guitar.' },
+    [
+      ['mk-r-1', 'Mantis Lords Rhythm: intro stabs', 2, 5, ['r-gallop', 't-triplet'], [
+        'A three-string stab (low B 1, E 3, A 3), a rest, then palm-muted bursts of six on the low B string at fret 1.',
+        'Bar 4 holds the chord. Bar 5 plays four palm-muted chords, then E 4 with A 6 and E 1 with A 3.',
+      ], { own: 4 }],
+      ['mk-r-2', 'Mantis Lords Rhythm: low gallop', 6, 10, ['mk-r-1'], [
+        'Each beat is six palm-muted repeats of one note: low B 3, then E 3 (bar 6); E 1, then low B 4 (bar 9); low B 3 (bar 10).',
+      ], { own: 4 }],
+      ['mk-r-3', 'Mantis Lords Rhythm: descending pedal', 11, 19, ['mk-r-2'], [
+        'Bars 13 to 17: a pedal note on the E string, two beats each, falling 13, 11, 10, 8, 7, 4, 3, 2.',
+        'Bars 18 and 19 are an eighth-note triplet line across the G, D and A strings from fret 10 down to 2.',
+      ], { own: 4 }],
+      ['mk-r-4', 'Mantis Lords Rhythm: chug and stab', 20, 29, ['mk-r-3'], [
+        'A chord stab, then palm-muted sextuplets on the A string at fret 3, then 2, 1 and 0 (bars 20 to 23). Bars 24 and 25 stay on one note.',
+        'Bars 26 and 27 stab two strings at once. Bars 28 and 29 are palm-muted triplets on the E and A strings: 7 and 9, then 3 and 5.',
+      ], { own: 4 }],
+      ['mk-r-5', 'Mantis Lords Rhythm: stabs and ending', 30, 44, ['mk-r-4'], [
+        'Spaced triplet stabs in bars 30 to 32, a single-note line in bar 33, four stabs a bar in bars 34 to 36, then the intro figure again to the end.',
+      ], { own: 4 }],
     ],
   ),
 ]
