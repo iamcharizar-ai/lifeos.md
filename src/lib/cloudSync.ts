@@ -17,6 +17,7 @@ import { parseSummary } from './workout'
 import { supabase } from './supabase'
 import { GYM_HABIT, applyArborEvents, markStrongLinked } from './arborLink'
 import { applyShedEvents } from './guitarLink'
+import { inOrder } from '../game-core/order.ts'
 import { SEED_AT, applySundayList, getSundayList, type SundayTask } from './sundayTasks'
 
 /** The sleep habit Vitals can tick, and how early "on time" is (the habit says 10; half an hour of grace). */
@@ -95,8 +96,6 @@ async function fetchEvents(
 /** Event types whose whole history is folded in one pass at boot (by the shared cores). */
 const FOLDED_IN_BULK = new Set<EventType>(['skill', 'plan', 'guitar', 'guitar_plan'])
 
-const byAt = (a: LifeEvent, b: LifeEvent) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)
-
 const DEVICE_KEY = 'lifeos.device.v1'
 const OUTBOX_KEY = 'lifeos.outbox.v1'
 
@@ -116,6 +115,10 @@ function loadOutbox(): LifeEvent[] {
     return []
   }
 }
+
+const outboxKey = (e: LifeEvent): string => `${e.device}|${e.at}|${e.type}|${JSON.stringify(e.payload)}`
+/** Postgres / PostgREST refused the row itself (bad data, no permission): sending it again cannot help. */
+const isPermanent = (err: { code?: string }): boolean => Boolean(err.code && /^(22|23|42|PGRST1)/.test(err.code))
 
 function saveOutbox(box: LifeEvent[]): void {
   localStorage.setItem(OUTBOX_KEY, JSON.stringify(box))
@@ -308,11 +311,20 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
     if (!supabase) return
     const box = loadOutbox()
     if (box.length === 0) return
+    const sent = new Set<string>()
     const { error } = await supabase.from('events').insert(box)
-    if (!error) {
-      saveOutbox([])
-      setPending(0)
-    }
+    if (!error) box.forEach((e) => sent.add(outboxKey(e)))
+    else
+      // One refused row must not hold the rest back (a stuck un-tick leaves its tick standing
+      // on every other device): send them one by one, and drop only what the server rejects outright.
+      for (const ev of box) {
+        const { error: err } = await supabase.from('events').insert(ev)
+        if (!err || isPermanent(err)) sent.add(outboxKey(ev))
+      }
+    // events queued while this was in flight stay
+    const rest = loadOutbox().filter((e) => !sent.has(outboxKey(e)))
+    saveOutbox(rest)
+    setPending(rest.length)
   }, [])
 
   const emit = useCallback(
@@ -374,7 +386,7 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
       } else {
         applyArborEvents(data.filter((e) => e.type === 'skill' || e.type === 'plan'))
         applyShedEvents(data.filter((e) => e.type === 'guitar' || e.type === 'guitar_plan'))
-        for (const ev of data) if (!FOLDED_IN_BULK.has(ev.type)) applyEvent(ev, settersRef.current)
+        for (const ev of inOrder(data)) if (!FOLDED_IN_BULK.has(ev.type)) applyEvent(ev, settersRef.current)
         // Offline edits made on this device win over folded history
         for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
       }
@@ -394,9 +406,10 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
         const fresh = await fetchEvents(sb, cursor.current || undefined)
         if (cancelled || !fresh) return
         for (const ev of fresh) if (ev.inserted_at && ev.inserted_at > cursor.current) cursor.current = ev.inserted_at
-        for (const ev of fresh.filter((e) => e.device !== device.current).sort(byAt))
+        for (const ev of inOrder(fresh.filter((e) => e.device !== device.current)))
           applyEvent(ev, settersRef.current)
         for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
+        void flush() // an outbox that could not go earlier gets another try every poll
       } finally {
         catching = false
       }

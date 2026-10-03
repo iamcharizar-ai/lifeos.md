@@ -320,10 +320,14 @@ body {
 .partner-name { font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase; color: #ffd800; }
 .partner-lv { font-family: 'Silkscreen', monospace; font-size: 13px; color: #f4f1e6; }
 .partner-tag { font-family: 'Silkscreen', monospace; font-size: 10px; padding: 1px 5px; border: 2px solid #ffd800; color: #ffd800; text-transform: uppercase; }
-.partner-bar { height: 12px; margin: 7px 0 6px; background: #0f1420; border: 2px solid var(--color-neo-black); overflow: hidden; }
-.partner-bar i { display: block; height: 100%; background: #34d399; }
+.partner-bar { display: flex; height: 12px; margin: 7px 0 6px; background: #0f1420; border: 2px solid var(--color-neo-black); overflow: hidden; }
+.partner-bar i { display: block; height: 100%; flex: none; }
+.partner-bar .bar-base { background: #34d399; }
+/* today's XP: a different hue and a stripe, so it reads without relying on colour alone */
+.partner-bar .bar-today { background: #ffd800 repeating-linear-gradient(135deg, transparent 0 4px, rgba(0,0,0,0.28) 4px 6px); }
 .partner-line { font-size: 12px; line-height: 1.45; color: #b9c2d6; }
 .partner-line b { color: #f4f1e6; font-variant-numeric: tabular-nums; }
+.partner-line b.partner-today { color: #ffd800; }
 
 /* Moments: one line, said once, above the tab bar */
 .moment-wrap { position: fixed; left: 0; right: 0; bottom: 88px; z-index: 60; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }

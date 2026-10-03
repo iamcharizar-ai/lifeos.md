@@ -33,6 +33,8 @@ function Sprite({ form, shiny, size, dim }: { form: string; shiny?: boolean; siz
 export function PartnerStrip({ game, left }: { game: Game; left: number }) {
   const { partner, today, momentum } = game
   const pct = Math.max(0, Math.min(1, game.into / game.need))
+  // the bar has two parts: what was banked before today, and what today added on top
+  const before = Math.max(0, Math.min(pct, game.intoBeforeToday / game.need))
   const name = nameOf(game.display)
   // solid days so far this week (Monday first): five earn the week's badge
   const dow = (new Date(today.day + 'T12:00:00').getDay() + 6) % 7
@@ -56,11 +58,13 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
           aria-valuemin={0}
           aria-valuemax={game.need}
           aria-valuenow={game.into}
+          aria-valuetext={`${Math.round(game.into)} of ${game.need} XP, ${Math.round(game.into - game.intoBeforeToday)} of it earned today`}
         >
-          <motion.i animate={{ width: `${pct * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
+          <motion.i className="bar-base" animate={{ width: `${before * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
+          <motion.i className="bar-today" animate={{ width: `${(pct - before) * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
         </div>
         <div className="partner-line">
-          <b>
+          <b className="partner-today">
             +<AnimatedNumber value={today.xp} /> XP
           </b>{' '}
           today

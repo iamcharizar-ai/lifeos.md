@@ -72,6 +72,8 @@ export interface Game {
   /** XP into the current level, and what the level needs */
   into: number
   need: number
+  /** how much of `into` was already there when today began (the rest is today's); 0 for a partner that started today */
+  intoBeforeToday: number
   /** next level something happens at, and what */
   next: { level: number; what: 'evolve' | 'graduate' }
   /** what to draw today: the Mega or Gigantamax form when one is earned */
@@ -225,7 +227,11 @@ export function foldGame(facts: DayFacts[]): Game {
   let asleep = false
   let momentum = { days: 0, mult: 1 }
 
+  /** the partner, and its XP, as today began: what the bar showed before anything was ticked */
+  let dayStart = { uid: partner.uid, xp: partner.xp }
+
   facts.forEach((f, i) => {
+    dayStart = { uid: partner.uid, xp: partner.xp }
     const pillarTotal = f.habits.filter((h) => h.pillar).length
     const pillars = f.habits.filter((h) => h.pillar && h.frac >= 1).length
     const needed = Math.min(PILLARS_FOR_A_DAY, pillarTotal)
@@ -304,10 +310,13 @@ export function foldGame(facts: DayFacts[]): Game {
   const evo = evolveAt(stages, rec(partner.form).s)
   const canEvolve = evo !== null && Boolean(rec(partner.form).e?.length)
   const floor = level <= 1 ? 0 : xpForLevel(level)
+  // today's share of the bar: from where the partner stood this morning, but never below this level's floor
+  const before = dayStart.uid === partner.uid ? dayStart.xp : 0
   return {
     partner,
     level,
     into: partner.xp - floor,
+    intoBeforeToday: Math.min(partner.xp, Math.max(floor, before)) - floor,
     need: xpForLevel(level + 1) - floor,
     next: canEvolve ? { level: evo as number, what: 'evolve' } : { level: graduateAt(stages), what: 'graduate' },
     display,

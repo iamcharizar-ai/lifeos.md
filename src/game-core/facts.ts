@@ -6,6 +6,9 @@ import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, tagOf, tierXp, type 
 export interface HabitLite {
   id: string
   tier: string
+  /** shown by the Pokedex; the game itself never looks at it */
+  name?: string
+  emoji?: string
   /** `[from, to)` stretches the habit was on the checklist; `to: null` = still on */
   spans: { from: string; to: string | null }[]
 }
@@ -31,6 +34,8 @@ export interface FactsInput {
 
 export interface HabitFact {
   id: string
+  name?: string
+  emoji?: string
   tag: Tag
   /** XP this habit is worth when fully done */
   worth: number
@@ -81,7 +86,7 @@ export function factsFor(input: FactsInput, day: string): DayFacts {
       const logs = input.shed?.logs ?? {}
       if (plan.length) frac = plan.filter((id) => logs[id]?.[day]?.done && inTime(logs[id][day].at, day)).length / plan.length
     }
-    habits.push({ id: h.id, tag: tagOf(h.id), worth: tierXp(h.tier), pillar: h.tier === 'pillar', frac, done })
+    habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: tagOf(h.id), worth: tierXp(h.tier), pillar: h.tier === 'pillar', frac, done })
   }
   return { day, habits }
 }
