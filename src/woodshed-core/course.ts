@@ -315,13 +315,16 @@ function part(p: Part, phrases: Ph[]): Item[] {
   return out
 }
 
-/** Theme of Laura came as a text tab with no rhythm: evenly spaced notes, learned by ear against the recording. */
-const laura = (id: string, name: string, req: string[], tab: string[], how: string[]): Item => ({
-  id, name, lane: 'songs', fret: 5, kind: 'phrase', req, mins: 5, part: 'la', free: true, tuning: E_STANDARD,
-  why: 'Theme of Laura. The tab has no rhythm written: listen to the recording for how long each note lasts.',
-  how, tab,
+/**
+ * Theme of Laura came as a text tab with no rhythm written in it. data/songs/theme-of-laura.json
+ * is read off the spacing of the tab (tools/tab2json.py), so the lengths are a best guess:
+ * `inferred` makes the app say so, and the tempo is whatever feels right against the recording.
+ */
+const laura = (id: string, name: string, req: string[], from: number, to: number, how: string[]): Item => ({
+  id, name, lane: 'songs', fret: 5, kind: 'phrase', req, mins: 5, part: 'la', inferred: true,
+  why: 'Theme of Laura. Note lengths are worked out from the spacing of the tab, so check them against the recording.',
+  how, src: { song: 'theme-of-laura', track: 0, from, to },
 })
-const e8 = (...n: string[]) => n.map((x) => `8(${x})`).join(' ')
 
 const SONGS: Item[] = [
   ...part(
@@ -384,32 +387,46 @@ const SONGS: Item[] = [
       ]],
     ],
   ),
-  laura('la-1', 'Theme of Laura: opening line', ['v-slide'],
-    [e8('2:9', '3:9', '3:9', '3:11', '3:11', '3:12', '3:12', '3:11', '3:9'), e8('4:12', '4:12', '4:10', '3:9', '4:12', '3:9', '4:12')],
-    ['Everything sits between frets 9 and 12: index at 9, ring at 11, pinky at 12.', 'Written in standard tuning. In D standard the fingering is the same and it sounds a step lower; retune only to play along with the recording.']),
-  laura('la-2', 'Theme of Laura: the low answer', ['la-1', 'v-hammer'],
-    [e8('1:7', '2:5', '3:7/', '3:9', '2:9', '2:7', '2:7', '2:7h', '2:9', '2:5', '2:4', '2:5'), e8('2:9', '2:7', '1:7', '2:5', '3:7', '2:7/', '2:9')],
-    ['The slide from 7 to 9 on the G string is one pick stroke.', '7h9 on the D string is a hammer-on.']),
-  laura('la-3', 'Theme of Laura: answer and chords', ['la-2', 'r-strum'],
-    [e8('1:7', '2:5', '3:7/', '3:9', '2:9', '2:7', '2:7', '2:7h', '2:9', '2:5', '2:4', '2:5'), e8('3:4', '2:7', '3:7', '3:7/', '3:9', '2:9'), `2(0:0 1:2 2:2 3:0) 2(0:0 1:2 2:2 3:0 4:0 5:2) ${e8('1:4', '1:3', '1:2')}`],
-    ['The line from the last phrase, with a new ending.', 'Then two chords: E minor on the low four strings, and again across all six with the high e at the 2nd fret.', 'The three single notes walk down the A string: 4, 3, 2.']),
-  laura('la-4', 'Theme of Laura: second theme', ['la-1', 'v-hammer'],
-    [e8('2:7', '2:7', '4:8', '4:7', '4:7', '4:7h', '4:8h', '4:7', '4:5', '3:4'), e8('2:7', '2:7', '4:8', '4:7', '4:7', '4:7h', '4:8h', '4:7', '3:9', '3:14', '5:12')],
-    ['7h8 then back to 7 is a hammer-on followed straight away by a pull-off: one pick stroke, three notes.', 'The second line ends with a jump to the 14th fret and then the 12th on the high e.']),
-  laura('la-5', 'Theme of Laura: climbing line', ['la-4'],
-    [e8('2:7', '3:5', '3:7/', '3:9', '4:8', '4:10', '3:9', '4:8', '4:8', '4:7', '4:8/', '4:10', '3:9'), e8('2:7', '3:5', '3:7/', '3:9', '4:8', '4:10', '3:9', '4:8', '4:8', '4:7', '4:8', '4:8', '3:9'), e8('2:7', '3:5', '3:7/', '3:9', '4:8', '4:10', '3:9', '4:8', '4:8', '4:7', '4:8/', '4:10', '4:10/', '4:12')],
-    ['Three passes of one line with three different endings.', 'The third ending slides twice: 8 to 10, then 10 to 12.']),
-  laura('la-6', 'Theme of Laura: bridge', ['la-5'],
-    [e8('3:9', '4:10', '3:9', '3:9', '4:12', '3:9', '3:9', '2:10', '2:9'), e8('4:8', '4:8', '4:8', '4:7', '4:7', '4:8', '4:8/', '4:10', '3:9', '2:9', '2:9', '4:7', '2:9'), e8('4:8', '4:8', '4:7', '4:8', '3:7', '4:8', '4:7', '3:9', '2:9', '3:9', '3:8', '3:8', '3:6', '3:8', '3:9')],
-    ['The G-string 9 is a home base you keep coming back to.', 'The last line walks down the G string: 9, 8, 8, 6, 8, 9.']),
-  laura('la-7', 'Theme of Laura: closing arpeggios', ['p-ring'],
-    [e8('1:3', '2:2', '3:0', '2:2', '1:5', '2:4', '3:0', '2:4'), e8('1:7', '2:5', '3:7', '1:7', '2:5', '1:5', '2:4'), e8('1:3', '2:2', '3:0', '2:2', '1:5', '2:4', '3:0', '2:4'), '2(0:0 1:2 2:2 3:0) 2(0:0 1:2 2:2 3:0 4:0 5:2)'],
-    ['Let every note ring. The open G string sits in the middle of each shape.', 'The two-finger shape moves up the neck: frets 3 and 2, then 5 and 4, then 7 and 5.']),
+  laura('la-1', 'Theme of Laura: opening line', ['v-slide'], 1, 3, [
+    'Starts on the D string 9th fret, then climbs the G string: 9, 9, 11, 11, 12, 12, 11, 9. Index on 9, ring on 11, pinky on 12.',
+    'Bars 2 and 3 move up to the B string. Two notes in the last bar are written together (B 10 with G 9, B 12 with G 9): pluck both at once with thumb and finger, or hold the G string 9 and play the B string on top.',
+    'Written in E standard. In D standard the fingering is identical and it sounds a step lower; tune up only to play with the recording.',
+  ]),
+  laura('la-2', 'Theme of Laura: the low answer', ['la-1', 'v-hammer'], 4, 7, [
+    'Bar 4: A string 7, D string 5, then a slide on the G string from 7 up to 9, then D string 9 and 7.',
+    'Bar 5 is the D string walking down: 7, then a hammer-on from 7 to 9, then 5, 4, 5. Pick the 7 and hammer the 9 without picking it.',
+    'Bars 6 and 7 start from D string 9, 7 with an A string 7 and a G string 7 mixed in, and finish with a slide from 7 to 9 on the D string.',
+  ]),
+  laura('la-3', 'Theme of Laura: answer and chords', ['la-2', 'r-strum'], 8, 11, [
+    'Bars 8 to 10 play the low answer again, with a new ending: a G string 4 and a D string 7 together, then G 7 sliding to 9.',
+    'Bar 11 is two open E minor chords: first the low four strings (G 0, D 2, A 2, E 0), then all six with the high e on the 2nd fret. Let them ring.',
+    'Then three single notes walk down the A string: 4, 3, 2.',
+  ]),
+  laura('la-4', 'Theme of Laura: second theme', ['la-1', 'v-hammer'], 12, 15, [
+    'D string 7 twice, then the B string: 8, 7, 7, then 7-8-7 in one pick stroke (hammer-on to 8, pull-off back to 7).',
+    'It ends on B 5 and G 4. The second time through, the end changes: G string 9, then a jump up to 14, then the high e string 12.',
+  ]),
+  laura('la-5', 'Theme of Laura: climbing line', ['la-4'], 16, 21, [
+    'One line played three times with different endings. It starts D 7, G 5, then a slide on the G string from 7 to 9.',
+    'Then the B string: 8, 10, back to G 9, then B 8, 8, 7 and a slide from 8 to 10.',
+    'The third time, the slide 8 to 10 is followed by 10 to 12 and the last note is held.',
+  ]),
+  laura('la-6', 'Theme of Laura: bridge', ['la-5'], 22, 29, [
+    'The G string 9 is home base. Bars 22 and 23 go G 9, B 10, G 9, G 9, B 12, G 9 and finish on the D string, 10 then 9.',
+    'Bars 24 to 26 run the B string 8, 8, 8, 7, 7, 8 and slide 8 to 10, then a D string slide up to 9.',
+    'Bars 27 to 29 are the same shapes with a walk down the G string: 9, 8, 8, 6, 8, 9.',
+  ]),
+  laura('la-7', 'Theme of Laura: closing arpeggios', ['p-ring'], 30, 35, [
+    'Let every note ring. Two groups repeat: A 3, D 2, open G, D 2, then A 5, D 4, open G, D 4.',
+    'The third group climbs to A 7, D 5, G 7, then A 7, D 5, and falls back through A 5, D 4.',
+    'The last bar is the open E minor chord again, then all six strings.',
+  ]),
   {
-    id: 'la', name: 'Theme of Laura', lane: 'songs', fret: 5, kind: 'song', mins: 8, tuning: E_STANDARD,
+    id: 'la', name: 'Theme of Laura', lane: 'songs', fret: 5, kind: 'song', mins: 8, inferred: true,
     req: ['la-1', 'la-2', 'la-3', 'la-4', 'la-5', 'la-6', 'la-7'],
     why: 'A single-guitar melody with no second part to hide behind. Slides, hammer-ons and two open chords.',
-    how: ['Play it through with the recording, top to bottom.', 'Written in standard tuning, so tune up a whole step from D standard for this one.', 'Log it clean only when the whole pass was clean.'],
+    how: ['Play it through with the recording, top to bottom.', 'Written in E standard, so tune up a whole step from D standard for this one.', 'Log it clean only when the whole pass was clean.'],
+    src: { song: 'theme-of-laura', track: 0, from: 1, to: 35 },
   },
   ...part(
     { id: 'bw-c1', name: 'Bilewater: Clean Guitar 1', fret: 6, song: BW, track: 3, bars: [1, 72], start: 56, target: 93,

@@ -36,8 +36,8 @@ export interface Item {
   tab?: string[]
   /** phrases: where the bars live in data/songs (bar numbers, inclusive) */
   src?: { song: string; track: number; from: number; to: number }
-  /** the tab came without rhythm: notes are shown evenly spaced and cannot be played back */
-  free?: boolean
+  /** the tab came without rhythm: note lengths were read off its spacing, so they are a best guess */
+  inferred?: boolean
   /** open-string pitches (MIDI, low to high) when it matters; default is D standard */
   tuning?: number[]
   /** phrases: the song item they belong to */
