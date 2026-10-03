@@ -19,6 +19,11 @@ import { GYM_HABIT, applyArborEvents, markStrongLinked } from './arborLink'
 import { applyShedEvents } from './guitarLink'
 import { SEED_AT, applySundayList, getSundayList, type SundayTask } from './sundayTasks'
 
+/** The sleep habit Vitals can tick, and how early "on time" is (the habit says 10; half an hour of grace). */
+const SLEEP_HABIT = 'sleep-before-10'
+const SLEEP_BED_BY = '22:30'
+export const VITALS_URL: string = import.meta.env.VITE_VITALS_URL ?? 'https://vitals-theta-pied.vercel.app'
+
 export type CloudStatus = 'off' | 'connecting' | 'live' | 'error'
 
 export type EventType =
@@ -38,6 +43,8 @@ export type EventType =
   // written by Woodshed / the Guitar block here; folded by lib/guitarLink
   | 'guitar'
   | 'guitar_plan'
+  // written by Vitals (hand entry or the band sync): a day's body readings
+  | 'vitals'
 
 export interface LifeEvent {
   device: string
@@ -178,6 +185,19 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
     case 'guitar_plan':
       applyShedEvents([ev])
       break
+    case 'vitals': {
+      // A measured bedtime that was early enough ticks that evening's sleep habit.
+      // It only ever adds a tick: nothing is locked and nothing is un-ticked, so
+      // the habit works exactly as before on days Vitals has no reading.
+      const bed = typeof p.bed === 'string' ? p.bed : ''
+      const date = bed.slice(0, 10)
+      const time = bed.slice(11, 16)
+      if (date && time >= '18:00' && time <= SLEEP_BED_BY)
+        s.setTicks((prev) =>
+          prev[date]?.[SLEEP_HABIT] ? prev : { ...prev, [date]: { ...(prev[date] ?? {}), [SLEEP_HABIT]: ev.at } },
+        )
+      break
+    }
     case 'config':
       // Habit config lives in its own external store, not React state — LWW by `at`
       try {

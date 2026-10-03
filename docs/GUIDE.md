@@ -1,6 +1,6 @@
 # The system: how it all works, and why
 
-Five small apps and one shared ledger. This guide explains what each part does, how they talk to each other, how the game on top works, why it was designed this way, and what comes next.
+Six small apps and one shared ledger. This guide explains what each part does, how they talk to each other, how the game on top works, why it was designed this way, and what comes next.
 
 Written 2026-10-03. Rules version 1.
 
@@ -25,7 +25,8 @@ The one rule behind every design choice: **the only way to progress is to do the
 | Strong | Logging the gym session | Today's routine (seven-day split) and the next weight (double progression) | strong-five.vercel.app |
 | Arbor | The calisthenics skill tree | Which skills to practise this morning and which to add at the gym | arbor-umber.vercel.app |
 | Woodshed | Guitar practice | Today's practice session, one new thing at a time | woodshed-sooty.vercel.app |
-| Pokedex | Progress and collection | Nothing. It is a mirror. | see section 9 |
+| Pokedex | Progress and collection | Nothing. It is a mirror. | pokedex-theta-swart.vercel.app |
+| Vitals | Sleep, steps, weight, and the band's readings later | Tonight's bedtime | vitals-theta-pied.vercel.app |
 
 LeetCode (Striver's sheet) has no app on purpose. You track the sheet where it already lives and tick one habit in Life OS.
 
@@ -66,6 +67,7 @@ Rows are only ever added, never changed. Each app reads the rows it cares about 
 | `plan` | whichever app opens first that day | Arbor, Life OS, Strong, Pokedex | today's Arbor skills, frozen for the day |
 | `guitar` | Woodshed, Life OS | Woodshed, Life OS, Pokedex | a practice item was logged |
 | `guitar_plan` | whichever app opens first | Woodshed, Life OS, Pokedex | today's Woodshed session, frozen for the day |
+| `vitals` | Vitals (by hand now, the band later) | Vitals, Life OS, Pokedex | one day's body readings |
 | `month`, `sunday`, `metric`, `health` | Life OS | Life OS | sealed months, the Sunday list, manual numbers |
 
 "Frozen for the day" matters: the coach's pick for today is published once, so the phone, the desktop and Strong all show the same skills, and it does not reshuffle halfway through the day.
@@ -250,7 +252,7 @@ Not built yet, though described in the plan: choosing the partner by hand in Pok
 
 ---
 
-## 8. Next: the health tracker
+## 8. The health tracker (the plan; section 11 says what exists now)
 
 You plan to add a Fitbit Air and build an app on Google's health API (the `ghealth` command-line tool reads the same data). The band measures heart rate, heart-rate variability, blood oxygen, breathing rate, skin temperature, sleep stages and score, cardio load and readiness.
 
@@ -336,3 +338,106 @@ Run any app with `VITE_SUPABASE_DISABLE=1`, or point it at a local stand-in for 
 - **Queue**: caught, waiting their turn.
 - **Fully trained**: reached the last level and moved into the Pokedex for good.
 - **Core**: shared logic copied between apps.
+
+---
+
+## 11. Vitals: what exists now
+
+Vitals is live and linked, but nothing depends on it. Until you start using it (or until the band arrives), the rest of the system behaves exactly as before.
+
+### What it is
+
+A dark, tile-based app laid out like Samsung Health, which was studied screen by screen first (the study is in the vitals repo, `docs/SAMSUNG-HEALTH-STUDY.md`). Three levels: a home of tiles, one tracker per metric, a trend chart.
+
+- **Home**: categories (Favourite, Activity, Sleep, Vitals, Body), a swipeable insight card, tiles. Dark tiles show live numbers; coloured ones are readings that need the band.
+- **Trackers** for sleep, steps and body composition, all on one template: day picker, one big number, the last seven days with an average line, something specific (bedtime guidance and a consistency grid; a month calendar; normal-range bars), then "enter data".
+- **Trends** over 30 days, 12 weeks or 12 months.
+- **My page**: a weekly report against the week before, badges, personal bests.
+- **Quick add**: sleep, steps and weight from one button.
+
+Everything can be typed in by hand today. A reading that was not taken shows as dashes or a gap, never as zero.
+
+### Bedtime guidance
+
+Tonight's time is your usual bedtime over the last week, moved half an hour earlier, and never earlier than your goal. It needs three logged nights. The idea: a goal four hours away produces a week of misses; half an hour produces a week of wins.
+
+### How it is linked
+
+| Link | What happens | What it does not do |
+|---|---|---|
+| Vitals → ledger | Each reading is a `vitals` event, in the same table as everything else | |
+| Vitals → Life OS | A measured bedtime of 22:30 or earlier ticks that evening's "Sleep At 10" | It never un-ticks and never locks: you can still tick by hand, and days with no reading are untouched |
+| Vitals → Pokedex | The same sleep rule feeds the game, and a "Body" line appears on the partner screen with the newest readings | No new XP and no new rules. With no Vitals data the line is simply absent |
+| Life OS → Vitals | A link in the footer | |
+
+So the only thing Vitals can change today is one habit tick, and only in your favour.
+
+### What is not built
+
+- **The band sync has never run for real.** `tools/sync.mjs` reads Google Health through the `ghealth` tool and writes `vitals` events. It is tested against the documented shapes only. It needs Go installed, a Google Cloud project and a sign-in. A few field names (variability, blood oxygen, skin temperature) are best guesses.
+- **No measured Sleep pillar.** Sleep is still a 30 XP core habit.
+- **No trainer stats, no eggs on steps.**
+- **Goals live on each device.** The bedtime and step goals you set in Vitals are not shared; Life OS uses a fixed 22:30.
+
+---
+
+## 12. What you can do with it all linked
+
+A realistic picture of the system at full use.
+
+- **One screen runs the day.** Life OS in the morning; four of its habits fill themselves in: Gym from Strong, Arbor skills and Woodshed from their blocks, Sleep from Vitals.
+- **Nothing to decide.** Arbor picks the morning skills around tonight's gym session. Strong picks the routine and the next weight. Woodshed picks the practice session. Vitals picks tonight's bedtime. They choose; you do.
+- **One number that means something.** Every tick moves one partner. Code, gym and guitar carry it; routine keeps it from being zero.
+- **Honest ticks.** Gym cannot be faked once Strong is in use. Sleep cannot be faked once the band is. Late ticks do not count.
+- **A record you can read back.** Pokedex's journal, Strong's lifts and muscle charts, Arbor's tree, Woodshed's tempos, Vitals' trends and weekly report: the same weeks, seen five ways.
+- **Two devices, no setup.** Open any app on any device and it rebuilds itself from the ledger.
+
+What it cannot do yet: remind you of anything, notice a bad week and say so, or adapt a plan to how you slept.
+
+---
+
+## 13. What is left
+
+In the order I would do it.
+
+### Before the band
+
+1. **Give the ledger a login.** It is the one real weakness, and body data can now go into it. Every app reads and writes with a key that ships in the page.
+2. **Rethink "Sleep At 10".** Your nights currently start around 2 am. As a fixed habit it blocks every perfect day. Options: make it follow tonight's Vitals bedtime, or change its time.
+3. **An evening reminder.** Almost nothing after midday gets ticked. One notification at a fixed time is the cheapest fix in the whole system.
+4. **Trim the routine list.** A perfect day needs every habit; 33 is a lot.
+5. **Use Strong once.** It has never recorded a workout, so the Gym lock has never engaged and the link is unproven in real use.
+
+### When the band arrives
+
+6. Install Go, build `ghealth`, run `ghealth setup`, then `node tools/sync.mjs --dry-run` in the vitals folder and fix any field names that come back empty.
+7. Schedule the sync (a daily task on the PC is enough).
+8. Make Sleep a measured pillar: worth 100, locked like Gym.
+9. Trainer stats on a radar in Pokedex: sleep, strength, recovery, code, guitar, cardio.
+10. Eggs that hatch on real steps.
+11. Share goals through the ledger so every app agrees on bedtime and step targets.
+
+### Whenever
+
+12. Clean Arbor: move the non-calisthenics branches out, fix the wrong prerequisites, connect the orphans.
+13. Compact the habit-library history (hundreds of full copies).
+14. Let Strong edit a past workout.
+15. Connect Woodshed's deploys to GitHub like the others.
+16. Choosing the partner by hand in Pokedex (the queue is automatic today).
+17. One shared package for the cores instead of copy scripts.
+
+---
+
+## 14. Further out
+
+Ideas, not plans.
+
+- **Readiness for the coaches.** A low-recovery morning makes Arbor and Strong offer a lighter session. Changes the plan, never the XP.
+- **A weekly review that writes itself.** Sunday: what moved, what slipped, one suggestion. All the data is already there.
+- **Compare lines.** Samsung Health overlays one reading on another's timeline. Sleep against gym days, or bedtime against next-day LeetCode, would show what actually helps.
+- **A sleeper type and a multi-week programme**, the way Samsung's sleep coaching does it, built on the bedtime steps.
+- **Nutrition**, if it ever earns its place: protein against a target is the one number worth having.
+- **Widgets.** The partner, tonight's bedtime and today's routine on the phone's home screen.
+- **An export.** Everything is in one table; a yearly summary is a query away.
+
+The rule for adding anything: it must either remove a decision or make a real thing more visible. If it only adds a screen, leave it out.
