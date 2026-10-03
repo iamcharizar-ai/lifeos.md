@@ -10,7 +10,6 @@ import {
   saveWorkouts,
   type HealthMap,
   type MetricsMap,
-  type Stores,
   type WorkoutMap,
 } from './lib/ledger'
 import { habitIdFor, isLive, type Habit, type Tier } from './config/habits'
@@ -42,6 +41,8 @@ import { tempoFor } from './woodshed-core/coach.ts'
 import { ITEM_BY_ID } from './woodshed-core/course.ts'
 import { statsOf, type Feel } from './woodshed-core/model.ts'
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
+import { useGame } from './lib/game'
+import { Moments } from './components/PartnerStrip'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('daily')
@@ -61,7 +62,7 @@ export default function App() {
   useEffect(() => saveHealth(health), [health])
   useEffect(() => saveWorkouts(workouts), [workouts])
 
-  const stores = useMemo<Stores>(
+  const stores = useMemo(
     () => ({ ticks, metrics, health, workouts }),
     [ticks, metrics, health, workouts],
   )
@@ -141,9 +142,20 @@ export default function App() {
   // Introduce the Woodshed block once (third row; drag it wherever it belongs).
   useEffect(() => {
     if (!settled) return
-    const cfg = configWithLinkedHabit({ id: GUITAR_HABIT, name: 'Woodshed', emoji: '🎸', tier: 'core' }, 2, today)
+    const cfg = configWithLinkedHabit({ id: GUITAR_HABIT, name: 'Woodshed', emoji: '🎸', tier: 'pillar' }, 2, today)
     if (cfg) emitConfig(commitConfig(cfg))
   }, [settled, today, emitConfig])
+
+  // The game's tiers arrived after these habits did: lift the three pillars
+  // once, so LeetCode, Gym and Woodshed carry the day's XP. Only ever runs on a
+  // library that has no pillar yet, so later edits by hand are never undone.
+  useEffect(() => {
+    if (!settled || getConfig().habits.some((h) => h.tier === 'pillar')) return
+    const lift: Record<string, Tier> = { 'leetcode-coding': 'pillar', gym: 'pillar', [GUITAR_HABIT]: 'pillar', 'log-diary-plan-english-shadow': 'standard' }
+    const habits = getConfig().habits.map((h) => (lift[h.id] ? { ...h, tier: lift[h.id] } : h))
+    if (!habits.some((h) => h.tier === 'pillar')) return
+    emitConfig(commitConfig({ ...getConfig(), habits, at: new Date().toISOString(), source: 'app' }))
+  }, [settled, emitConfig])
 
   // The Arbor habit ticks itself when every planned skill is practised.
   useEffect(() => {
@@ -222,6 +234,8 @@ export default function App() {
     const bpm = tempoFor(item, statsOf(item, shed))
     emitGuitar('guitar', { itemId, done: true, feel, ...(bpm ? { bpm } : {}) })
   }
+
+  const game = useGame(habits, ticks, arbor, shed, today)
 
   const toggle = (habitId: string) => {
     if (isLocked(habitId)) return // fed by Strong / Arbor — not ticked by hand
@@ -329,7 +343,7 @@ export default function App() {
             shelf={shelf}
             ticks={ticks}
             today={today}
-            stores={stores}
+            game={game}
             actions={actions}
             linked={{ workout: workouts[today], arbor, plan, onSkill, guitar: { shed, session, onLog: onGuitar } }}
             weekly={weekly}
@@ -339,6 +353,8 @@ export default function App() {
           <MonthView habits={habits} ticks={ticks} today={today} initialYm={monthFocus ?? undefined} />
         )}
       </motion.main>
+
+      <Moments game={game} today={today} ready={settled} />
 
       <footer className="hud-label mt-8 border-none text-center !text-[10px] !text-neo-gray-dark">
         v2.1 · habit tracker ·{' '}

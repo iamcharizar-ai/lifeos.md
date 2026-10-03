@@ -43,6 +43,14 @@ Two things that are not daily habits live on the Daily screen. Neither pays XP o
 - **Sunday reset** is its own panel (lavender, dashed cut-line) with its own list of one-off tasks — cut nails, face pack, clean the room, watch a film. On Sundays it is a checklist that starts clear each week. Monday to Saturday the tasks are hidden; only a folded "Sunday reset" bar remains, and opening it lets you add, rename, reorder and delete tasks. The list syncs between devices (`sunday` events); each tick is an ordinary `tick` event with the id `sun:<task>`.
 - **Month-end review** appears at the top of Today on the last day of every month and stays there, month after month, until you tap it. Its "Graph" button jumps to that month on the Monthly tab. A review is a `tick` with the id `month-review`, filed under the first day of the month it closes. The first month that can owe a review is September 2026 (`FIRST_REVIEW_YM` in `src/lib/monthReview.ts`).
 
+## The game
+
+Every tick feeds one partner that levels up and evolves; a perfect day catches a new one. The card at the top of the checklist shows it, and the collection lives on the separate Pokedex site. The three pillar habits (LeetCode, Gym, Woodshed) carry most of the XP; everything else pays a little.
+
+Nothing about the game is stored: it is recomputed from the habits and ticks by `src/game-core/`, which is copied from the pokedex repo (`npm run core` there). Do not edit it here. Sprites are not in this repo; they are loaded from the Pokedex site (`VITE_POKEDEX_URL`).
+
+How the whole system fits together, and why, is in [docs/GUIDE.md](docs/GUIDE.md).
+
 ## How your data is handled
 
 - **Instant, offline-first**: everything you tick or type is saved straight to your device immediately - no waiting on a server.

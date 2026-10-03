@@ -8,11 +8,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { Reorder, motion, useDragControls } from 'framer-motion'
 import { TIERS, TIER_XP, type Habit, type Tier } from '../config/habits'
-import { dayEarned, type Stores } from '../lib/ledger'
-import { habitXp, DAILY_CAP } from '../lib/xp'
-import { streakFor, type Ticks } from '../lib/store'
-import { AnimatedNumber } from '../components/AnimatedNumber'
-import { ProgressRing } from '../components/ProgressRing'
+import type { Ticks } from '../lib/store'
+import { PartnerStrip } from '../components/PartnerStrip'
+import type { Game } from '../game-core/fold.ts'
+import { tierXp } from '../game-core/rules.ts'
 import { ArborHead, ArborSkills, GuitarHead, GuitarItems, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
 import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
@@ -214,8 +213,7 @@ function ChecklistRow({
 }) {
   const controls = useDragControls()
   const ticked = Boolean(ticks[today]?.[habit.id])
-  const streak = streakFor(ticks, habit.id, today)
-  const xp = habitXp(habit.tier, ticked ? streak : streak + 1)
+  const xp = tierXp(habit.tier)
   // Linked habits are fed by Strong / Arbor and wear that app's look.
   const link = linkOf(habit.id)
   const strongLinked = useStrongLinked()
@@ -310,9 +308,6 @@ function ChecklistRow({
           >
             {habit.name}
           </span>
-          {streak >= 3 && (
-            <span className="num shrink-0 text-xs font-bold text-neo-red">🔥{streak}</span>
-          )}
           <span
             className={`num shrink-0 text-base font-bold ${
               ticked ? 'text-black' : 'text-neo-gray-dark'
@@ -524,7 +519,7 @@ export function HabitsScreen({
   shelf,
   ticks,
   today,
-  stores,
+  game,
   actions,
   linked,
   weekly,
@@ -535,7 +530,7 @@ export function HabitsScreen({
   shelf: Habit[]
   ticks: Ticks
   today: string
-  stores: Stores
+  game: Game
   actions: HabitActions
   linked: LinkedCtx
   /** month-end review + Sunday reset — the not-every-day blocks */
@@ -554,7 +549,6 @@ export function HabitsScreen({
   }
 
   const todayTicks = ticks[today] ?? {}
-  const todayXp = dayEarned(stores, today)
   const doneCount = live.filter((h) => todayTicks[h.id]).length
 
   const tickCounts = useMemo(() => {
@@ -563,12 +557,6 @@ export function HabitsScreen({
       for (const id of Object.keys(day)) out[id] = (out[id] ?? 0) + 1
     return out
   }, [ticks])
-
-  const streaks = live
-    .map((h) => ({ h, s: streakFor(ticks, h.id, today) }))
-    .filter((x) => x.s >= 2)
-    .sort((a, b) => b.s - a.s)
-    .slice(0, 3)
 
   const commit = (next: Habit[]) => actions.onReorder(next.map((h) => h.id))
   /** Keyboard equivalent of a drag: swap one row with its neighbour. */
@@ -582,34 +570,7 @@ export function HabitsScreen({
 
   return (
     <div className="space-y-4">
-      <div className="neo-card neo-card-yellow p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="hud-label border-black">Today&apos;s XP</div>
-            <div className="num mt-1 font-display text-3xl font-bold tracking-tight text-black">
-              <AnimatedNumber value={todayXp} />
-              <span className="ml-1.5 font-sans text-sm font-bold text-black/70">/ {DAILY_CAP}</span>
-            </div>
-            {streaks.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {streaks.map(({ h, s }) => (
-                  <span
-                    key={h.id}
-                    className="inline-flex items-center gap-1 border-2 border-black bg-white px-2 py-0.5 text-[11px] font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                  >
-                    {h.emoji} 🔥{s}d
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <ProgressRing
-            pct={live.length > 0 ? doneCount / live.length : 0}
-            label={`${doneCount}/${live.length}`}
-            size={68}
-          />
-        </div>
-      </div>
+      <PartnerStrip game={game} left={live.length - doneCount} />
 
       <MonthReviews
         reviews={weekly.reviews}

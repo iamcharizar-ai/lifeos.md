@@ -9,7 +9,11 @@
 // Ids must stay stable for the life of a habit — they key tick events in the
 // append-only cloud ledger.
 
-export type Tier = 'core' | 'standard' | 'basic'
+import { TIERS, TIER_XP, type Tier } from '../game-core/rules.ts'
+
+// Tiers and what each pays live in the shared game core (see game-core/rules.ts).
+export { TIERS, TIER_XP }
+export type { Tier }
 
 /**
  * One stretch of days a habit was live: `[from, to)` — `to === null` means
@@ -84,19 +88,9 @@ export function archivedOn(h: Habit): string | null {
   return h.spans[h.spans.length - 1].to
 }
 
-// Economy v2 (2026-07-09): essentials are table stakes, not needle-movers —
-// basic pays 1 XP so brushing your teeth can't out-earn real work.
-export const TIER_XP: Record<Tier, number> = {
-  core: 20,
-  standard: 10,
-  basic: 1,
-}
-
-export const TIERS: Tier[] = ['core', 'standard', 'basic']
-
 const BASE_HABITS: Omit<Habit, 'spans'>[] = [
   { id: 'cat-prep', name: 'CAT prep', emoji: '📚', tier: 'core' },
-  { id: 'gym', name: 'Gym', emoji: '🏋️', tier: 'core' },
+  { id: 'gym', name: 'Gym', emoji: '🏋️', tier: 'pillar' },
   { id: 'morning-walk', name: 'Morning walk 5K', emoji: '🌞', tier: 'core' },
   { id: 'guitar', name: 'Guitar', emoji: '🎸', tier: 'core' },
 

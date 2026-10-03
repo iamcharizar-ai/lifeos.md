@@ -299,6 +299,43 @@ body {
   .shed-item { grid-template-columns: 1fr 250px; align-items: center; }
 }
 
+/* Partner: the game's one card. A dark field so the sprite reads, a cream plate for the numbers */
+.partner-card {
+  display: flex; align-items: center; gap: 14px; padding: 12px;
+  background: #1d2433; color: #f4f1e6;
+  border: 3px solid var(--color-neo-black); border-radius: 8px;
+  box-shadow: 4px 4px 0 0 var(--color-neo-black);
+}
+.partner-card.aura-mega { box-shadow: 4px 4px 0 0 var(--color-neo-black), inset 0 0 0 3px #7ad7ff; }
+.partner-card.aura-gmax { box-shadow: 4px 4px 0 0 var(--color-neo-black), inset 0 0 0 3px #ff5d8f; }
+.partner-frame {
+  position: relative; flex: none; display: grid; place-items: center; width: 96px; height: 96px;
+  background: radial-gradient(circle at 50% 78%, #3d4a66 0 34%, #2a3349 35% 100%);
+  border: 3px solid var(--color-neo-black); border-radius: 6px;
+}
+.partner-sprite { image-rendering: pixelated; object-fit: contain; }
+.partner-sprite.is-asleep { filter: grayscale(1) brightness(0.7); }
+.partner-blank { display: grid; place-items: center; background: #3d4a66; color: #9aa6c2; font-family: 'Silkscreen', monospace; border-radius: 4px; }
+.partner-zzz { position: absolute; top: 4px; right: 6px; font-family: 'Silkscreen', monospace; font-size: 10px; color: #9aa6c2; }
+.partner-name { font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase; color: #ffd800; }
+.partner-lv { font-family: 'Silkscreen', monospace; font-size: 13px; color: #f4f1e6; }
+.partner-tag { font-family: 'Silkscreen', monospace; font-size: 10px; padding: 1px 5px; border: 2px solid #ffd800; color: #ffd800; text-transform: uppercase; }
+.partner-bar { height: 12px; margin: 7px 0 6px; background: #0f1420; border: 2px solid var(--color-neo-black); overflow: hidden; }
+.partner-bar i { display: block; height: 100%; background: #34d399; }
+.partner-line { font-size: 12px; line-height: 1.45; color: #b9c2d6; }
+.partner-line b { color: #f4f1e6; font-variant-numeric: tabular-nums; }
+
+/* Moments: one line, said once, above the tab bar */
+.moment-wrap { position: fixed; left: 0; right: 0; bottom: 88px; z-index: 60; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
+.moment {
+  pointer-events: auto; display: flex; align-items: center; gap: 12px; max-width: 420px; width: 100%; padding: 10px 14px;
+  background: #1d2433; color: #f4f1e6; border: 3px solid var(--color-neo-black); border-radius: 8px;
+  box-shadow: 4px 4px 0 0 var(--color-neo-black);
+}
+.moment-evolve, .moment-catch, .moment-graduate, .moment-form { box-shadow: 4px 4px 0 0 var(--color-neo-black), inset 0 0 0 3px #ffd800; }
+.moment-title { display: block; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #ffd800; }
+.moment-text { display: block; font-size: 13px; line-height: 1.35; }
+
 /* Sunday reset: a lavender sticker sheet with a dashed cut-line, its title stamped on at a slant */
 .sunday-panel {
   background-color: #e4d8ff;

@@ -1,0 +1,133 @@
+// The game, in one card: who the partner is, how far today moved it, and what
+// is left before a catch. Everything else lives on the Pokedex site.
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { nameOf, type Game, type Moment } from '../game-core/fold.ts'
+import { BADGE_DAYS } from '../game-core/rules.ts'
+import { POKEDEX_URL, freshMoments, momentKey, momentText, spriteUrl } from '../lib/game'
+import { AnimatedNumber } from './AnimatedNumber'
+
+/** A sprite from the Pokedex site; a plain block with the initial if it cannot load. */
+function Sprite({ form, shiny, size, dim }: { form: string; shiny?: boolean; size: number; dim?: boolean }) {
+  const [broken, setBroken] = useState<string | null>(null)
+  const src = spriteUrl(form, shiny)
+  if (broken === src)
+    return (
+      <span className="partner-blank" style={{ width: size, height: size, fontSize: size / 2.4 }} aria-hidden>
+        {nameOf(form).slice(0, 1)}
+      </span>
+    )
+  return (
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      onError={() => setBroken(src)}
+      className={`partner-sprite ${dim ? 'is-asleep' : ''}`}
+      style={{ width: size, height: size }}
+    />
+  )
+}
+
+export function PartnerStrip({ game, left }: { game: Game; left: number }) {
+  const { partner, today, momentum } = game
+  const pct = Math.max(0, Math.min(1, game.into / game.need))
+  const name = nameOf(game.display)
+  // solid days so far this week (Monday first): five earn the week's badge
+  const dow = (new Date(today.day + 'T12:00:00').getDay() + 6) % 7
+  const week = game.days.slice(-(dow + 1)).filter((d) => d.counts).length
+  return (
+    <div className={`partner-card ${game.aura ? `aura-${game.aura}` : ''}`}>
+      <a href={POKEDEX_URL} target="_blank" rel="noreferrer" className="partner-frame" title="Open the Pokedex">
+        <Sprite form={game.display} shiny={partner.shiny} size={84} dim={game.asleep} />
+        {game.asleep && <span className="partner-zzz" aria-hidden>z z z</span>}
+      </a>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="partner-name">{name}</span>
+          <span className="partner-lv">Lv {game.level}</span>
+          {partner.shiny && <span className="partner-tag">shiny</span>}
+        </div>
+        <div
+          className="partner-bar"
+          role="progressbar"
+          aria-label={`Level ${game.level} progress`}
+          aria-valuemin={0}
+          aria-valuemax={game.need}
+          aria-valuenow={game.into}
+        >
+          <motion.i animate={{ width: `${pct * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
+        </div>
+        <div className="partner-line">
+          <b>
+            +<AnimatedNumber value={today.xp} /> XP
+          </b>{' '}
+          today
+          {momentum.mult > 1 && <> · ×{momentum.mult} momentum</>}
+          {' · '}
+          {game.next.what === 'evolve' ? 'evolves' : 'fully trained'} at Lv {game.next.level}
+        </div>
+        <div className="partner-line">
+          {game.asleep
+            ? 'Asleep. One pillar wakes it.'
+            : today.perfect
+              ? 'Perfect day. A new one joined the queue.'
+              : `${left} left for a perfect day · ${today.pillars}/${today.pillarTotal} pillars`}
+          {' · '}
+          {week >= BADGE_DAYS ? 'badge earned this week' : `week ${week}/${BADGE_DAYS} for a badge`}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Level-ups, evolutions and catches, said once each, a few seconds at a time. */
+export function Moments({ game, today, ready }: { game: Game; today: string; ready: boolean }) {
+  const [line, setLine] = useState<Moment[]>([])
+  const timer = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    if (!ready) return // never announce a half-loaded ledger
+    const fresh = freshMoments(game, today)
+    if (!fresh.length) return
+    // several level-ups in one tick: only the last one is worth saying
+    const last = fresh.filter((m, i) => m.kind !== 'level' || !fresh.slice(i + 1).some((x) => x.kind === 'level'))
+    // and a level-up still waiting its turn is stale once a newer one arrives
+    const newerLevel = last.some((m) => m.kind === 'level')
+    setLine((q) => [...q.filter((m) => !(newerLevel && m.kind === 'level')), ...last])
+  }, [game, today, ready])
+
+  const current = line[0]
+  useEffect(() => {
+    if (!current) return
+    timer.current = window.setTimeout(() => setLine((q) => q.slice(1)), current.kind === 'level' ? 2600 : 5200)
+    return () => window.clearTimeout(timer.current)
+  }, [current])
+
+  const text = current ? momentText(current) : null
+  return (
+    <div className="moment-wrap" aria-live="polite">
+      <AnimatePresence>
+        {current && text && (
+          <motion.button
+            key={momentKey(current)}
+            type="button"
+            onClick={() => setLine((q) => q.slice(1))}
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className={`moment moment-${current.kind}`}
+          >
+            {text.form && <Sprite form={text.form} shiny={text.shiny} size={56} />}
+            <span className="min-w-0 text-left">
+              <span className="moment-title">{text.title}</span>
+              <span className="moment-text">{text.line}</span>
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
