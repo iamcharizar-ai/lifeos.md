@@ -2,8 +2,8 @@
 // is left before a catch. Everything else lives on the Pokedex site.
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { nameOf, type Game, type Moment } from '../game-core/fold.ts'
-import { BADGE_DAYS } from '../game-core/rules.ts'
+import { leaderOf, nameOf, type Game, type Moment } from '../game-core/fold.ts'
+import { BADGES_PER_REGION, BADGE_DAYS } from '../game-core/rules.ts'
 import { POKEDEX_URL, freshMoments, momentKey, momentText, spriteUrl } from '../lib/game'
 import { AnimatedNumber } from './AnimatedNumber'
 
@@ -39,6 +39,9 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
   // solid days so far this week (Monday first): five earn the week's badge
   const dow = (new Date(today.day + 'T12:00:00').getDay() + 6) % 7
   const week = game.days.slice(-(dow + 1)).filter((d) => d.counts).length
+  // who a badge week beats next: the gym leader, then the Elite Four, then the Champion
+  const { league } = game
+  const foe = league.region <= game.regions ? leaderOf(league.region, league.badges < BADGES_PER_REGION ? league.badges : BADGES_PER_REGION + league.run) : null
   return (
     <div className={`partner-card ${game.aura ? `aura-${game.aura}` : ''}`}>
       <a href={POKEDEX_URL} target="_blank" rel="noreferrer" className="partner-frame" title="Open the Pokedex">
@@ -79,7 +82,7 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
               ? 'Perfect day. A new one joined the queue.'
               : `${left} left for a perfect day · ${today.pillars}/${today.pillarTotal} pillars`}
           {' · '}
-          {week >= BADGE_DAYS ? 'badge earned this week' : `week ${week}/${BADGE_DAYS} for a badge`}
+          {week >= BADGE_DAYS ? 'badge week earned' : `week ${week}/${BADGE_DAYS}${foe ? ` to beat ${foe.name}` : ' for a badge week'}`}
         </div>
       </div>
     </div>

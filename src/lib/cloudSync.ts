@@ -17,6 +17,7 @@ import { parseSummary } from './workout'
 import { supabase } from './supabase'
 import { GYM_HABIT, applyArborEvents, markStrongLinked } from './arborLink'
 import { applyShedEvents } from './guitarLink'
+import { applyGameEvents } from './gameLink'
 import { inOrder } from '../game-core/order.ts'
 import { SEED_AT, applySundayList, getSundayList, type SundayTask } from './sundayTasks'
 
@@ -46,6 +47,8 @@ export type EventType =
   | 'guitar_plan'
   // written by Vitals (hand entry or the band sync): a day's body readings
   | 'vitals'
+  // written by the Pokedex when an item is used from the Bag
+  | 'item_use'
 
 export interface LifeEvent {
   device: string
@@ -188,10 +191,17 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
     case 'guitar_plan':
       applyShedEvents([ev])
       break
+    case 'item_use':
+      applyGameEvents([ev])
+      break
     case 'vitals': {
+      // what the band measured feeds the game (sleep score, steps, recovery)
+      applyGameEvents([ev])
       // A measured bedtime that was early enough ticks that evening's sleep habit.
       // It only ever adds a tick: nothing is locked and nothing is un-ticked, so
       // the habit works exactly as before on days Vitals has no reading.
+      // a row from the band carries the score itself: Sleep is then judged on that, not on the clock
+      if (typeof p.sleepScore === 'number') break
       const bed = typeof p.bed === 'string' ? p.bed : ''
       const date = bed.slice(0, 10)
       const time = bed.slice(11, 16)

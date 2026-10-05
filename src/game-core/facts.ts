@@ -1,7 +1,7 @@
 // Turns what the apps know (habits, ticks, the Arbor and Woodshed blocks) into
 // one plain list of days. The game itself (fold.ts) only ever sees this list,
 // so Life OS and Pokedex cannot disagree about what happened on a day.
-import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, tagOf, tierXp, type Tag } from './rules.ts'
+import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V2_START, tagOf, tierXp, type Tag } from './rules.ts'
 
 export interface HabitLite {
   id: string
@@ -16,6 +16,25 @@ export interface HabitLite {
 /** date → habitId → ISO time it was ticked */
 export type TickMap = Record<string, Record<string, string>>
 
+/** What the band measured for a day. Only the Vitals sync writes these, so their presence means the band is in use. */
+export interface BodyFacts {
+  /** 0-100, for the sleep that ended on the morning of this day */
+  sleepScore?: number
+  steps?: number
+  /** 0-100 */
+  recovery?: number
+}
+/** A stone spent from the Bag on one Pokemon. */
+export interface ItemUse {
+  day: string
+  item: string
+  uid: string
+  /** 'mega' | 'branch' | 'lead' (see StoneUse in rules.ts) */
+  what: string
+  /** the Mega form or the branch chosen */
+  to?: string
+}
+
 export interface FactsInput {
   habits: HabitLite[]
   ticks: TickMap
@@ -29,6 +48,10 @@ export interface FactsInput {
     plans: Record<string, { items: string[] }>
     logs: Record<string, Record<string, { done: boolean; at: string }>>
   }
+  /** day → what the band measured */
+  body?: Record<string, BodyFacts>
+  /** items used from the Bag, in the order they were used */
+  uses?: ItemUse[]
   today: string
 }
 
@@ -44,11 +67,15 @@ export interface HabitFact {
   frac: number
   /** ticked, in time: what a perfect day needs */
   done: boolean
+  /** set by the band, not by a tick */
+  measured?: true
 }
 
 export interface DayFacts {
   day: string
   habits: HabitFact[]
+  body?: BodyFacts
+  uses?: ItemUse[]
 }
 
 export function addDays(day: string, n: number): string {
@@ -69,11 +96,26 @@ export function inTime(at: string | undefined, day: string): boolean {
 const activeOn = (h: HabitLite, day: string): boolean =>
   h.spans.some((s) => day >= s.from && (s.to === null || day < s.to))
 
-export function factsFor(input: FactsInput, day: string): DayFacts {
+/** The first day the band reported a sleep score: from then on Sleep is measured, never ticked. null = no band yet. */
+export function bandFrom(input: FactsInput): string | null {
+  let first: string | null = null
+  for (const [day, b] of Object.entries(input.body ?? {})) if (typeof b.sleepScore === 'number' && (first === null || day < first)) first = day
+  return first
+}
+
+export function factsFor(input: FactsInput, day: string, band: string | null = bandFrom(input)): DayFacts {
   const ticks = input.ticks[day] ?? {}
   const habits: HabitFact[] = []
+  const body = input.body?.[day]
+  const uses = input.uses?.filter((u) => u.day === day)
   for (const h of input.habits) {
     if (!activeOn(h, day)) continue
+    // version 2, with a band: Sleep is a pillar paid on last night's score, and a hand tick no longer counts
+    if (h.id === SLEEP_HABIT && day >= V2_START && band !== null && day >= band) {
+      const score = Math.max(0, Math.min(100, body?.sleepScore ?? 0))
+      habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: 'sleep', worth: TIER_XP.pillar, pillar: true, frac: score / 100, done: score >= SLEEP_DONE, measured: true })
+      continue
+    }
     const done = inTime(ticks[h.id], day)
     let frac = done ? 1 : 0
     if (!done && h.id === ARBOR_HABIT) {
@@ -88,12 +130,13 @@ export function factsFor(input: FactsInput, day: string): DayFacts {
     }
     habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: tagOf(h.id), worth: tierXp(h.tier), pillar: h.tier === 'pillar', frac, done })
   }
-  return { day, habits }
+  return { day, habits, ...(body ? { body } : {}), ...(uses?.length ? { uses } : {}) }
 }
 
 /** Every day of the game so far, oldest first. */
 export function buildFacts(input: FactsInput): DayFacts[] {
   const out: DayFacts[] = []
-  for (let day = GAME_START; day <= input.today; day = addDays(day, 1)) out.push(factsFor(input, day))
+  const band = bandFrom(input)
+  for (let day = GAME_START; day <= input.today; day = addDays(day, 1)) out.push(factsFor(input, day, band))
   return out
 }

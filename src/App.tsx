@@ -42,6 +42,8 @@ import { ITEM_BY_ID } from './woodshed-core/course.ts'
 import { statsOf, type Feel } from './woodshed-core/model.ts'
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
 import { useGame } from './lib/game'
+import { sleepMeasured, useGameLink } from './lib/gameLink'
+import { SLEEP_DONE, SLEEP_HABIT } from './game-core/rules.ts'
 import { Moments } from './components/PartnerStrip'
 
 export default function App() {
@@ -235,10 +237,29 @@ export default function App() {
     emitGuitar('guitar', { itemId, done: true, feel, ...(bpm ? { bpm } : {}) })
   }
 
-  const game = useGame(habits, ticks, arbor, shed, today)
+  const link = useGameLink()
+  const game = useGame(habits, ticks, arbor, shed, link, today)
+
+  // Once the band reports sleep, the Sleep habit follows last night's score
+  // (done at SLEEP_DONE or more) instead of a hand tick.
+  useEffect(() => {
+    if (!settled || !sleepMeasured(link, SLEEP_HABIT, today)) return
+    const good = (link.body[today]?.sleepScore ?? 0) >= SLEEP_DONE
+    if (good === Boolean(ticks[today]?.[SLEEP_HABIT])) return
+    const at = new Date().toISOString()
+    setTicks((prev) => {
+      const day = { ...(prev[today] ?? {}) }
+      if (good) day[SLEEP_HABIT] = at
+      else delete day[SLEEP_HABIT]
+      return { ...prev, [today]: day }
+    })
+    if (good) cloud.emit('tick', { habitId: SLEEP_HABIT, at })
+    else cloud.emit('untick', { habitId: SLEEP_HABIT })
+  }, [settled, link, ticks, today, cloud])
 
   const toggle = (habitId: string) => {
     if (isLocked(habitId)) return // fed by Strong / Arbor — not ticked by hand
+    if (sleepMeasured(link, habitId, today)) return // filled by the band's sleep score
     if (habitId === GUITAR_HABIT && session.length > 0) return // ticks itself when the session is logged
     const wasTicked = Boolean(ticks[today]?.[habitId])
     const at = new Date().toISOString()

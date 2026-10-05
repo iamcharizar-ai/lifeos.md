@@ -5,9 +5,11 @@
 // Every number that shapes the game is in this file.
 
 /** Bump when a rule changes, and note the day it took effect in the guide. */
-export const RULES_VERSION = 1
+export const RULES_VERSION = 2
 /** Days before this are not part of the game. */
 export const GAME_START = '2026-10-03'
+/** Rules version 2 (gyms, the Bag, stones, the measured Sleep pillar) applies from this day. Earlier days keep version 1. */
+export const V2_START = '2026-10-06'
 
 // ── XP ──────────────────────────────────────────────────────────────────────
 export type Tier = 'pillar' | 'core' | 'standard' | 'basic'
@@ -28,6 +30,11 @@ export const HABIT_TAG: Record<string, Tag> = {
   'sleep-before-10': 'sleep',
 }
 export const tagOf = (habitId: string): Tag => HABIT_TAG[habitId] ?? 'routine'
+
+/** The sleep habit. Once the band reports a sleep score it becomes a pillar paid on that score. */
+export const SLEEP_HABIT = 'sleep-before-10'
+/** Sleep score (0-100) at which the Sleep pillar counts as done. It pays score/100 of a pillar either way. */
+export const SLEEP_DONE = 80
 
 /** Habits that open into a block of items and pay for the share that was done. */
 export const ARBOR_HABIT = 'arbor-morning'
@@ -72,3 +79,42 @@ export const BADGE_DAYS = 5
 export const BADGES_PER_REGION = 8
 /** Two days running without a single pillar and the partner dozes off. */
 export const SLEEP_AFTER = 2
+
+// ── version 2: gyms and the league ──────────────────────────────────────────
+/** Each badge week beats the next gym of the current region. After the eighth, the next four beat the Elite Four and the fifth the Champion. A missed week costs nothing: the next badge week carries on. */
+export const LEAGUE_STEPS = 5
+/** A region opens only when BOTH are true: enough partners fully trained, and the league before it beaten. */
+export const regionsOpenV2 = (graduates: number, leagues: number): number =>
+  Math.min(REGIONS.length, 1 + Math.min(Math.floor(graduates / GRADUATES_PER_REGION), leagues))
+
+// ── version 2: stones ───────────────────────────────────────────────────────
+// Evolution is never touched by any of this: a partner evolves by level, on
+// its own. Stones are a rare extra, earned (never bought) and spent by hand in
+// the Pokedex on things that change nothing about XP. Which stone you get is
+// only its look: any stone does any of the three things.
+export const STONES = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone', 'moon-stone', 'sun-stone', 'shiny-stone', 'dusk-stone', 'dawn-stone', 'ice-stone'] as const
+export type Stone = (typeof STONES)[number]
+/** A gym badge comes with the stone of whatever led that week. */
+export const STONE_FOR_TAG: Partial<Record<Tag, Stone>> = {
+  fitness: 'fire-stone', sleep: 'water-stone', code: 'thunder-stone', arbor: 'leaf-stone', guitar: 'moon-stone',
+}
+/** The Elite Four, the Champion and every RARE_EVERY-th perfect day hand over the next of these in turn. */
+export const MILESTONE_STONES: Stone[] = ['sun-stone', 'shiny-stone', 'dusk-stone', 'dawn-stone', 'ice-stone']
+export const ITEM_NAME: Record<string, string> = {
+  'fire-stone': 'Fire Stone', 'water-stone': 'Water Stone', 'thunder-stone': 'Thunder Stone', 'leaf-stone': 'Leaf Stone', 'moon-stone': 'Moon Stone',
+  'sun-stone': 'Sun Stone', 'shiny-stone': 'Shiny Stone', 'dusk-stone': 'Dusk Stone', 'dawn-stone': 'Dawn Stone', 'ice-stone': 'Ice Stone',
+}
+/**
+ * What one stone can be spent on:
+ *  mega    the partner Mega Evolves for MEGA_DAYS days, whatever momentum is doing
+ *  branch  choose which way a branching Pokemon evolves when its level comes (it still evolves on its own)
+ *  lead    bring a Pokemon from the queue forward as the partner; the old one waits at the front, XP kept
+ */
+export type StoneUse = 'mega' | 'branch' | 'lead'
+export const MEGA_DAYS = 7
+
+// ── version 2: trainer stats ────────────────────────────────────────────────
+/** Stats are an average over this many days. */
+export const STAT_DAYS = 28
+/** Steps in a day that count as a full Speed day. */
+export const STEPS_GOAL = 10000

@@ -2,7 +2,7 @@
 
 Six small apps and one shared ledger. This guide explains what each part does, how they talk to each other, how the game on top works, why it was designed this way, and what comes next.
 
-Written 2026-10-03. Rules version 1.
+Written 2026-10-03 for rules version 1. **Version 2 starts 6 Oct 2026: section 15 has what changed, and wins where it differs from the sections before it.**
 
 ---
 
@@ -441,3 +441,64 @@ Ideas, not plans.
 - **An export.** Everything is in one table; a yearly summary is a query away.
 
 The rule for adding anything: it must either remove a decision or make a real thing more visible. If it only adds a screen, leave it out.
+
+---
+
+## 15. Version 2 (from 6 Oct 2026)
+
+Written 5 Oct 2026. Where this section and an earlier one disagree, this one is current. Sections 5, 8, 11 and 13 were written for version 1 and before Vitals became a viewer. Built and tested locally; nothing in this section is deployed yet.
+
+### What did not change
+
+One partner gets all the XP. It levels up and evolves **by itself**: no item, no condition, nothing to tap. Momentum, the level curve, catching on a perfect day, Mega at full momentum and Gigantamax on a perfect day are exactly as in section 5. Days before 6 Oct keep the version 1 rules, so history is not rewritten.
+
+### Gyms and the league
+
+The unnamed weekly badges became gyms. A badge week (Monday to Sunday with five days of two or more pillars) beats the next gym leader of the region you are in: Brock first. After the eighth badge, the next four badge weeks beat the Elite Four and the fifth the Champion: thirteen badge weeks a region.
+
+A week off costs nothing. The next badge week carries on where you were; nothing is ever undone.
+
+### Regions need both
+
+The next region opens only when the league before it is beaten **and** two more partners are fully trained. Either one alone is not enough. Gyms of a region that is not open yet wait for it.
+
+### Stones
+
+A rare extra, earned and never bought: one with each gym badge, one for each Elite Four member and the Champion, and one on every fifth perfect day. Which stone you get (Fire for a gym-led week, Thunder for code, and so on) is only its look.
+
+Nothing needs a stone. You can spend one, by hand, in the Pokedex's Bag, on one of three things, and any stone does any of them:
+
+| Spend it on | What happens |
+|---|---|
+| Mega Evolve | The partner takes its Mega form for seven days, whatever momentum is doing |
+| Choose a branch | You decide which way a branching Pokemon (Eevee, say) evolves. It still evolves on its own, at its level |
+| Change partner | A Pokemon from the queue comes forward; the partner waits at the front of the queue and keeps its XP |
+
+None of them gives XP. The Bag can be ignored for good and the game plays the same. Spending a stone is the only thing the Pokedex ever writes to the ledger (`item_use`).
+
+### Sleep, once the band is in use
+
+From the first morning the band reports a sleep score, the sleep habit becomes a pillar that only the band can fill. It pays the score as a share of 100 XP and counts as a done pillar at 80 or more. The score is how long you slept (half), how much of it was deep or REM (a quarter) and how unbroken it was (a quarter). It is not judged on the clock: the 22:30 rule is gone from that day on, and bedtime guidance in Vitals is advice only.
+
+A poor night costs XP but never a perfect day. The perfect day, and the wild Pokemon's HP, count only what you can still do today.
+
+This is the one place the game pays for an outcome rather than an action (section 8's rule). It was chosen on purpose.
+
+Until the band exists, the sleep habit is ticked by hand exactly as before.
+
+### Trainer stats
+
+Six numbers on the Trainer card, each 0 to 100, the share of that thing you did over the last 28 days: HP sleep, Attack gym, Defense recovery (Arbor stands in until the band reports recovery), Sp. Atk code, Sp. Def guitar, Speed steps against 10,000. They are yours, not the partner's, and nothing is paid on them.
+
+### Vitals and Strong
+
+- **Vitals is a viewer.** It records nothing. The band talks to Google Health; Vitals' own server reads Google Health once a day and writes `vitals` rows (with `sleepScore` and `recovery` already worked out) to the ledger. Connecting is a "Connect with Google" button on its Band screen. Setup is in `vitals/README.md`.
+- **Strong** logs workouts and keeps the body heatmap. Its charts, trends and records moved to the Training section of Vitals. Each `workout` event now carries the exercises it used (`lib`), so custom exercises chart correctly.
+
+### Still weak
+
+- **A perfect day needs every habit on a list of about thirty.** That makes the catch, the main daily loop, close to unreachable. It is the biggest flaw in the game and it is a rule you chose; trimming the list (section 13, item 4) is the fix.
+- **The ledger still has no login.** Body data should not flow into it before it does (section 13, item 1).
+- **The band sync has never met a real Google account.** Its requests follow Google's published API description and pass against stand-ins, but the first real sync may need adjusting.
+- **Regions are slow by design**: thirteen badge weeks is three months at best, and "both" means the second region is never sooner than that.
+- Eggs still hatch at once; hatching on steps is not built.
