@@ -86,6 +86,21 @@ function TierPicker({ value, onChange }: { value: Tier; onChange: (t: Tier) => v
   )
 }
 
+/**
+ * Marks a pillar habit: one of the few that carry the day (100 XP each, and
+ * two of them make the day count toward momentum). Drawn in the row's own
+ * text colour so it sits on every tile style.
+ */
+function PillarMark() {
+  return (
+    <span className="pillar-mark" title="Pillar habit: 100 XP, and two in a day keep your momentum" role="img" aria-label="Pillar habit">
+      <svg viewBox="0 0 16 20" width="16" height="20" shapeRendering="crispEdges" aria-hidden="true">
+        <path fill="currentColor" d="M1 0h14v3H1zM3 3h10v1H3zM4 5h2v10H4zM7 5h2v10H7zM10 5h2v10h-2zM3 16h10v1H3zM1 17h14v3H1z" />
+      </svg>
+    </span>
+  )
+}
+
 /** The expandable editor shared by checklist rows and shelf rows. */
 function RowEditor({
   habit,
@@ -251,6 +266,7 @@ function ChecklistRow({
             controls.start(e)
           }}
         />
+        {habit.tier === 'pillar' && <PillarMark />}
         {link === 'strong' ? (
           <StrongTile
             name={habit.name}

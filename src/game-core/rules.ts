@@ -12,7 +12,7 @@ export const GAME_START = '2026-10-03'
 // ── XP ──────────────────────────────────────────────────────────────────────
 export type Tier = 'pillar' | 'core' | 'standard' | 'basic'
 export const TIERS: Tier[] = ['pillar', 'core', 'standard', 'basic']
-/** A pillar is the day's real work. Everything else is small on purpose, but never zero. */
+/** A pillar is the day's real work (LeetCode, Gym, Woodshed, Arbor). Everything else is small on purpose, but never zero. */
 export const TIER_XP: Record<Tier, number> = { pillar: 100, core: 30, standard: 3, basic: 1 }
 export const tierXp = (tier: string): number => TIER_XP[tier as Tier] ?? TIER_XP.basic
 

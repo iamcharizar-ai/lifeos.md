@@ -123,7 +123,7 @@ The first partner is Charmander.
 | Standard | 3 | Plan, skincare, meds, isabgol, protein, pancake stretch, the drive |
 | Basic | 1 | every routine chore |
 
-- A full day is about 405 XP. The three pillars are roughly three quarters of it. The whole routine together is worth less than half a pillar: enough that it is not zero, never enough to level on.
+- A full day is about 470 XP. The four pillars (LeetCode, Gym, Woodshed, and Arbor since 2026-10-05) are 400 of it. The whole routine together is worth less than half a pillar: enough that it is not zero, never enough to level on. Pillar rows carry a yellow column mark in the checklist.
 - **Blocks pay for the share done.** Three of five Arbor skills pays 60% of 30. Two of four Woodshed items pays 50 of 100.
 - **A tick counts if it was made by the end of the next day.** Filling in last week does nothing.
 - The tier of a habit is editable in Life OS (the ⋯ on its row).
@@ -270,7 +270,7 @@ You plan to add a Fitbit Air and build an app on Google's health API (the `gheal
 
 ### What it will add
 
-1. **Sleep as a measured fourth pillar.** "Sleep At 10" ticked and locked by the band, the way Gym is by Strong.
+1. **Sleep as a measured fifth pillar.** "Sleep At 10" ticked and locked by the band, the way Gym is by Strong.
 2. **Trainer stats.** Six numbers on a radar chart, each a level against your own baseline: HP from sleep, Attack from strength (Strong's lifts), Defense from recovery (HRV, resting heart rate), Sp. Atk from code, Sp. Def from guitar, Speed from cardio. Three of these can be computed today.
 3. **Eggs that hatch on real steps** instead of hatching at once.
 4. **Checks.** Weigh-in from the scale, an exercise session confirming Gym.

@@ -300,6 +300,7 @@ body {
 }
 
 /* Partner: the game's one card. A dark field so the sprite reads, a cream plate for the numbers */
+.pillar-mark { display: inline-grid; place-items: center; flex: none; width: 26px; height: 30px; margin-right: 2px; background: #ffd800; color: #111; border: 2px solid #111; border-radius: 3px; box-shadow: 2px 2px 0 0 #111; }
 .partner-card {
   display: flex; align-items: center; gap: 14px; padding: 12px;
   background: #1d2433; color: #f4f1e6;

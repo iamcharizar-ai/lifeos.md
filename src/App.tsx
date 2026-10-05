@@ -135,7 +135,7 @@ export default function App() {
   // Introduce the Arbor block once (second row; drag it wherever it belongs).
   useEffect(() => {
     if (!settled) return
-    const cfg = configWithLinkedHabit({ id: ARBOR_HABIT, name: 'Arbor skills', emoji: '🌳', tier: 'core' }, 1, today)
+    const cfg = configWithLinkedHabit({ id: ARBOR_HABIT, name: 'Arbor skills', emoji: '🌳', tier: 'pillar' }, 1, today)
     if (cfg) emitConfig(commitConfig(cfg))
   }, [settled, today, emitConfig])
 
@@ -151,7 +151,7 @@ export default function App() {
   // library that has no pillar yet, so later edits by hand are never undone.
   useEffect(() => {
     if (!settled || getConfig().habits.some((h) => h.tier === 'pillar')) return
-    const lift: Record<string, Tier> = { 'leetcode-coding': 'pillar', gym: 'pillar', [GUITAR_HABIT]: 'pillar', 'log-diary-plan-english-shadow': 'standard' }
+    const lift: Record<string, Tier> = { 'leetcode-coding': 'pillar', gym: 'pillar', [GUITAR_HABIT]: 'pillar', [ARBOR_HABIT]: 'pillar', 'log-diary-plan-english-shadow': 'standard' }
     const habits = getConfig().habits.map((h) => (lift[h.id] ? { ...h, tier: lift[h.id] } : h))
     if (!habits.some((h) => h.tier === 'pillar')) return
     emitConfig(commitConfig({ ...getConfig(), habits, at: new Date().toISOString(), source: 'app' }))

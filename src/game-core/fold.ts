@@ -92,6 +92,13 @@ export interface Game {
   badges: string[]
   regions: number
   moments: Moment[]
+  /**
+   * What a perfect day today catches. Known in advance (the roll is seeded by
+   * the day), so it can be shown as a shadow until every habit is ticked.
+   * `caught` once today is perfect. A partner that graduates on the same day
+   * can change the roll, so treat the shadow as a strong hint, not a promise.
+   */
+  wild: { form: string; shiny: boolean; caught: boolean } | null
 }
 
 // ── seeded randomness: the same day always rolls the same thing ──
@@ -305,6 +312,17 @@ export function foldGame(facts: DayFacts[]): Game {
     }
   })
 
+  const last = days[days.length - 1]
+  let wild: Game['wild'] = null
+  if (last?.perfect) {
+    const got = moments.find((m) => m.kind === 'catch' && m.day === last.day)
+    if (got?.kind === 'catch') wild = { form: got.form, shiny: got.shiny, caught: true }
+  } else if (last && last.total > 0) {
+    const n = perfectDays + 1
+    const want = n % LEGENDARY_EVERY === 0 ? 'L' : n % RARE_EVERY === 0 ? 'R' : 'any'
+    wild = { form: roll(`catch:${last.day}`, want), shiny: n % SHINY_EVERY === 0, caught: false }
+  }
+
   const level = levelOf(partner.xp)
   const stages = stagesOf(partner)
   const evo = evolveAt(stages, rec(partner.form).s)
@@ -332,6 +350,7 @@ export function foldGame(facts: DayFacts[]): Game {
     badges,
     regions: regionsOpen(graduates.length),
     moments,
+    wild,
   }
 }
 
