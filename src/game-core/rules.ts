@@ -5,11 +5,15 @@
 // Every number that shapes the game is in this file.
 
 /** Bump when a rule changes, and note the day it took effect in the guide. */
-export const RULES_VERSION = 2
+export const RULES_VERSION = 3
 /** Days before this are not part of the game. */
 export const GAME_START = '2026-10-03'
-/** Rules version 2 (gyms, the Bag, stones, the measured Sleep pillar) applies from this day. Earlier days keep version 1. */
-export const V2_START = '2026-10-06'
+/**
+ * Rules version 3 applies from this day: the wild Pokemon with HP, the Box,
+ * gym leaders with HP, stones, the measured Sleep pillar. Earlier days keep
+ * version 1. (Version 2 was replaced before its first day.)
+ */
+export const V3_START = '2026-10-05'
 
 // ── XP ──────────────────────────────────────────────────────────────────────
 export type Tier = 'pillar' | 'core' | 'standard' | 'basic'
@@ -80,21 +84,45 @@ export const BADGES_PER_REGION = 8
 /** Two days running without a single pillar and the partner dozes off. */
 export const SLEEP_AFTER = 2
 
-// ── version 2: gyms and the league ──────────────────────────────────────────
-/** Each badge week beats the next gym of the current region. After the eighth, the next four beat the Elite Four and the fifth the Champion. A missed week costs nothing: the next badge week carries on. */
-export const LEAGUE_STEPS = 5
+// ── version 3: one wild Pokemon at a time ──────────────────────────────────
+// It stands in front of you until it is caught. Each day wears it down by how
+// WHOLE the day was: 100 x (share of the day's XP done) squared x the ball, so
+// a whole day hits four times as hard as a half day. It never flees.
+export type Rarity = 'C' | 'U' | 'R' | 'L'
+export const WILD_HP: Record<Rarity, number> = { C: 700, U: 1100, R: 1600, L: 3000 }
+/** Every Nth wild Pokemon to appear is a legendary. */
+export const LEGENDARY_EVERY_WILD = 25
+export const wildHit = (share: number, ball: number): number => Math.round(100 * share * share * ball)
+/** The ball comes from the chores: the share of routine habits done. */
+export type Ball = 'poke' | 'great' | 'ultra'
+export const BALL_MULT: Record<Ball, number> = { poke: 1, great: 1.25, ultra: 1.5 }
+export const BALL_NAME: Record<Ball, string> = { poke: 'Poke Ball', great: 'Great Ball', ultra: 'Ultra Ball' }
+export const ballFor = (routineShare: number): Ball => (routineShare >= 0.8 ? 'ultra' : routineShare >= 0.5 ? 'great' : 'poke')
+/** A perfect day catches the wild Pokemon on the spot, and that catch is shiny one time in this many. */
+export const SHINY_ODDS = 10
+
+// ── version 3: gym leaders have HP ──────────────────────────────────────────
+// Each day deals the day's base XP to the current leader, with the domains
+// that leader is weak to counting extra. HP carries over: no weeks, no
+// thresholds, no losing.
+export const LEADER_HP = 4000
+export const WEAK_MULT = 1.5
+/** If the partner's type is super effective against the leader's, everything hits this much harder. */
+export const ADVANTAGE_MULT = 1.2
 /** A region opens only when BOTH are true: enough partners fully trained, and the league before it beaten. */
 export const regionsOpenV2 = (graduates: number, leagues: number): number =>
   Math.min(REGIONS.length, 1 + Math.min(Math.floor(graduates / GRADUATES_PER_REGION), leagues))
 
-// ── version 2: stones ───────────────────────────────────────────────────────
+// ── version 3: stones ───────────────────────────────────────────────────────
 // Evolution is never touched by any of this: a partner evolves by level, on
 // its own. Stones are a rare extra, earned (never bought) and spent by hand in
 // the Pokedex on things that change nothing about XP. Which stone you get is
-// only its look: any stone does any of the three things.
+// only its look: any stone does any of the three things. They come from every
+// second gym, each Elite Four member, each Champion and every RARE_EVERY-th
+// perfect day.
 export const STONES = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone', 'moon-stone', 'sun-stone', 'shiny-stone', 'dusk-stone', 'dawn-stone', 'ice-stone'] as const
 export type Stone = (typeof STONES)[number]
-/** A gym badge comes with the stone of whatever led that week. */
+/** A gym's stone is the one of whichever domain hit that leader hardest. */
 export const STONE_FOR_TAG: Partial<Record<Tag, Stone>> = {
   fitness: 'fire-stone', sleep: 'water-stone', code: 'thunder-stone', arbor: 'leaf-stone', guitar: 'moon-stone',
 }
@@ -108,12 +136,13 @@ export const ITEM_NAME: Record<string, string> = {
  * What one stone can be spent on:
  *  mega    the partner Mega Evolves for MEGA_DAYS days, whatever momentum is doing
  *  branch  choose which way a branching Pokemon evolves when its level comes (it still evolves on its own)
- *  lead    bring a Pokemon from the queue forward as the partner; the old one waits at the front, XP kept
+ *  lead    bring a Pokemon from the Box forward as the partner now; the old one goes back to the Box, XP kept
+ * Choosing who is NEXT (what: 'next') is free and needs no stone.
  */
 export type StoneUse = 'mega' | 'branch' | 'lead'
 export const MEGA_DAYS = 7
 
-// ── version 2: trainer stats ────────────────────────────────────────────────
+// ── version 3: trainer stats ────────────────────────────────────────────────
 /** Stats are an average over this many days. */
 export const STAT_DAYS = 28
 /** Steps in a day that count as a full Speed day. */

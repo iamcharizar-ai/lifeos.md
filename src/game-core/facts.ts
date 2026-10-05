@@ -1,7 +1,7 @@
 // Turns what the apps know (habits, ticks, the Arbor and Woodshed blocks) into
 // one plain list of days. The game itself (fold.ts) only ever sees this list,
 // so Life OS and Pokedex cannot disagree about what happened on a day.
-import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V2_START, tagOf, tierXp, type Tag } from './rules.ts'
+import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V3_START, tagOf, tierXp, type Tag } from './rules.ts'
 
 export interface HabitLite {
   id: string
@@ -29,7 +29,7 @@ export interface ItemUse {
   day: string
   item: string
   uid: string
-  /** 'mega' | 'branch' | 'lead' (see StoneUse in rules.ts) */
+  /** 'mega' | 'branch' | 'lead' (see StoneUse in rules.ts), or 'next': who follows the partner, which costs nothing and has no item */
   what: string
   /** the Mega form or the branch chosen */
   to?: string
@@ -48,6 +48,8 @@ export interface FactsInput {
     plans: Record<string, { items: string[] }>
     logs: Record<string, Record<string, { done: boolean; at: string }>>
   }
+  /** day → the habit list as it stood that day, written by Life OS on the day itself. A day without one falls back to the library and its spans. */
+  lists?: Record<string, { id: string; tier: string }[]>
   /** day → what the band measured */
   body?: Record<string, BodyFacts>
   /** items used from the Bag, in the order they were used */
@@ -108,10 +110,15 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
   const habits: HabitFact[] = []
   const body = input.body?.[day]
   const uses = input.uses?.filter((u) => u.day === day)
-  for (const h of input.habits) {
-    if (!activeOn(h, day)) continue
+  // the day's own frozen list when there is one: editing or deleting a habit later cannot change what this day was
+  const frozen = input.lists?.[day]
+  const byId = new Map(input.habits.map((h) => [h.id, h]))
+  const todays: HabitLite[] = frozen
+    ? frozen.map((f) => ({ ...(byId.get(f.id) ?? { id: f.id, spans: [] }), id: f.id, tier: f.tier }))
+    : input.habits.filter((h) => activeOn(h, day))
+  for (const h of todays) {
     // version 2, with a band: Sleep is a pillar paid on last night's score, and a hand tick no longer counts
-    if (h.id === SLEEP_HABIT && day >= V2_START && band !== null && day >= band) {
+    if (h.id === SLEEP_HABIT && day >= V3_START && band !== null && day >= band) {
       const score = Math.max(0, Math.min(100, body?.sleepScore ?? 0))
       habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: 'sleep', worth: TIER_XP.pillar, pillar: true, frac: score / 100, done: score >= SLEEP_DONE, measured: true })
       continue

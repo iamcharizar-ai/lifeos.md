@@ -2,7 +2,7 @@
 
 Six small apps and one shared ledger. This guide explains what each part does, how they talk to each other, how the game on top works, why it was designed this way, and what comes next.
 
-Written 2026-10-03 for rules version 1. **Version 2 starts 6 Oct 2026: section 15 has what changed, and wins where it differs from the sections before it.**
+Written 2026-10-03 for rules version 1. **Version 3 starts 5 Oct 2026: section 15 has what changed, and wins where it differs from the sections before it.**
 
 ---
 
@@ -444,61 +444,82 @@ The rule for adding anything: it must either remove a decision or make a real th
 
 ---
 
-## 15. Version 2 (from 6 Oct 2026)
+## 15. Version 3 (from 5 Oct 2026)
 
-Written 5 Oct 2026. Where this section and an earlier one disagree, this one is current. Sections 5, 8, 11 and 13 were written for version 1 and before Vitals became a viewer. Built and tested locally; nothing in this section is deployed yet.
+Written 5 Oct 2026. Where this section and an earlier one disagree, this one is current: sections 5, 8, 11 and 13 were written for version 1. Version 2 was designed and replaced before its first day, so the game has only ever run versions 1 and 3. The reasoning behind version 3 is in `V3-GAME-SPEC.md` and `GAME-DESIGN-REVIEW.md` in the workspace folder.
+
+### The idea
+
+Your day's work does three different things. Nothing new to tick, nothing you have to decide.
+
+| Question | What it feeds | Driven by |
+|---|---|---|
+| How much did I do? | The partner's XP | All XP × momentum (unchanged) |
+| How whole was my day? | The wild Pokemon's HP: catching | Share of the day's XP done, squared, × ball |
+| What kind of work was it? | The gym leader's HP: the league | XP by domain, × the leader's weakness |
 
 ### What did not change
 
-One partner gets all the XP. It levels up and evolves **by itself**: no item, no condition, nothing to tap. Momentum, the level curve, catching on a perfect day, Mega at full momentum and Gigantamax on a perfect day are exactly as in section 5. Days before 6 Oct keep the version 1 rules, so history is not rewritten.
+One partner gets all the XP. It levels up and evolves by itself: no item, no condition, nothing to tap. Momentum, the level curve and Gigantamax on a perfect day are as in section 5. Days before 5 Oct keep the version 1 rules.
 
-### Gyms and the league
+### Catching: one wild Pokemon at a time
 
-The unnamed weekly badges became gyms. A badge week (Monday to Sunday with five days of two or more pillars) beats the next gym leader of the region you are in: Brock first. After the eighth badge, the next four badge weeks beat the Elite Four and the fifth the Champion: thirteen badge weeks a region.
+- One wild Pokemon stands in front of you until it is caught. It does not change daily and it never flees.
+- Each day hits it for **100 × (share of the day's XP done)² × ball**. A whole day hits four times as hard as a half day.
+- The **ball** comes from the chores: Poke Ball ×1, Great Ball ×1.25 at half of them done, Ultra Ball ×1.5 at four-fifths.
+- HP by rarity: common 700, uncommon 1,100, rare 1,600. Every 25th to appear is a legendary with 3,000.
+- When it is caught, the next one appears the following morning.
 
-A week off costs nothing. The next badge week carries on where you were; nothing is ever undone.
+**A perfect day** (every habit done) catches it on the spot, whatever HP is left, legendary included. It is the only way to a shiny (1 in 10 on that catch). Every fifth one hands over a stone.
 
-### Regions need both
+Expected pace, from the simulator on invented behaviour: at about two-thirds of the day done, a catch every two weeks or so, two or three for each partner raised.
 
-The next region opens only when the league before it is beaten **and** two more partners are fully trained. Either one alone is not enough. Gyms of a region that is not open yet wait for it.
+### The Box
 
-### Stones
+Caught Pokemon go to a Box, not a queue: nothing in it is waiting for anything. When the partner is fully trained, the oldest in the Box takes over unless you tapped another one in the Pokedex first, which is free. An egg hatches only if the Box is empty. The Pokedex counts three things per region: seen, caught, raised.
 
-A rare extra, earned and never bought: one with each gym badge, one for each Elite Four member and the Champion, and one on every fifth perfect day. Which stone you get (Fire for a gym-led week, Thunder for code, and so on) is only its look.
+### The league: leaders have HP
 
-Nothing needs a stone. You can spend one, by hand, in the Pokedex's Bag, on one of three things, and any stone does any of them:
+- The leader in front of you has 4,000 HP. Every day's XP wears it down; the one or two domains that leader is weak to count ×1.5. The weaknesses come from the real type chart (Brock, Rock: Arbor and Gym. Misty, Water: Arbor and Code. Sabrina, Psychic: Sleep and Code).
+- If your partner's type is super effective against the leader's, everything counts ×1.2 more.
+- HP carries over. There are no weeks, no thresholds and no losing.
+- A league is its gyms, then the Elite Four, then the Champion. After Kanto come the **Orange Islands** (Cissy, Danny, Rudy, Luana, then Drake: four badges, no Elite Four, opens no new species), then Johto.
+- A region opens only when the league before it is beaten **and** two more partners are fully trained. A league whose region is not open yet waits.
+- Beating a Champion writes a **Hall of Fame** entry: the partner, the last five raised, the date and the six stats.
 
-| Spend it on | What happens |
-|---|---|
-| Mega Evolve | The partner takes its Mega form for seven days, whatever momentum is doing |
-| Choose a branch | You decide which way a branching Pokemon (Eevee, say) evolves. It still evolves on its own, at its level |
-| Change partner | A Pokemon from the queue comes forward; the partner waits at the front of the queue and keeps its XP |
+### Stones and Mega
 
-None of them gives XP. The Bag can be ignored for good and the game plays the same. Spending a stone is the only thing the Pokedex ever writes to the ledger (`item_use`).
+A stone comes from every second gym, each of the Elite Four, each Champion and every fifth perfect day: about ten a region. Nothing needs one. Spend it by hand in the Bag on a 7-day Mega Evolution, on choosing a branch (it still evolves by itself), or on changing partner straight away. None gives XP.
+
+Mega also shows by itself on a day with full momentum **and** every pillar done.
+
+For a partner whose next evolution branches, the card shows the lean ("Flareon 41%, Jolteon 33%"): what your habits are choosing.
+
+### The day's list is frozen
+
+Life OS writes the day's habit list to the ledger (`day_list`) on the day itself, and again if you edit the list that day. A later edit or deletion can no longer change what an earlier day was.
 
 ### Sleep, once the band is in use
 
-From the first morning the band reports a sleep score, the sleep habit becomes a pillar that only the band can fill. It pays the score as a share of 100 XP and counts as a done pillar at 80 or more. The score is how long you slept (half), how much of it was deep or REM (a quarter) and how unbroken it was (a quarter). It is not judged on the clock: the 22:30 rule is gone from that day on, and bedtime guidance in Vitals is advice only.
-
-A poor night costs XP but never a perfect day. The perfect day, and the wild Pokemon's HP, count only what you can still do today.
-
-This is the one place the game pays for an outcome rather than an action (section 8's rule). It was chosen on purpose.
-
-Until the band exists, the sleep habit is ticked by hand exactly as before.
+From the first morning the band reports a sleep score, the sleep habit becomes a pillar only the band can fill. It pays the score as a share of 100 XP and counts as done at 80 or more. It is not judged on the clock. A poor night costs XP but never a perfect day. Until the band exists, the habit is ticked by hand.
 
 ### Trainer stats
 
-Six numbers on the Trainer card, each 0 to 100, the share of that thing you did over the last 28 days: HP sleep, Attack gym, Defense recovery (Arbor stands in until the band reports recovery), Sp. Atk code, Sp. Def guitar, Speed steps against 10,000. They are yours, not the partner's, and nothing is paid on them.
+Six numbers on the Trainer card, each the share of that thing done over the last 28 days: HP sleep, Attack gym, Defense recovery (Arbor stands in until the band reports recovery), Sp. Atk code, Sp. Def guitar, Speed steps against 10,000. Yours, not the partner's; nothing is paid on them.
 
 ### Vitals and Strong
 
-- **Vitals is a viewer.** It records nothing. The band talks to Google Health; Vitals' own server reads Google Health once a day and writes `vitals` rows (with `sleepScore` and `recovery` already worked out) to the ledger. Connecting is a "Connect with Google" button on its Band screen. Setup is in `vitals/README.md`.
-- **Strong** logs workouts and keeps the body heatmap. Its charts, trends and records moved to the Training section of Vitals. Each `workout` event now carries the exercises it used (`lib`), so custom exercises chart correctly.
+- **Vitals is a viewer.** The band talks to Google Health; Vitals' own server reads it once a day and writes `vitals` rows (with `sleepScore` and `recovery` worked out) to the ledger. Setup is in `vitals/README.md`. The band is not connected yet.
+- **Strong** logs workouts and keeps the body heatmap. Its charts and records are in the Training section of Vitals.
+
+### Changing a number
+
+Every number is in `pokedex/core/rules.ts`. After changing one: `node tools/simulate.mjs` in `pokedex/` to see what a year looks like, `npm test`, `npm run core` to copy the core into Life OS, then deploy both. Give the change a start date so earlier days keep their rules.
 
 ### Still weak
 
-- **A perfect day needs every habit on a list of about thirty.** That makes the catch, the main daily loop, close to unreachable. It is the biggest flaw in the game and it is a rule you chose; trimming the list (section 13, item 4) is the fix.
-- **The ledger still has no login.** Body data should not flow into it before it does (section 13, item 1).
-- **The band sync has never met a real Google account.** Its requests follow Google's published API description and pass against stand-ins, but the first real sync may need adjusting.
-- **Regions are slow by design**: thirteen badge weeks is three months at best, and "both" means the second region is never sooner than that.
-- Eggs still hatch at once; hatching on steps is not built.
+- **Every number was picked on invented behaviour.** Expect one retune from the real ledger after three or four weeks.
+- **The ledger still has no login** (section 13, item 1).
+- **The band sync has never met a real Google account.**
+- **No pictures exist of the Orange Crew**, so they show as a question mark. Alola, Galar and Paldea have no badge art.
+- Left for later on purpose: domain rewards beyond the ball (friendship, moves, eggs on steps), legendary trials, trainer rank, a night encounter.

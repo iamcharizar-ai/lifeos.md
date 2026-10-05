@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { leaderOf, nameOf, type Game, type Moment } from '../game-core/fold.ts'
-import { BADGES_PER_REGION, BADGE_DAYS } from '../game-core/rules.ts'
+import { BALL_NAME } from '../game-core/rules.ts'
 import { POKEDEX_URL, freshMoments, momentKey, momentText, spriteUrl } from '../lib/game'
 import { AnimatedNumber } from './AnimatedNumber'
 
@@ -36,12 +36,9 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
   // the bar has two parts: what was banked before today, and what today added on top
   const before = Math.max(0, Math.min(pct, game.intoBeforeToday / game.need))
   const name = nameOf(game.display)
-  // solid days so far this week (Monday first): five earn the week's badge
-  const dow = (new Date(today.day + 'T12:00:00').getDay() + 6) % 7
-  const week = game.days.slice(-(dow + 1)).filter((d) => d.counts).length
-  // who a badge week beats next: the gym leader, then the Elite Four, then the Champion
-  const { league } = game
-  const foe = league.region <= game.regions ? leaderOf(league.region, league.badges < BADGES_PER_REGION ? league.badges : BADGES_PER_REGION + league.run) : null
+  // what the day is wearing down: the wild Pokemon (by how whole the day is) and the gym leader (by the kind of work)
+  const { league, wild } = game
+  const foe = leaderOf(league.index, league.slot)
   return (
     <div className={`partner-card ${game.aura ? `aura-${game.aura}` : ''}`}>
       <a href={POKEDEX_URL} target="_blank" rel="noreferrer" className="partner-frame" title="Open the Pokedex">
@@ -79,10 +76,15 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
           {game.asleep
             ? 'Asleep. One pillar wakes it.'
             : today.perfect
-              ? 'Perfect day. A new one joined the queue.'
+              ? 'Perfect day.'
               : `${left} left for a perfect day · ${today.pillars}/${today.pillarTotal} pillars`}
-          {' · '}
-          {week >= BADGE_DAYS ? 'badge week earned' : `week ${week}/${BADGE_DAYS}${foe ? ` to beat ${foe.name}` : ' for a badge week'}`}
+          {wild && (
+            <>
+              {' · '}
+              {wild.caught ? `${nameOf(wild.form)} caught` : `wild ${nameOf(wild.form)} ${wild.hp}/${wild.max} HP · ${BALL_NAME[today.ball]}`}
+            </>
+          )}
+          {foe && !league.waiting && <>{' · '}{foe.name} {league.hp.toLocaleString('en-IN')} HP</>}
         </div>
       </div>
     </div>

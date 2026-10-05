@@ -1,19 +1,22 @@
-// The two things the game reads straight from the ledger, beyond habits and
-// ticks: what the band measured (`vitals`, written by the Vitals sync) and
-// items used from the Pokedex's Bag (`item_use`). Kept as the events
+// What the game reads straight from the ledger, beyond habits and ticks: what
+// the band measured (`vitals`, written by the Vitals sync), stones spent and
+// partners chosen in the Pokedex (`item_use`), and each day's frozen habit
+// list (`day_list`, written here once a day). Kept as the events
 // themselves and folded by the shared core, so this app and the Pokedex read
 // them the same way. Cached locally so the partner strip is right offline.
 import { useSyncExternalStore } from 'react'
-import { BODY_EVENT, USE_EVENT, bodyOf, usesOf, type GameEvent } from '../game-core/events.ts'
+import { BODY_EVENT, LIST_EVENT, USE_EVENT, bodyOf, listsOf, usesOf, type GameEvent } from '../game-core/events.ts'
 import { bandFrom, type BodyFacts, type ItemUse } from '../game-core/facts.ts'
 import { inOrder } from '../game-core/order.ts'
-import { SLEEP_HABIT, V2_START } from '../game-core/rules.ts'
+import { SLEEP_HABIT, V3_START } from '../game-core/rules.ts'
 
 type Stored = GameEvent & { device?: string; inserted_at?: string }
 
 export interface GameLink {
   body: Record<string, BodyFacts>
   uses: ItemUse[]
+  /** day → the habit list as it stood that day */
+  lists: Record<string, { id: string; tier: string }[]>
   /** first day the band reported a sleep score; null = no band yet */
   band: string | null
 }
@@ -23,7 +26,7 @@ const listeners = new Set<() => void>()
 const keyOf = (e: Stored): string => `${e.device ?? ''}|${e.at}|${e.type}|${JSON.stringify(e.payload)}`
 // a vitals row matters here only when it carries something the game reads
 const relevant = (e: Stored): boolean =>
-  e.type === USE_EVENT || (e.type === BODY_EVENT && ['sleepScore', 'steps', 'recovery'].some((k) => k in (e.payload ?? {})))
+  e.type === USE_EVENT || e.type === LIST_EVENT || (e.type === BODY_EVENT && ['sleepScore', 'steps', 'recovery'].some((k) => k in (e.payload ?? {})))
 
 function load(): Stored[] {
   try {
@@ -39,7 +42,7 @@ const seen = new Set(events.map(keyOf))
 const derive = (): GameLink => {
   const sorted = inOrder(events)
   const body = bodyOf(sorted)
-  return { body, uses: usesOf(sorted), band: bandFrom({ habits: [], ticks: {}, today: '', body }) }
+  return { body, uses: usesOf(sorted), lists: listsOf(sorted), band: bandFrom({ habits: [], ticks: {}, today: '', body }) }
 }
 let state: GameLink = derive()
 
@@ -64,4 +67,4 @@ export function applyGameEvents(fresh: Stored[]): void {
 
 /** Once the band reports sleep, the Sleep habit is filled by its score and not by hand. */
 export const sleepMeasured = (link: GameLink, habitId: string, day: string): boolean =>
-  habitId === SLEEP_HABIT && link.band !== null && day >= link.band && day >= V2_START
+  habitId === SLEEP_HABIT && link.band !== null && day >= link.band && day >= V3_START

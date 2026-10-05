@@ -49,6 +49,8 @@ export type EventType =
   | 'vitals'
   // written by the Pokedex when an item is used from the Bag
   | 'item_use'
+  // written here for today: the habit list as it stands, so edits on a later day cannot change this one
+  | 'day_list'
 
 export interface LifeEvent {
   device: string
@@ -191,6 +193,7 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
     case 'guitar_plan':
       applyShedEvents([ev])
       break
+    case 'day_list':
     case 'item_use':
       applyGameEvents([ev])
       break

@@ -12,7 +12,7 @@ import {
   type MetricsMap,
   type WorkoutMap,
 } from './lib/ledger'
-import { habitIdFor, isLive, type Habit, type Tier } from './config/habits'
+import { habitIdFor, isActiveOn, isLive, type Habit, type Tier } from './config/habits'
 import {
   commitConfig,
   configWithEdit,
@@ -42,7 +42,7 @@ import { ITEM_BY_ID } from './woodshed-core/course.ts'
 import { statsOf, type Feel } from './woodshed-core/model.ts'
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
 import { useGame } from './lib/game'
-import { sleepMeasured, useGameLink } from './lib/gameLink'
+import { applyGameEvents, sleepMeasured, useGameLink } from './lib/gameLink'
 import { SLEEP_DONE, SLEEP_HABIT } from './game-core/rules.ts'
 import { Moments } from './components/PartnerStrip'
 
@@ -239,6 +239,17 @@ export default function App() {
 
   const link = useGameLink()
   const game = useGame(habits, ticks, arbor, shed, link, today)
+
+  // Record today's habit list, so editing or deleting a habit on a later day
+  // cannot change what today was. Written again if the list changes today.
+  useEffect(() => {
+    if (!settled || habits.length === 0) return
+    const list = habits.filter((h) => isActiveOn(h, today)).map((h) => ({ id: h.id, tier: h.tier }))
+    if (list.length === 0 || JSON.stringify(list) === JSON.stringify(link.lists[today] ?? null)) return
+    const payload = { habits: JSON.stringify(list) }
+    applyGameEvents([{ type: 'day_list', day: today, at: new Date().toISOString(), payload }])
+    cloud.emit('day_list', payload, today)
+  }, [settled, link.lists, habits, today, cloud])
 
   // Once the band reports sleep, the Sleep habit follows last night's score
   // (done at SLEEP_DONE or more) instead of a hand tick.

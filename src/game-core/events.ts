@@ -12,8 +12,10 @@ export interface GameEvent {
 
 /** Written by the Vitals band sync, one row per day. */
 export const BODY_EVENT = 'vitals'
-/** Written by the Pokedex when a stone is spent from the Bag: `{ item, uid, what, to? }`. */
+/** Written by the Pokedex when a stone is spent or the next partner is chosen: `{ item, uid, what, to? }`. */
 export const USE_EVENT = 'item_use'
+/** Written by Life OS once a day: `{ habits: JSON [{ id, tier }] }`, the list as it stood that day. Life OS writes it for today only, again if the list is edited during the day, so the last one for a day stands and nothing written later can reach back. */
+export const LIST_EVENT = 'day_list'
 
 const BODY_FIELDS = ['sleepScore', 'steps', 'recovery'] as const
 
@@ -35,7 +37,22 @@ export function bodyOf(events: GameEvent[]): Record<string, BodyFacts> {
 export function usesOf(events: GameEvent[]): ItemUse[] {
   const out: ItemUse[] = []
   for (const ev of events)
-    if (ev.type === USE_EVENT && typeof ev.payload?.item === 'string' && typeof ev.payload?.uid === 'string' && typeof ev.payload?.what === 'string')
-      out.push({ day: ev.day, item: ev.payload.item, uid: ev.payload.uid, what: ev.payload.what, ...(typeof ev.payload.to === 'string' ? { to: ev.payload.to } : {}) })
+    if (ev.type === USE_EVENT && typeof ev.payload?.uid === 'string' && typeof ev.payload?.what === 'string')
+      out.push({ day: ev.day, item: typeof ev.payload.item === 'string' ? ev.payload.item : '', uid: ev.payload.uid, what: ev.payload.what, ...(typeof ev.payload.to === 'string' ? { to: ev.payload.to } : {}) })
+  return out
+}
+
+/** day → that day's habit list. Pass events oldest first: the last list written for a day is the one that stands. */
+export function listsOf(events: GameEvent[]): Record<string, { id: string; tier: string }[]> {
+  const out: Record<string, { id: string; tier: string }[]> = {}
+  for (const ev of events) {
+    if (ev.type !== LIST_EVENT) continue
+    try {
+      const list = JSON.parse(String(ev.payload?.habits)) as { id?: unknown; tier?: unknown }[]
+      if (Array.isArray(list) && list.length) out[ev.day] = list.filter((h) => typeof h?.id === 'string' && typeof h?.tier === 'string') as { id: string; tier: string }[]
+    } catch {
+      /* a malformed list is no list: the day falls back to the library */
+    }
+  }
   return out
 }
