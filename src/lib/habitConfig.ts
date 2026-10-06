@@ -185,15 +185,17 @@ export function configWithLive(
   return stamp(habits)
 }
 
-/** Append a brand-new habit, live from `today`. Null when the id already exists. */
+/**
+ * Append a brand-new habit, live from `today`. Null when the id already exists or is tombstoned:
+ * tombstones merge as a union across devices, so a re-used id would be dropped again by any peer
+ * (or ledger replay) that still carries the deletion. Callers pick a fresh id (see `habitIdFor`).
+ */
 export function configWithNewHabit(
   habit: Omit<Habit, 'spans'>,
   today: string = dateISO(),
 ): HabitConfig | null {
-  if (current.habits.some((h) => h.id === habit.id)) return null
-  // A re-created id must clear its tombstone, or normalize() would drop it again.
-  const deleted = current.deleted.filter((id) => id !== habit.id)
-  return stamp([...current.habits, { ...habit, spans: [{ from: today, to: null }] }], deleted)
+  if (current.habits.some((h) => h.id === habit.id) || current.deleted.includes(habit.id)) return null
+  return stamp([...current.habits, { ...habit, spans: [{ from: today, to: null }] }])
 }
 
 /** Edit a habit's label / emoji / tier in place. Null when nothing changed. */

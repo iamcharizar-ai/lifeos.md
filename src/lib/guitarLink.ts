@@ -13,7 +13,8 @@ import { emptyShed, foldShed, type LedgerEvent, type ShedState } from '../woodsh
 
 // A habit of its own, not the old 'guitar' id (which is on the deleted list).
 export const GUITAR_HABIT = 'woodshed-guitar'
-export const WOODSHED_URL: string = import.meta.env.VITE_WOODSHED_URL ?? 'http://localhost:5180'
+// localhost is only a dev default; without VITE_WOODSHED_URL a production build shows no link.
+export const WOODSHED_URL: string = import.meta.env.VITE_WOODSHED_URL ?? (import.meta.env.DEV ? 'http://localhost:5180' : '')
 
 const listeners = new Set<() => void>()
 const KEY = 'lifeos.woodshed.v1'

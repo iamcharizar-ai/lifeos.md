@@ -58,6 +58,8 @@ export interface LifeEvent {
   day: string // YYYY-MM-DD the event applies to
   type: EventType
   payload: Record<string, string | number | boolean | null>
+  /** the table's primary key, made client-side so a retried insert is recognised and kept once */
+  id?: string
   /** server clock; set on rows read back from Supabase — the catch-up cursor */
   inserted_at?: string
 }
@@ -121,6 +123,21 @@ function loadOutbox(): LifeEvent[] {
   }
 }
 
+const newId = (): string | undefined => globalThis.crypto?.randomUUID?.()
+/**
+ * Insert as "keep one": a retry after a lost response (the server committed, the answer never
+ * arrived) carries the same id and is ignored instead of becoming a second row.
+ */
+const insertOnce = (rows: LifeEvent | LifeEvent[]) =>
+  supabase!.from('events').upsert(rows, { onConflict: 'id', ignoreDuplicates: true })
+/** Events queued before ids existed get one now, and keep it across retries. */
+function outboxWithIds(): LifeEvent[] {
+  const box = loadOutbox()
+  if (box.every((e) => e.id) || !newId()) return box
+  const out = box.map((e) => (e.id ? e : { ...e, id: newId() }))
+  saveOutbox(out)
+  return out
+}
 const outboxKey = (e: LifeEvent): string => `${e.device}|${e.at}|${e.type}|${JSON.stringify(e.payload)}`
 /** Postgres / PostgREST refused the row itself (bad data, no permission): sending it again cannot help. */
 const isPermanent = (err: { code?: string }): boolean => Boolean(err.code && /^(22|23|42|PGRST1)/.test(err.code))
@@ -320,47 +337,74 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
   const cursor = useRef<string>('')
   const booted = useRef(false)
 
+  // One flush at a time: online + catchUp + boot often fire together, and each would otherwise
+  // read the same outbox and insert the same rows. A call that arrives mid-flight asks for one
+  // more pass so what it queued is not left waiting for the next trigger.
+  const flushing = useRef(false)
+  const flushAgain = useRef(false)
+
   const flush = useCallback(async () => {
     if (!supabase) return
-    const box = loadOutbox()
-    if (box.length === 0) return
-    const sent = new Set<string>()
-    const { error } = await supabase.from('events').insert(box)
-    if (!error) box.forEach((e) => sent.add(outboxKey(e)))
-    else
-      // One refused row must not hold the rest back (a stuck un-tick leaves its tick standing
-      // on every other device): send them one by one, and drop only what the server rejects outright.
-      for (const ev of box) {
-        const { error: err } = await supabase.from('events').insert(ev)
-        if (!err || isPermanent(err)) sent.add(outboxKey(ev))
-      }
-    // events queued while this was in flight stay
-    const rest = loadOutbox().filter((e) => !sent.has(outboxKey(e)))
-    saveOutbox(rest)
-    setPending(rest.length)
+    if (flushing.current) {
+      flushAgain.current = true
+      return
+    }
+    flushing.current = true
+    try {
+      do {
+        flushAgain.current = false
+        const box = outboxWithIds()
+        if (box.length === 0) return
+        const sent = new Set<string>()
+        const { error } = await insertOnce(box)
+        if (!error) box.forEach((e) => sent.add(outboxKey(e)))
+        else
+          // One refused row must not hold the rest back (a stuck un-tick leaves its tick standing
+          // on every other device): send them one by one, and drop only what the server rejects outright.
+          for (const ev of box) {
+            const { error: err } = await insertOnce(ev)
+            if (!err || isPermanent(err)) sent.add(outboxKey(ev))
+          }
+        // events queued while this was in flight stay
+        const rest = loadOutbox().filter((e) => !sent.has(outboxKey(e)))
+        saveOutbox(rest)
+        setPending(rest.length)
+      } while (flushAgain.current)
+    } finally {
+      flushing.current = false
+    }
   }, [])
 
   const emit = useCallback(
     (type: EventType, payload: LifeEvent['payload'], day: string = dateISO()) => {
       if (!supabase) return
+      const id = newId()
       const ev: LifeEvent = {
+        ...(id ? { id } : {}),
         device: device.current,
         at: new Date().toISOString(),
         day,
         type,
         payload,
       }
-      void supabase
-        .from('events')
-        .insert(ev)
-        .then(({ error }) => {
-          if (error) {
-            const box = loadOutbox()
-            box.push(ev)
-            saveOutbox(box)
-            setPending(box.length)
-          } else void flush()
-        })
+      const queued = loadOutbox()
+      if (queued.length > 0) {
+        // keep causal order: never overtake events still waiting to be sent (a tick that failed,
+        // then an un-tick that got through first, would leave peers showing the habit ticked)
+        queued.push(ev)
+        saveOutbox(queued)
+        setPending(queued.length)
+        void flush()
+        return
+      }
+      void insertOnce(ev).then(({ error }) => {
+        if (error) {
+          const box = loadOutbox()
+          box.push(ev)
+          saveOutbox(box)
+          setPending(box.length)
+        } else void flush()
+      })
     },
     [flush],
   )

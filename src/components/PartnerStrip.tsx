@@ -41,7 +41,7 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
   const foe = leaderOf(league.index, league.slot)
   return (
     <div className={`partner-card ${game.aura ? `aura-${game.aura}` : ''}`}>
-      <a href={POKEDEX_URL} target="_blank" rel="noreferrer" className="partner-frame" title="Open the Pokedex">
+      <a href={POKEDEX_URL || undefined} target="_blank" rel="noreferrer" className="partner-frame" title="Open the Pokedex">
         <Sprite form={game.display} shiny={partner.shiny} size={84} dim={game.asleep} />
         {game.asleep && <span className="partner-zzz" aria-hidden>z z z</span>}
       </a>

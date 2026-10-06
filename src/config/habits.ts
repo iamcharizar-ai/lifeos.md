@@ -36,9 +36,12 @@ export interface Habit {
 /** Stand-in start day for habits that predate span tracking — "always existed". */
 export const EPOCH_DAY = '1970-01-01'
 
-/** Fill in spans on a habit read from an old localStorage blob or cloud event. */
+/**
+ * Fill in spans on a habit read from an old localStorage blob or cloud event. An empty array is a
+ * real state (created and archived the same day: it never ran), so only a missing one is legacy.
+ */
 export function migrateHabit(h: Habit): Habit {
-  if (Array.isArray(h.spans) && h.spans.length > 0) return h
+  if (Array.isArray(h.spans)) return h
   return { ...h, spans: [{ from: EPOCH_DAY, to: null }] }
 }
 

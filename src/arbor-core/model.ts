@@ -104,8 +104,16 @@ export function foldArbor(state: ArborState, events: LedgerEvent[]): ArborState 
       if (!day || ev.at > day.at) {
         touch()
         next.practice[ev.day] = { ...next.practice[ev.day], [id]: { done, at: ev.at } }
-        const rec = next.progress[id] ?? {}
-        if (done && (!rec.practiced || ev.day > rec.practiced)) next.progress[id] = { ...rec, practiced: ev.day }
+        // `practiced` is derived from the practice map (the latest day marked done), not kept as a
+        // value that only moves forward: un-ticking a day, or replaying events in any order, must land
+        // on the same answer.
+        let last: string | undefined
+        for (const [d, marks] of Object.entries(next.practice)) if (marks[id]?.done && (!last || d > last)) last = d
+        const rec = next.progress[id]
+        if (rec?.practiced !== last) {
+          const { practiced: _stale, ...rest } = rec ?? {}
+          next.progress[id] = last ? { ...rest, practiced: last } : rest
+        }
       }
     } else if (ev.type === 'plan') {
       const cur = next.plans[ev.day]
