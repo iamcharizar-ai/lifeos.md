@@ -19,7 +19,7 @@ import type { GameLink } from './gameLink'
 
 // localhost is only a dev default: a production build without VITE_POKEDEX_URL must not point sprites
 // and links at the visitor's own machine (blocked as mixed content over https). Empty = not linked.
-export const POKEDEX_URL: string = (import.meta.env.VITE_POKEDEX_URL ?? (import.meta.env.DEV ? 'http://localhost:5190' : '')).replace(/\/$/, '')
+export const POKEDEX_URL: string = (import.meta.env.VITE_POKEDEX_URL || (import.meta.env.DEV ? 'http://localhost:5190' : '')).replace(/\/$/, '')
 export const spriteUrl = (form: string, shiny = false): string => POKEDEX_URL + spritePath(form, shiny)
 
 export function useGame(habits: Habit[], ticks: Ticks, arbor: ArborState, shed: ShedState, link: GameLink, today: string): Game {

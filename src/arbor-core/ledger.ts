@@ -33,22 +33,31 @@ export interface Ledger {
 }
 
 const PAGE = 1000
-const COLS = 'device,at,day,type,payload,inserted_at'
+const COLS = 'id,device,at,day,type,payload,inserted_at'
 const POLL_MS = 30_000
 const REQUEST_MS = 15_000 // a stalled request must reject so the outbox/retry path runs
 // A row can take an earlier inserted_at than a neighbour yet commit later, so each pull re-reads
 // this much of the tail. The fold is idempotent; `seen` keeps the repeats from reaching callers.
-const OVERLAP_MS = 10_000
+// It is a bound, not a guarantee: a row that commits later than this after its stamp is only
+// picked up on the next full read (a reload).
+const OVERLAP_MS = 60_000
 // Statuses that mean "this event will never be accepted" (bad payload, conflict, too large).
 // 401/403/5xx/429 are about the connection or its permissions, not the event, so those just retry.
 const PERMANENT = new Set([400, 409, 413, 422])
 
-/** An event's identity: every field the server would store. */
-const eventKey = (e: LedgerEvent) => JSON.stringify([e.device, e.at, e.day, e.type, e.payload])
-
 // `id` is the events table's primary key. Making it client-side means a retry after a lost
 // response carries the same id, and the server (`on_conflict=id`, ignore-duplicates) keeps one row.
 type Outgoing = LedgerEvent & { id?: string }
+
+/**
+ * An event's identity. The id when it has one (two distinct events can share a timestamp and a
+ * payload, so content alone would merge them); otherwise every field the server would store, for
+ * events queued before ids existed.
+ */
+const eventKey = (e: LedgerEvent) => {
+  const id = (e as Outgoing).id
+  return id ? JSON.stringify(['id', id]) : JSON.stringify([e.device, e.at, e.day, e.type, e.payload])
+}
 const newId = (): string | undefined => globalThis.crypto?.randomUUID?.()
 
 const today = () => {
@@ -115,10 +124,16 @@ export function createLedger(o: LedgerOptions): Ledger {
         else throw new Error(`ledger insert ${r.status}`)
       }
     } finally {
+      // Dead letters go first, merged by identity so a retry cannot duplicate them: if this write
+      // fails the events are still in the outbox, never in neither place.
+      if (dead.length) {
+        const have = deadLetters()
+        const keys = new Set(have.map(eventKey))
+        localStorage.setItem(DEAD_KEY, JSON.stringify([...have, ...dead.filter((e) => !keys.has(eventKey(e)))]))
+      }
       // Drop only what was actually sent, by identity: anything emitted while the request was in
       // flight (here or in another tab sharing this outbox) stays queued.
       if (sent.size) saveOutbox(outbox().filter((e) => !sent.has(eventKey(e))))
-      if (dead.length) localStorage.setItem(DEAD_KEY, JSON.stringify([...deadLetters(), ...dead]))
     }
   }
 
@@ -138,17 +153,15 @@ export function createLedger(o: LedgerOptions): Ledger {
       fetched.push(...page)
       if (page.length < PAGE) break
     }
+    // what the overlap re-read has already delivered stays out of the batch
+    const all = fetched.filter((e) => !seen.has(eventKey(e)))
+    if (all.length || boot) o.onEvents(boot ? all : all.sort((a, b) => (a.at < b.at ? -1 : 1)), boot)
+    // Committed only once the callback has taken the batch: if it throws, neither `seen` nor the
+    // cursor has moved, so the same rows are fetched and offered again.
+    for (const e of all) seen.set(eventKey(e), e.inserted_at ?? '')
     for (const e of fetched) if (e.inserted_at && e.inserted_at > cursor) cursor = e.inserted_at
-    // what the overlap re-read has already been delivered stays out of the batch
-    const all = fetched.filter((e) => {
-      const k = eventKey(e)
-      if (seen.has(k)) return false
-      seen.set(k, e.inserted_at ?? '')
-      return true
-    })
     const floor = cursor ? new Date(Date.parse(cursor) - OVERLAP_MS).toISOString() : ''
     for (const [k, at] of seen) if (at < floor) seen.delete(k)
-    if (all.length || boot) o.onEvents(boot ? all : all.sort((a, b) => (a.at < b.at ? -1 : 1)), boot)
   }
 
   async function sync(): Promise<void> {

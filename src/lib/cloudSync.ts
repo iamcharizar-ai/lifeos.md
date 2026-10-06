@@ -138,7 +138,9 @@ function outboxWithIds(): LifeEvent[] {
   saveOutbox(out)
   return out
 }
-const outboxKey = (e: LifeEvent): string => `${e.device}|${e.at}|${e.type}|${JSON.stringify(e.payload)}`
+// An event's identity: its id when it has one (two distinct events can share a timestamp and a
+// payload), otherwise its content, for events queued before ids existed.
+const outboxKey = (e: LifeEvent): string => e.id ?? `${e.device}|${e.at}|${e.type}|${JSON.stringify(e.payload)}`
 /** Postgres / PostgREST refused the row itself (bad data, no permission): sending it again cannot help. */
 const isPermanent = (err: { code?: string }): boolean => Boolean(err.code && /^(22|23|42|PGRST1)/.test(err.code))
 
@@ -387,24 +389,15 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
         type,
         payload,
       }
-      const queued = loadOutbox()
-      if (queued.length > 0) {
-        // keep causal order: never overtake events still waiting to be sent (a tick that failed,
-        // then an un-tick that got through first, would leave peers showing the habit ticked)
-        queued.push(ev)
-        saveOutbox(queued)
-        setPending(queued.length)
-        void flush()
-        return
-      }
-      void insertOnce(ev).then(({ error }) => {
-        if (error) {
-          const box = loadOutbox()
-          box.push(ev)
-          saveOutbox(box)
-          setPending(box.length)
-        } else void flush()
-      })
+      // Every event goes through the outbox, and flush() (one at a time, in order) sends it. A direct
+      // insert would let a later event overtake an earlier one that is still in flight or failed: a
+      // tick that failed, then an un-tick that got through first, would leave peers showing the habit
+      // ticked until they reload.
+      const box = loadOutbox()
+      box.push(ev)
+      saveOutbox(box)
+      setPending(box.length)
+      void flush()
     },
     [flush],
   )
