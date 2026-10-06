@@ -256,7 +256,9 @@ export function GuitarItems({ ctx, today }: { ctx: LinkedCtx; today: string }) {
           </div>
         )
       })}
-      <a href={WOODSHED_URL} target="_blank" rel="noreferrer" className="shed-link">tabs and metronome in Woodshed ↗</a>
+      {WOODSHED_URL && (
+        <a href={WOODSHED_URL} target="_blank" rel="noreferrer" className="shed-link">tabs and metronome in Woodshed ↗</a>
+      )}
     </div>
   )
 }

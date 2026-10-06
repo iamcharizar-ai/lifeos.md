@@ -331,10 +331,8 @@ export default function App() {
     onAdd: ({ name, emoji, tier }: { name: string; emoji: string; tier: Tier }) => {
       const clash = habits.find((h) => h.name.toLowerCase() === name.toLowerCase())
       if (clash) return `"${clash.name}" is already in the library.`
-      const id = habitIdFor(
-        name,
-        habits.map((h) => h.id),
-      )
+      // deleted ids stay reserved: reusing one would be dropped again by any device that remembers it
+      const id = habitIdFor(name, [...habits.map((h) => h.id), ...getConfig().deleted])
       const habit: Omit<Habit, 'spans'> = { id, name, emoji, tier }
       pushConfig(configWithNewHabit(habit, today))
       return null
