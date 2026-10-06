@@ -72,7 +72,7 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     case 'evolve':
       return { title: 'Evolved', line: `${nameOf(m.from)} evolved into ${nameOf(m.form)}${m.picked ? ', the way you chose' : ''}.`, form: m.form }
     case 'graduate':
-      return { title: 'Fully trained', line: `${nameOf(m.form)} moved into the Pokedex for good${m.bond ? ', with a Bond ribbon' : ''}.`, form: m.form }
+      return { title: 'Fully trained', line: `${nameOf(m.form)} moved into the Pokedex for good.`, form: m.form }
     case 'partner':
       return { title: m.origin === 'egg' ? 'An egg hatched' : 'New partner', line: `${nameOf(m.form)} is your partner now.`, form: m.form }
     case 'catch':
@@ -95,6 +95,10 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: 'Hall of Fame', line: `The ${LEAGUES[m.league]?.name} league is yours.` }
     case 'item':
       return { title: 'A stone', line: `${itemName(m.item)} is in your Bag. Spend it in the Pokedex if you like; nothing needs it.` }
+    case 'key':
+      return { title: 'Key Stone', line: 'A fully evolved partner now keeps its Mega form the first time a leader falls to it.' }
+    case 'mega':
+      return { title: 'Mega, for good', line: `${nameOf(m.form)} is registered and never runs out.`, form: m.form }
     case 'use':
       return m.what === 'mega' ? { title: 'Mega Evolution', line: `${nameOf(m.form)} Mega Evolves for ${MEGA_DAYS} days.`, form: m.to ?? m.form }
         : m.what === 'branch' ? { title: 'Branch chosen', line: `${nameOf(m.form)} will evolve into ${nameOf(m.to ?? '')}.`, form: m.form }

@@ -5,7 +5,7 @@
 // Every number that shapes the game is in this file.
 
 /** Bump when a rule changes, and note the day it took effect in the guide. */
-export const RULES_VERSION = 3
+export const RULES_VERSION = 4
 /** Days before this are not part of the game. */
 export const GAME_START = '2026-10-03'
 /**
@@ -14,6 +14,15 @@ export const GAME_START = '2026-10-03'
  * version 1. (Version 2 was replaced before its first day.)
  */
 export const V3_START = '2026-10-05'
+/**
+ * Rules version 4 applies from this day: a day's list only grows, domains come
+ * from the list, badges are the gym reward, stones are no longer earned or
+ * spent, Mega is kept for good, bond is never lost, a nature at graduation.
+ * No pacing number changed. Days before it keep the version they were played under.
+ */
+export const V4_START = '2026-10-08'
+/** Which rules a day is played under. */
+export const rulesOn = (day: string, v3From: string = V3_START, v4From: string = V4_START): 1 | 3 | 4 => (day >= v4From ? 4 : day >= v3From ? 3 : 1)
 
 // ── XP ──────────────────────────────────────────────────────────────────────
 export type Tier = 'pillar' | 'core' | 'standard' | 'basic'
@@ -34,6 +43,7 @@ export const HABIT_TAG: Record<string, Tag> = {
   'sleep-before-10': 'sleep',
 }
 export const tagOf = (habitId: string): Tag => HABIT_TAG[habitId] ?? 'routine'
+export const isTag = (x: unknown): x is Tag => typeof x === 'string' && (TAGS as string[]).includes(x)
 
 /** The sleep habit. Once the band reports a sleep score it becomes a pillar paid on that score. */
 export const SLEEP_HABIT = 'sleep-before-10'
@@ -147,3 +157,24 @@ export const MEGA_DAYS = 7
 export const STAT_DAYS = 28
 /** Steps in a day that count as a full Speed day. */
 export const STEPS_GOAL = 10000
+
+// ── version 4: Mega for good ────────────────────────────────────────────────
+/** The Key Stone comes with this many badges of the first league. */
+export const KEY_STONE_BADGES = 8
+
+// ── version 4: a nature at graduation ──────────────────────────────────────
+// What a partner was raised on, kept for good: the domain it did best in is
+// the stat its nature raises, the one it did worst in is the stat it lowers.
+// The real table of twenty-five. Same pairing of stat and domain as the
+// trainer's own six numbers (Speed is the chores until steps are measured).
+export const NATURE_STATS = ['atk', 'def', 'spe', 'spa', 'spd'] as const
+export type NatureStat = (typeof NATURE_STATS)[number]
+export const NATURE_DOMAIN: Record<NatureStat, Tag> = { atk: 'fitness', def: 'arbor', spe: 'routine', spa: 'code', spd: 'guitar' }
+/** NATURES[raised][lowered]; the diagonal is the five that change nothing. */
+export const NATURES: Record<NatureStat, Record<NatureStat, string>> = {
+  atk: { atk: 'Hardy', def: 'Lonely', spe: 'Brave', spa: 'Adamant', spd: 'Naughty' },
+  def: { atk: 'Bold', def: 'Docile', spe: 'Relaxed', spa: 'Impish', spd: 'Lax' },
+  spe: { atk: 'Timid', def: 'Hasty', spe: 'Serious', spa: 'Jolly', spd: 'Naive' },
+  spa: { atk: 'Modest', def: 'Mild', spe: 'Quiet', spa: 'Bashful', spd: 'Rash' },
+  spd: { atk: 'Calm', def: 'Gentle', spe: 'Sassy', spa: 'Careful', spd: 'Quirky' },
+}

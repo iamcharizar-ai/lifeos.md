@@ -7,11 +7,11 @@
 // coming back.
 import { useMemo, useRef, useState } from 'react'
 import { Reorder, motion, useDragControls } from 'framer-motion'
-import { TIERS, TIER_XP, type Habit, type Tier } from '../config/habits'
+import { TIERS, TIER_XP, domainOf, type Habit, type Tier } from '../config/habits'
 import type { Ticks } from '../lib/store'
 import { PartnerStrip } from '../components/PartnerStrip'
 import type { Game } from '../game-core/fold.ts'
-import { tierXp } from '../game-core/rules.ts'
+import { TAGS, tierXp, type Tag } from '../game-core/rules.ts'
 import { ArborHead, ArborSkills, GuitarHead, GuitarItems, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
 import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
@@ -20,7 +20,7 @@ import { practicedOn } from '../arbor-core/model.ts'
 export interface HabitActions {
   onToggle: (habitId: string) => void
   onToggleLive: (habitId: string, live: boolean) => void
-  onEdit: (habitId: string, patch: Partial<Pick<Habit, 'name' | 'emoji' | 'tier'>>) => void
+  onEdit: (habitId: string, patch: Partial<Pick<Habit, 'name' | 'emoji' | 'tier' | 'domain'>>) => void
   onDelete: (habitId: string) => void
   onDeleteMany: (habitIds: string[]) => void
   onAdd: (draft: { name: string; emoji: string; tier: Tier }) => string | null
@@ -80,6 +80,27 @@ function TierPicker({ value, onChange }: { value: Tier; onChange: (t: Tier) => v
           }`}
         >
           {t} · {TIER_XP[t]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const DOMAIN_NAME: Record<Tag, string> = { code: 'Code', fitness: 'Gym', guitar: 'Guitar', arbor: 'Arbor', sleep: 'Sleep', routine: 'Chore' }
+
+/** What kind of work a habit is, for the game: which gym leaders it hits hardest, which way a partner leans. */
+function DomainPicker({ value, onChange }: { value: Tag; onChange: (t: Tag) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1" role="group" aria-label="Kind of work">
+      {TAGS.map((t) => (
+        <button
+          key={t}
+          type="button"
+          aria-pressed={t === value}
+          onClick={() => onChange(t)}
+          className={`neo-button px-2 py-1 text-[10px] font-bold uppercase ${t === value ? 'neo-card-yellow' : 'bg-white'}`}
+        >
+          {DOMAIN_NAME[t]}
         </button>
       ))}
     </div>
@@ -155,6 +176,12 @@ function RowEditor({
           />
         </div>
         <TierPicker value={habit.tier} onChange={(tier) => onEdit(habit.id, { tier })} />
+        <DomainPicker value={domainOf(habit)} onChange={(domain) => onEdit(habit.id, { domain })} />
+        <p className="text-[11px] font-medium opacity-60">
+          {habit.tier === 'pillar' && domainOf(habit) === 'routine'
+            ? 'A pillar counted as a chore: pick what kind of work it is, so it hits the right gym leaders.'
+            : 'Tier and kind change from tomorrow: today’s list is already set.'}
+        </p>
         <div className="flex flex-wrap items-center gap-2 border-t-2 border-black/10 pt-2">
           <button
             onClick={() => {

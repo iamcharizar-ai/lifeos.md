@@ -110,6 +110,7 @@ function sameHabits(a: Habit[], b: Habit[]): boolean {
         h.name === b[i].name &&
         h.emoji === b[i].emoji &&
         h.tier === b[i].tier &&
+        h.domain === b[i].domain &&
         sameSpans(h, b[i]),
     )
   )
@@ -198,10 +199,10 @@ export function configWithNewHabit(
   return stamp([...current.habits, { ...habit, spans: [{ from: today, to: null }] }])
 }
 
-/** Edit a habit's label / emoji / tier in place. Null when nothing changed. */
+/** Edit a habit's label / emoji / tier / domain in place. Null when nothing changed. */
 export function configWithEdit(
   habitId: string,
-  patch: Partial<Pick<Habit, 'name' | 'emoji' | 'tier'>>,
+  patch: Partial<Pick<Habit, 'name' | 'emoji' | 'tier' | 'domain'>>,
 ): HabitConfig | null {
   const habits = current.habits.map((h) => (h.id === habitId ? { ...h, ...patch } : h))
   if (sameHabits(habits, current.habits)) return null

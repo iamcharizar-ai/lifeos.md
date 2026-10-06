@@ -1,7 +1,8 @@
 // Turns what the apps know (habits, ticks, the Arbor and Woodshed blocks) into
 // one plain list of days. The game itself (fold.ts) only ever sees this list,
 // so Life OS and Pokedex cannot disagree about what happened on a day.
-import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V3_START, tagOf, tierXp, type Tag } from './rules.ts'
+import type { ListedHabit } from './events.ts'
+import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V3_START, V4_START, isTag, tagOf, tierXp, type Tag } from './rules.ts'
 
 export interface HabitLite {
   id: string
@@ -9,6 +10,8 @@ export interface HabitLite {
   /** shown by the Pokedex; the game itself never looks at it */
   name?: string
   emoji?: string
+  /** the domain set on the habit in Life OS; without one the id decides (tagOf) */
+  domain?: string
   /** `[from, to)` stretches the habit was on the checklist; `to: null` = still on */
   spans: { from: string; to: string | null }[]
 }
@@ -29,7 +32,7 @@ export interface ItemUse {
   day: string
   item: string
   uid: string
-  /** 'mega' | 'branch' | 'lead' (see StoneUse in rules.ts), or 'next': who follows the partner, which costs nothing and has no item */
+  /** 'mega' | 'branch' | 'lead' (see StoneUse in rules.ts), 'next': who follows the partner, or 'show': which registered form to draw. From version 4 none of them costs anything */
   what: string
   /** the Mega form or the branch chosen */
   to?: string
@@ -49,12 +52,30 @@ export interface FactsInput {
     logs: Record<string, Record<string, { done: boolean; at: string }>>
   }
   /** day → the habit list as it stood that day, written by Life OS on the day itself. A day without one falls back to the library and its spans. */
-  lists?: Record<string, { id: string; tier: string }[]>
+  lists?: Record<string, ListedHabit[]>
   /** day → what the band measured */
   body?: Record<string, BodyFacts>
   /** items used from the Bag, in the order they were used */
   uses?: ItemUse[]
+  /** day → what the other apps recorded in their own units (see DayMarks) */
+  marks?: Record<string, DayMarks>
   today: string
+}
+
+/**
+ * A day in each domain's own unit, for the field notes. Only the Pokedex fills
+ * these in today (it reads the workouts and the guitar logs); nothing in the
+ * game depends on them yet.
+ */
+export interface DayMarks {
+  /** workouts finished */
+  workouts?: number
+  /** lifts that beat every earlier session */
+  records?: number
+  /** guitar items played clean at their target tempo */
+  clean?: number
+  /** song parts that became owned on this day */
+  owned?: number
 }
 
 export interface HabitFact {
@@ -78,6 +99,7 @@ export interface DayFacts {
   habits: HabitFact[]
   body?: BodyFacts
   uses?: ItemUse[]
+  marks?: DayMarks
 }
 
 export function addDays(day: string, n: number): string {
@@ -114,8 +136,8 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
   const frozen = input.lists?.[day]
   const byId = new Map(input.habits.map((h) => [h.id, h]))
   const todays: HabitLite[] = frozen
-    ? frozen.map((f) => ({ ...(byId.get(f.id) ?? { id: f.id, spans: [] }), id: f.id, tier: f.tier }))
-    : input.habits.filter((h) => activeOn(h, day))
+    ? frozen.map((f) => ({ ...(byId.get(f.id) ?? { id: f.id, spans: [] }), id: f.id, tier: f.tier, domain: f.tag }))
+    : input.habits.filter((h) => activeOn(h, day)).map((h) => (day >= V4_START ? h : { ...h, domain: undefined }))
   for (const h of todays) {
     // version 2, with a band: Sleep is a pillar paid on last night's score, and a hand tick no longer counts
     if (h.id === SLEEP_HABIT && day >= V3_START && band !== null && day >= band) {
@@ -135,9 +157,10 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
       const logs = input.shed?.logs ?? {}
       if (plan.length) frac = plan.filter((id) => logs[id]?.[day]?.done && inTime(logs[id][day].at, day)).length / plan.length
     }
-    habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: tagOf(h.id), worth: tierXp(h.tier), pillar: h.tier === 'pillar', frac, done })
+    habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: isTag(h.domain) ? h.domain : tagOf(h.id), worth: tierXp(h.tier), pillar: h.tier === 'pillar', frac, done })
   }
-  return { day, habits, ...(body ? { body } : {}), ...(uses?.length ? { uses } : {}) }
+  const marks = input.marks?.[day]
+  return { day, habits, ...(body ? { body } : {}), ...(uses?.length ? { uses } : {}), ...(marks ? { marks } : {}) }
 }
 
 /** Every day of the game so far, oldest first. */

@@ -2,6 +2,7 @@
 // facts.ts takes. Pokedex and Life OS both call these, so the two apps cannot
 // read the same event differently.
 import type { BodyFacts, ItemUse } from './facts.ts'
+import { V4_START, isTag, type Tag } from './rules.ts'
 
 export interface GameEvent {
   type: string
@@ -12,9 +13,9 @@ export interface GameEvent {
 
 /** Written by the Vitals band sync, one row per day. */
 export const BODY_EVENT = 'vitals'
-/** Written by the Pokedex when a stone is spent or the next partner is chosen: `{ item, uid, what, to? }`. */
+/** Written by the Pokedex when something is chosen by hand (who is next, a branch, who leads, which form shows): `{ item, uid, what, to? }`. */
 export const USE_EVENT = 'item_use'
-/** Written by Life OS once a day: `{ habits: JSON [{ id, tier }] }`, the list as it stood that day. Life OS writes it for today only, again if the list is edited during the day, so the last one for a day stands and nothing written later can reach back. */
+/** Written by Life OS for today only: `{ habits: JSON [{ id, tier, tag }] }`, the list as it stood that day. See listsOf for which one stands. */
 export const LIST_EVENT = 'day_list'
 
 const BODY_FIELDS = ['sleepScore', 'steps', 'recovery'] as const
@@ -42,17 +43,59 @@ export function usesOf(events: GameEvent[]): ItemUse[] {
   return out
 }
 
-/** day → that day's habit list. Pass events oldest first: the last list written for a day is the one that stands. */
-export function listsOf(events: GameEvent[]): Record<string, { id: string; tier: string }[]> {
-  const out: Record<string, { id: string; tier: string }[]> = {}
+export interface ListedHabit {
+  id: string
+  tier: string
+  /** the habit's domain as it stood that day (version 4 lists carry it) */
+  tag?: Tag
+}
+
+function parseList(raw: unknown): ListedHabit[] | null {
+  try {
+    const list = JSON.parse(String(raw)) as { id?: unknown; tier?: unknown; tag?: unknown }[]
+    if (!Array.isArray(list)) return null
+    return list
+      .filter((h) => typeof h?.id === 'string' && typeof h?.tier === 'string')
+      .map((h) => ({ id: h.id as string, tier: h.tier as string, ...(isTag(h.tag) ? { tag: h.tag } : {}) }))
+  } catch {
+    return null // a malformed list is no list: the day falls back to the library
+  }
+}
+
+/**
+ * day → that day's habit list. Pass events oldest first.
+ *
+ * Before version 4 the last list written for a day is the one that stands.
+ * From version 4 a day's list can grow but not shrink: the first one stands,
+ * a later one that day can only add habits (in the tier and domain they had
+ * when they were added), and taking a habit off, moving it or changing its
+ * tier waits for tomorrow. So a missed habit cannot be edited out of today.
+ * A list written with `fix: true` is a deliberate correction and replaces the day's.
+ */
+export function listsOf(events: GameEvent[], v4From: string = V4_START): Record<string, ListedHabit[]> {
+  const out: Record<string, ListedHabit[]> = {}
   for (const ev of events) {
     if (ev.type !== LIST_EVENT) continue
-    try {
-      const list = JSON.parse(String(ev.payload?.habits)) as { id?: unknown; tier?: unknown }[]
-      if (Array.isArray(list) && list.length) out[ev.day] = list.filter((h) => typeof h?.id === 'string' && typeof h?.tier === 'string') as { id: string; tier: string }[]
-    } catch {
-      /* a malformed list is no list: the day falls back to the library */
+    const list = parseList(ev.payload?.habits)
+    if (!list) continue
+    if (ev.day < v4From) {
+      // those lists never carried a domain: the id decided, and still does for those days
+      if (list.length) out[ev.day] = list.map(({ id, tier }) => ({ id, tier }))
+      continue
+    }
+    const cur = out[ev.day]
+    if (!cur || ev.payload?.fix === true) out[ev.day] = list
+    else {
+      const have = new Set(cur.map((h) => h.id))
+      for (const h of list) if (!have.has(h.id)) cur.push(h)
     }
   }
   return out
+}
+
+/** Would writing `list` for a day change what stands for it? Life OS asks before it writes, so an edit that cannot count is not sent over and over. */
+export function listAdds(stands: ListedHabit[] | undefined, list: ListedHabit[]): boolean {
+  if (!stands) return true
+  const have = new Set(stands.map((h) => h.id))
+  return list.some((h) => !have.has(h.id))
 }

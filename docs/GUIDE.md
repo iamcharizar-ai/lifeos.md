@@ -2,7 +2,7 @@
 
 Six small apps and one shared ledger. This guide explains what each part does, how they talk to each other, how the game on top works, why it was designed this way, and what comes next.
 
-Written 2026-10-03 for rules version 1. **Version 3 starts 5 Oct 2026: section 15 has what changed, and wins where it differs from the sections before it.**
+Written 2026-10-03, last revised 2026-10-07. **The game runs rules version 4 from 8 Oct 2026. The section "The game today" below is current; sections 5 and 15 are the earlier versions, kept as history.**
 
 ---
 
@@ -14,6 +14,71 @@ Written 2026-10-03 for rules version 1. **Version 3 starts 5 Oct 2026: section 1
 - All five read and write one append-only list of events (the **ledger**). Nothing else is shared, and nothing is stored about the game: it is recomputed from the ledger every time.
 
 The one rule behind every design choice: **the only way to progress is to do the day.**
+
+---
+
+## The game today: rules version 4 (from 8 Oct 2026)
+
+This section is the rules in force. Everything further down about the game (sections 5 and 15) is history, kept so the reasoning is not lost; where it disagrees with this section, this section is right. Every number below lives in `pokedex/core/rules.ts`.
+
+Version 4 changed what rewards are, not how fast they come. No XP, HP or pace number moved. It came out of two outside reviews (a design audit and a study of how Clash Royale gives each reward one job), checked against the code.
+
+### One day does three things
+
+| What the day was | What it moves | What that earns |
+|---|---|---|
+| How **much** you did | the partner's XP | levels, evolution on its own, graduation |
+| How **whole** it was | the wild Pokemon's HP | a catch, into the Box |
+| What **kind** of work | the gym leader's HP | that leader's badge |
+
+- **XP.** Pillar 100, core 30, standard 3, basic 1. All of it goes to one partner. Arbor and Woodshed pay for the share of the block done. Momentum (how many of the last seven days had two or more pillars) multiplies XP by up to 1.5 and never resets.
+- **The partner.** Level L needs 6 x L squared XP. Three-stage lines evolve at 16 and 36, two-stage lines at 25, by themselves. At 50 (30 for a single stage) it is fully trained and the next one takes over: the one you chose, else the oldest in the Box, else an egg.
+- **The wild Pokemon.** One at a time; it stays until caught and never flees. Each day hits it for 100 x (share of the day's XP done) squared x the ball. The ball comes from the chores (Great at half done, Ultra at four-fifths). A perfect day catches it on the spot and is the only way to a shiny (1 in 10).
+- **The league.** Each leader has 4,000 HP. The day's work (before momentum) wears it down; the domains that leader is weak to count x1.5, and a partner whose type beats the leader's adds x1.2. HP carries over. There are no weeks and no losing. A region opens when the league before it is beaten and two more partners are trained.
+
+### What each reward means
+
+| Reward | It stands for | Kept how |
+|---|---|---|
+| Level, evolution, graduation | the partner you are raising | for good |
+| A catch | discovery | in the Box, in the ball of that day |
+| A badge | the campaign: every gym leader gives one | for good, in the badge case |
+| Hall of Fame | a league won | for good |
+| The Key Stone and Mega | a durable achievement | for good |
+| A nature | what the partner was raised on | for good |
+| Days together | bond | only counts up |
+
+- **Badges are the gym reward.** No stone is handed out any more, by anyone. Stones won under version 3 stay in the Bag as keepsakes and do nothing.
+- **Mega is kept for good.** The Key Stone comes with the eighth Kanto badge. From then on, a fully evolved partner that has a Mega form registers it the first time a leader falls to it, or when it finishes training at the latest, so none can be missed. It never runs out. The partner is drawn as its Mega unless you choose the plain form. Mega also still shows for the day on a day with full momentum and every pillar done, as before.
+- **A nature at graduation.** The domain the partner did best in over its whole time with you is the stat its nature raises; the one it did least in is the stat it lowers (Attack is the gym, Defense is Arbor, Sp. Atk is code, Sp. Def is guitar, Speed is the chores). The real table of twenty-five. Two Charizards raised in different months are different.
+- **Bond is never lost.** The ribbon that two empty days used to take away is gone. A partner counts the days you spent together (days with at least one pillar), and that number only goes up. Dozing off is still drawn; it costs nothing.
+- **Nothing costs anything.** Three things can be chosen by hand in the Pokedex, all free and none needed: which way a branching Pokemon evolves, bringing one forward from the Box today, and which form a partner with a Mega shows. Ignore the Pokedex for a month and the game plays the same.
+
+### A day's list can grow but not shrink
+
+Life OS writes the day's habit list to the ledger (`day_list`), with each habit's tier and domain. From version 4 the first list of a day stands. A habit added during the day joins it. Taking a habit off, reordering, or changing a tier or domain starts tomorrow. So a missed habit cannot be edited out of today to make the day perfect. (Under version 3 the last list of the day stood.) A day on which Life OS was never opened has no list and still follows the library.
+
+A habit's **domain** (code, gym, guitar, Arbor, sleep, chore) is now a setting on the habit, next to its tier. The five habits the game already knew keep theirs by id. A pillar left as a chore is flagged on the Pokedex's Trainer tab, because it would hit no leader's weakness and lead no branch.
+
+### Field notes: each domain in its own unit
+
+The Trainer tab counts, for life: coding days; workouts and lifts that beat every earlier session (read from Strong's sets); guitar sessions done in full, items played clean at tempo and song parts owned (read from Woodshed's logs); Arbor mornings done in full; steps, up to 10,000 a day, once the band reports them. Nothing is earned from these yet. They are what the next version's rewards are priced from.
+
+### What comes next (not built)
+
+- **Version 5, after about four weeks of real days:** one retune of pace from the real ledger (`node tools/export-ledger.mjs`, then `node tools/replay.mjs`), and each domain gets its own item, earned in its own unit and never taken back: a TM for coding days, a record medal for lifts, a contest ribbon for song parts owned, a field move for Arbor mornings, and Incense with each badge (the one thing that is spent: pick the next wild Pokemon from three). Thresholds come from the field notes, not from guesses.
+- **Steps hatch an egg**, once the band has reported steps for two weeks. One incubator, capped steps, hatches into the Box, never needed for the next partner.
+- **Not planned:** money, a shop, a general currency, anything that must be done in the Pokedex, anything that can be lost.
+
+### Versions
+
+| Version | From | What changed |
+|---|---|---|
+| 1 | 2026-10-03 | first rules: a perfect day catches, weekly badges |
+| 3 | 2026-10-05 | the wild Pokemon with HP, the Box, leaders with HP, stones, measured Sleep (version 2 never ran) |
+| 4 | 2026-10-08 | badges as the reward, no stones, Mega for good, natures, bond never lost, a day's list only grows, domains set on the habit |
+
+Each day is always replayed under the version it was played under (`rulesOn` in `rules.ts`). `pokedex/core/fixtures/golden.json` is a recorded run of versions 1 and 3; the tests fail if a later change alters what those days were. After any change to the core: `npm test` and `node tools/simulate.mjs` in pokedex, then `npm run core` (the tests also fail if Life OS's copy differs).
 
 ---
 
@@ -106,7 +171,9 @@ After changing a core, run `npm run core` in its home repo. It copies the files 
 
 ---
 
-## 5. The game
+## 5. History: the game under version 1 (3 and 4 Oct 2026)
+
+Kept for the reasoning. For the rules in force see "The game today" near the top.
 
 ### One partner, one bar
 
@@ -302,6 +369,8 @@ Then deploy both. If a change affects past days, bump `RULES_VERSION` and note t
 | Version | From | What changed |
 |---|---|---|
 | 1 | 2026-10-03 | first rules |
+| 3 | 2026-10-05 | see section 15 |
+| 4 | 2026-10-08 | see "The game today" |
 
 ### The species table
 
@@ -444,7 +513,9 @@ The rule for adding anything: it must either remove a decision or make a real th
 
 ---
 
-## 15. Version 3 (from 5 Oct 2026)
+## 15. History: version 3 (5 to 7 Oct 2026)
+
+Replaced by version 4 on 8 Oct 2026. What still holds from here: the wild Pokemon, the Box, leaders with HP, the leagues and the measured Sleep pillar. What does not: stones (no longer earned or spent), the seven-day Mega, the Bond ribbon that could be lost, and "the last list of the day stands".
 
 Written 5 Oct 2026. Where this section and an earlier one disagree, this one is current: sections 5, 8, 11 and 13 were written for version 1. Version 2 was designed and replaced before its first day, so the game has only ever run versions 1 and 3. The reasoning behind version 3 is in `V3-GAME-SPEC.md` and `GAME-DESIGN-REVIEW.md` in the workspace folder.
 

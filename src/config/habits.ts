@@ -9,7 +9,7 @@
 // Ids must stay stable for the life of a habit — they key tick events in the
 // append-only cloud ledger.
 
-import { TIERS, TIER_XP, type Tier } from '../game-core/rules.ts'
+import { TIERS, TIER_XP, tagOf, type Tag, type Tier } from '../game-core/rules.ts'
 
 // Tiers and what each pays live in the shared game core (see game-core/rules.ts).
 export { TIERS, TIER_XP }
@@ -30,8 +30,13 @@ export interface Habit {
   name: string
   emoji: string
   tier: Tier
+  /** What kind of work it is, for the game (gym leaders, branching, natures). Unset = decided by the id, else a chore. */
+  domain?: Tag
   spans: Span[] // chronological, non-overlapping; only the last may be open
 }
+
+/** The domain the game counts a habit under. */
+export const domainOf = (h: Pick<Habit, 'id' | 'domain'>): Tag => h.domain ?? tagOf(h.id)
 
 /** Stand-in start day for habits that predate span tracking — "always existed". */
 export const EPOCH_DAY = '1970-01-01'
