@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# LifeOS ecosystem: lifeos.md, Project_Arbor, pokedex, gear-second (strong), vitals, woodshed
+language: en-US
+early_access: false
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  sequence_diagrams: true
+  auto_review:
+    enabled: true
+    drafts: true
+    base_branches:
+      - ".*"
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/.vercel/**"
+    - "!**/package-lock.json"
+    - "!**/*.tsbuildinfo"
+    - "!**/*.min.js"
+    - "!**/*.xlsx"
+    - "!**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2}"
+  path_instructions:
+    - path: "**/*.{ts,tsx,js}"
+      instructions: >-
+        Flag real bugs, unhandled promise rejections, race conditions, stale
+        closures in React hooks, and unsafe type assertions. Skip pure style nits.
+    - path: "{supabase,api,server}/**"
+      instructions: >-
+        Review for security: missing auth/RLS checks, injection, secrets in code,
+        and unvalidated input from clients.
+    - path: "{core,tools,scripts}/**"
+      instructions: >-
+        Check data-handling correctness, error handling, and idempotency of scripts.
+
+chat:
+  auto_reply: true
