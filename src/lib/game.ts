@@ -105,6 +105,8 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: `Season step ${m.step}`, line: m.coins ? `+${m.coins} coins.` : m.gems ? `+${m.gems} gems.` : `${SHOP[m.item as keyof typeof SHOP]?.name ?? m.item} added to your items.` }
     case 'hatch':
       return { title: 'The egg hatched!', line: `${nameOf(m.form)} is in your Box.`, form: m.form }
+    case 'chest':
+      return { title: `Chest ${m.n}`, line: m.coins ? `${m.coins} coins.` : `${SHOP[m.item as keyof typeof SHOP]?.name ?? m.item}${m.count > 1 ? ` x${m.count}` : ''}.` }
     case 'quest':
       return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
     case 'use':

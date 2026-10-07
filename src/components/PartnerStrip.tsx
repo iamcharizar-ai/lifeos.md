@@ -99,6 +99,9 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
 }
 
 /** Level-ups, evolutions and catches, said once each, a few seconds at a time. */
+/** The moments worth stopping for: they are staged in the middle of the screen, not slipped in at the bottom. */
+const BIG = new Set<string>(['evolve', 'catch', 'graduate', 'gym', 'league', 'key', 'mega', 'hatch'])
+
 export function Moments({ game, today, ready }: { game: Game; today: string; ready: boolean }) {
   const [line, setLine] = useState<Moment[]>([])
   const timer = useRef<number | undefined>(undefined)
@@ -123,7 +126,7 @@ export function Moments({ game, today, ready }: { game: Game; today: string; rea
 
   const text = current ? momentText(current) : null
   return (
-    <div className="moment-wrap" aria-live="polite">
+    <div className={`moment-wrap ${current && BIG.has(current.kind) ? 'is-big' : ''}`} aria-live="polite">
       <AnimatePresence>
         {current && text && (
           <motion.button
@@ -134,9 +137,9 @@ export function Moments({ game, today, ready }: { game: Game; today: string; rea
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            className={`moment moment-${current.kind}`}
+            className={`moment moment-${current.kind} ${BIG.has(current.kind) ? 'moment-big' : ''}`}
           >
-            {text.form && <Sprite form={text.form} shiny={text.shiny} size={56} />}
+            {text.form && <span className="moment-art"><Sprite form={text.form} shiny={text.shiny} size={BIG.has(current.kind) ? 96 : 56} /></span>}
             <span className="min-w-0 text-left">
               <span className="moment-title">{text.title}</span>
               <span className="moment-text">{text.line}</span>

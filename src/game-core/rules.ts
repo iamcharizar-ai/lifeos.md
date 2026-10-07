@@ -195,13 +195,14 @@ export const NATURES: Record<NatureStat, Record<NatureStat, string>> = {
 /** A softer curve than version 3's square: an ordinary day is not punished as hard. */
 export const wildHit5 = (share: number, ball: number): number => Math.round(100 * Math.pow(share, 1.5) * ball)
 
-export type ShopItem = 'great-ball' | 'ultra-ball' | 'berry' | 'incense' | 'rare-egg' | 'theme-beach' | 'theme-cave' | 'theme-night'
+export type ShopItem = 'great-ball' | 'ultra-ball' | 'berry' | 'incense' | 'rare-egg' | 'chest' | 'theme-beach' | 'theme-cave' | 'theme-night'
 export interface ShopEntry { name: string; coins?: number; gems?: number; text: string; once?: true }
 export const SHOP: Record<ShopItem, ShopEntry> = {
   'great-ball': { name: 'Great Ball', coins: 150, text: 'Throw it at the wild Pokemon: 80 HP at once.' },
   'ultra-ball': { name: 'Ultra Ball', coins: 350, text: 'Throw it at the wild Pokemon: 200 HP at once.' },
   berry: { name: 'Berry', coins: 60, text: 'Feed your partner: one heart. Hearts are never lost.' },
   incense: { name: 'Incense', gems: 40, text: 'Choose the next wild Pokemon from three.' },
+  chest: { name: 'Chest', gems: 30, text: 'Open it for coins, balls, berries or, now and then, incense.' },
   'rare-egg': { name: 'Rare Egg', gems: 150, text: 'Hatches into a rare Pokemon after five days with two pillars.' },
   'theme-beach': { name: 'Beach', gems: 60, text: 'A new place for the battle scene.', once: true },
   'theme-cave': { name: 'Cave', gems: 60, text: 'A new place for the battle scene.', once: true },
@@ -246,5 +247,9 @@ export const SEASON_STEP = 1500
 export interface SeasonReward { coins?: number; gems?: number; item?: ShopItem }
 export const SEASON_REWARDS: SeasonReward[] = [{ coins: 100 }, { item: 'great-ball' }, { gems: 10 }, { item: 'berry' }, { coins: 200 }, { item: 'ultra-ball' }, { gems: 25 }]
 export const seasonReward = (step: number): SeasonReward => SEASON_REWARDS[(step - 1) % SEASON_REWARDS.length]
+/** What a chest can hold, with the odds out of 100. It is opened the moment it is bought. */
+export const CHEST: { odds: number; coins?: number; item?: ShopItem; n?: number }[] = [
+  { odds: 40, coins: 250 }, { odds: 25, item: 'great-ball', n: 2 }, { odds: 15, item: 'ultra-ball', n: 1 }, { odds: 12, item: 'berry', n: 3 }, { odds: 8, item: 'incense', n: 1 },
+]
 /** A Rare Egg hatches after this many days with two pillars. One is kept warm at a time. */
 export const EGG_DAYS = 5

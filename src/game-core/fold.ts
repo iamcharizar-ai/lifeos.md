@@ -12,7 +12,7 @@ import type { DayFacts } from './facts.ts'
 import { addDays } from './facts.ts'
 import { LEAGUES, lineup, type Leader } from './gyms.ts'
 import {
-  ADVANTAGE_MULT, BADGE_DAYS, BALL_MULT, CATCH_WEIGHTS, DAILY_QUESTS, EGG_DAYS, GEMS, KEY_STONE_BADGES, LEADER_HP, LEGENDARY_EVERY, LEGENDARY_EVERY_WILD, MEGA_DAYS, MILESTONE_STONES,
+  ADVANTAGE_MULT, BADGE_DAYS, BALL_MULT, CATCH_WEIGHTS, CHEST, DAILY_QUESTS, EGG_DAYS, GEMS, KEY_STONE_BADGES, LEADER_HP, LEGENDARY_EVERY, LEGENDARY_EVERY_WILD, MEGA_DAYS, MILESTONE_STONES,
   MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS, PILLARS_FOR_A_DAY, RARE_EVERY, SHINY_EVERY, SHINY_ODDS, SLEEP_AFTER, START_SPECIES, STAT_DAYS, STEPS_GOAL, STONE_FOR_TAG, TAGS, TEAM_BONUS, TEAM_SIZE, THROW_HP, V3_START, V4_START, V5_START, WEEKLY_QUESTS, WEEK_DAYS, WEEK_XP,
   SEASON_STEP, WEAK_MULT, WILD_HP, SHOP, ballFor, isShopItem, seasonReward, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, regionsOpenV2, rulesOn, wildHit, wildHit5, xpForLevel,
   type Ball, type NatureStat, type Rarity, type Tag,
@@ -84,6 +84,8 @@ export type Moment =
   | { kind: 'quest'; day: string; id: string; name: string; coins: number; gems: number }
   | { kind: 'season'; day: string; step: number; coins: number; gems: number; item: string }
   | { kind: 'hatch'; day: string; uid: string; form: string }
+  /** `n` counts chests opened for life, so each one is told apart */
+  | { kind: 'chest'; day: string; n: number; coins: number; item: string; count: number }
 
 export interface DayResult {
   day: string
@@ -321,6 +323,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   const paid = new Set<string>()
   const monthXp: Record<string, number> = {}, monthStep: Record<string, number> = {}
   let egg: { have: number } | null = null
+  let chests = 0
   const weekXp: Record<string, number> = {}, weekDays: Record<string, number> = {}, weekCatch: Record<string, number> = {}
   let v5Day = false
   const earn = (coins: number, gems: number) => {
@@ -515,6 +518,16 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       if (e.once && inv[u.item]) return true
       if ((e.coins ?? 0) > wallet.coins || (e.gems ?? 0) > wallet.gems) return true
       wallet.coins -= e.coins ?? 0; wallet.gems -= e.gems ?? 0
+      if (u.item === 'chest') {
+        // opened on the spot: the same chest always holds the same thing, on every device
+        chests++
+        let x = rng(`chest:${chests}`)() * 100
+        const got = CHEST.find((c) => (x -= c.odds) < 0) ?? CHEST[0]
+        wallet.coins += got.coins ?? 0
+        if (got.item) inv[got.item] = (inv[got.item] ?? 0) + (got.n ?? 1)
+        moments.push({ kind: 'chest', day, n: chests, coins: got.coins ?? 0, item: got.item ?? '', count: got.n ?? 0 })
+        return true
+      }
       inv[u.item] = (inv[u.item] ?? 0) + 1
       return true
     }

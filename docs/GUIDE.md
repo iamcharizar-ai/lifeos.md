@@ -33,6 +33,7 @@ Version 5 begins on the day version 4 was due to, so version 4 never ran a day b
 | The Professor | any Pokemon in the Box | 5 gems, and a Box that does not pile up |
 | Quests | the day and the week | paid by themselves, no claiming |
 | The season | every 1,500 XP of the month's work is a step | each step hands over coins, gems or an item by itself; it starts again each month |
+| Chest | the shop, for gems | opened as it is bought: coins, balls, berries or, now and then, incense |
 | Rare Egg | the shop, for gems | kept warm by days with two pillars; after five it hatches a rare Pokemon into the Box |
 
 Catch damage is now 100 x (share of the day) to the power 1.5 x the ball, a softer curve than the square. Everything done in the Pokedex is one small `item_use` event in the ledger (`buy`, `throw`, `feed`, `wish`, `team`, `transfer`, `theme`), so the game is still recomputed from the ledger alone and both apps agree.
