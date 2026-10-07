@@ -12,9 +12,9 @@ import type { DayFacts } from './facts.ts'
 import { addDays } from './facts.ts'
 import { LEAGUES, lineup, type Leader } from './gyms.ts'
 import {
-  ADVANTAGE_MULT, BADGE_DAYS, BALL_MULT, CATCH_WEIGHTS, DAILY_QUESTS, GEMS, KEY_STONE_BADGES, LEADER_HP, LEGENDARY_EVERY, LEGENDARY_EVERY_WILD, MEGA_DAYS, MILESTONE_STONES,
+  ADVANTAGE_MULT, BADGE_DAYS, BALL_MULT, CATCH_WEIGHTS, DAILY_QUESTS, EGG_DAYS, GEMS, KEY_STONE_BADGES, LEADER_HP, LEGENDARY_EVERY, LEGENDARY_EVERY_WILD, MEGA_DAYS, MILESTONE_STONES,
   MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS, PILLARS_FOR_A_DAY, RARE_EVERY, SHINY_EVERY, SHINY_ODDS, SLEEP_AFTER, START_SPECIES, STAT_DAYS, STEPS_GOAL, STONE_FOR_TAG, TAGS, TEAM_BONUS, TEAM_SIZE, THROW_HP, V3_START, V4_START, V5_START, WEEKLY_QUESTS, WEEK_DAYS, WEEK_XP,
-  WEAK_MULT, WILD_HP, SHOP, ballFor, isShopItem, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, regionsOpenV2, rulesOn, wildHit, wildHit5, xpForLevel,
+  SEASON_STEP, WEAK_MULT, WILD_HP, SHOP, ballFor, isShopItem, seasonReward, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, regionsOpenV2, rulesOn, wildHit, wildHit5, xpForLevel,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { SPECIES, type SpeciesRec } from './species.ts'
@@ -82,6 +82,8 @@ export type Moment =
   /** version 5: a Pokemon sent to the Professor, and a quest finished */
   | { kind: 'transfer'; day: string; form: string; gems: number }
   | { kind: 'quest'; day: string; id: string; name: string; coins: number; gems: number }
+  | { kind: 'season'; day: string; step: number; coins: number; gems: number; item: string }
+  | { kind: 'hatch'; day: string; uid: string; form: string }
 
 export interface DayResult {
   day: string
@@ -206,6 +208,10 @@ export interface Game {
   teamEdge: number
   /** today's and this week's quests */
   quests: { daily: Quest[]; weekly: Quest[] }
+  /** this month's ladder: steps reached, XP into the next one, and what the next one hands over */
+  season: { month: string; step: number; into: number; need: number; next: { coins?: number; gems?: number; item?: string } }
+  /** the egg being kept warm, if there is one */
+  egg: { have: number; need: number } | null
   /** the three the next wild Pokemon can be chosen from with incense, and the one chosen */
   wish: { options: string[]; chosen: string | null }
   /** the rules today is played under */
@@ -313,6 +319,8 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   let teamPick: string[] | null = null
   let wishFor: string | null = null
   const paid = new Set<string>()
+  const monthXp: Record<string, number> = {}, monthStep: Record<string, number> = {}
+  let egg: { have: number } | null = null
   const weekXp: Record<string, number> = {}, weekDays: Record<string, number> = {}, weekCatch: Record<string, number> = {}
   let v5Day = false
   const earn = (coins: number, gems: number) => {
@@ -763,7 +771,32 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
         if (counts) weekDays[wk] = (weekDays[wk] ?? 0) + 1
       }
 
+      if (v5) {
+        // the season: every SEASON_STEP XP of the month's work is a step, and the step hands something over
+        const ym = f.day.slice(0, 7)
+        monthXp[ym] = (monthXp[ym] ?? 0) + Math.round(base)
+        while ((monthStep[ym] ?? 0) < Math.floor(monthXp[ym] / SEASON_STEP)) {
+          const step = (monthStep[ym] = (monthStep[ym] ?? 0) + 1)
+          const r = seasonReward(step)
+          earn(r.coins ?? 0, r.gems ?? 0)
+          if (r.item) inv[r.item] = (inv[r.item] ?? 0) + 1
+          moments.push({ kind: 'season', day: f.day, step, coins: r.coins ?? 0, gems: r.gems ?? 0, item: r.item ?? '' })
+        }
+      }
+
       for (const u of f.uses ?? []) spend(u, f.day, v4)
+
+      if (v5) {
+        // an egg: one kept warm at a time, a day nearer on each day with two pillars
+        if (!egg && inv['rare-egg']) { inv['rare-egg']--; egg = { have: 0 } }
+        else if (egg && counts && ++egg.have >= EGG_DAYS) {
+          const mon = make(roll(`rare-egg:${f.day}`, 'R'), 'egg', f.day)
+          queue.push(mon)
+          see(mon.form, f.day, false)
+          moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form })
+          egg = null
+        }
+      }
 
       if (v5) {
         const wk = weekOf(f.day)
@@ -932,6 +965,12 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     team,
     teamEdge: leaderNow ? team.filter((m) => beats([rec(m.form).t, rec(m.form).t2], leaderNow.type)).length : 0,
     quests: version >= 5 && last ? { daily: DAILY_QUESTS.map(quest(last.day)), weekly: WEEKLY_QUESTS.map(quest(wkNow)) } : { daily: [], weekly: [] },
+    season: (() => {
+      const ym = last ? last.day.slice(0, 7) : ''
+      const xp = monthXp[ym] ?? 0, step = monthStep[ym] ?? 0
+      return { month: ym, step, into: xp - step * SEASON_STEP, need: SEASON_STEP, next: seasonReward(step + 1) }
+    })(),
+    egg: egg ? { have: (egg as { have: number }).have, need: EGG_DAYS } : null,
     wish: { options: version >= 5 ? wishOptions() : [], chosen: wishFor },
     version,
     keyStone,

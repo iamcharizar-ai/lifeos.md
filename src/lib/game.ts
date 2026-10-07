@@ -14,7 +14,7 @@ import type { ArborState } from '../arbor-core/model.ts'
 import type { ShedState } from '../woodshed-core/model.ts'
 import { isGym, leaderOf } from '../game-core/fold.ts'
 import { LEAGUES, lineup } from '../game-core/gyms.ts'
-import { ITEM_NAME, MEGA_DAYS, REGIONS } from '../game-core/rules.ts'
+import { ITEM_NAME, MEGA_DAYS, REGIONS, SHOP } from '../game-core/rules.ts'
 import type { GameLink } from './gameLink'
 
 // localhost is only a dev default: a production build without VITE_POKEDEX_URL must not point sprites
@@ -101,6 +101,10 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: 'Mega, for good', line: `${nameOf(m.form)} is registered and never runs out.`, form: m.form }
     case 'transfer':
       return { title: 'To the Professor', line: `${nameOf(m.form)} was sent on: +${m.gems} gems.`, form: m.form }
+    case 'season':
+      return { title: `Season step ${m.step}`, line: m.coins ? `+${m.coins} coins.` : m.gems ? `+${m.gems} gems.` : `${SHOP[m.item as keyof typeof SHOP]?.name ?? m.item} added to your items.` }
+    case 'hatch':
+      return { title: 'The egg hatched!', line: `${nameOf(m.form)} is in your Box.`, form: m.form }
     case 'quest':
       return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
     case 'use':
