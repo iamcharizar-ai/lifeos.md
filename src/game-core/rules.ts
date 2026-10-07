@@ -5,7 +5,7 @@
 // Every number that shapes the game is in this file.
 
 /** Bump when a rule changes, and note the day it took effect in the guide. */
-export const RULES_VERSION = 4
+export const RULES_VERSION = 5
 /** Days before this are not part of the game. */
 export const GAME_START = '2026-10-03'
 /**
@@ -21,8 +21,17 @@ export const V3_START = '2026-10-05'
  * No pacing number changed. Days before it keep the version they were played under.
  */
 export const V4_START = '2026-10-08'
+/**
+ * Rules version 5 applies from this day: coins and gems, a shop, balls you
+ * throw, berries, incense, a team of three, the Professor, daily and weekly
+ * quests, and a softer catch curve. XP still comes only from the day's work.
+ * It begins on the same day version 4 was due to, so version 4 never ran a
+ * day (as version 2 never did); its rules are all still in force inside 5.
+ */
+export const V5_START = '2026-10-08'
 /** Which rules a day is played under. */
-export const rulesOn = (day: string, v3From: string = V3_START, v4From: string = V4_START): 1 | 3 | 4 => (day >= v4From ? 4 : day >= v3From ? 3 : 1)
+export const rulesOn = (day: string, v3From: string = V3_START, v4From: string = V4_START, v5From: string = V5_START): 1 | 3 | 4 | 5 =>
+  day >= v5From ? 5 : day >= v4From ? 4 : day >= v3From ? 3 : 1
 
 // ── XP ──────────────────────────────────────────────────────────────────────
 export type Tier = 'pillar' | 'core' | 'standard' | 'basic'
@@ -178,3 +187,52 @@ export const NATURES: Record<NatureStat, Record<NatureStat, string>> = {
   spa: { atk: 'Modest', def: 'Mild', spe: 'Quiet', spa: 'Bashful', spd: 'Rash' },
   spd: { atk: 'Calm', def: 'Gentle', spe: 'Sassy', spa: 'Careful', spd: 'Quirky' },
 }
+
+// ── version 5: something to earn, and something to do with it ──────────────
+// Work is still the only source of anything. Coins come one for each XP of
+// the day's work (before momentum); gems come from milestones. Neither buys
+// XP or levels: they touch catching, bond, the team and how things look.
+/** A softer curve than version 3's square: an ordinary day is not punished as hard. */
+export const wildHit5 = (share: number, ball: number): number => Math.round(100 * Math.pow(share, 1.5) * ball)
+
+export type ShopItem = 'great-ball' | 'ultra-ball' | 'berry' | 'incense' | 'theme-beach' | 'theme-cave' | 'theme-night'
+export interface ShopEntry { name: string; coins?: number; gems?: number; text: string; once?: true }
+export const SHOP: Record<ShopItem, ShopEntry> = {
+  'great-ball': { name: 'Great Ball', coins: 150, text: 'Throw it at the wild Pokemon: 80 HP at once.' },
+  'ultra-ball': { name: 'Ultra Ball', coins: 350, text: 'Throw it at the wild Pokemon: 200 HP at once.' },
+  berry: { name: 'Berry', coins: 60, text: 'Feed your partner: one heart. Hearts are never lost.' },
+  incense: { name: 'Incense', gems: 40, text: 'Choose the next wild Pokemon from three.' },
+  'theme-beach': { name: 'Beach', gems: 60, text: 'A new place for the battle scene.', once: true },
+  'theme-cave': { name: 'Cave', gems: 60, text: 'A new place for the battle scene.', once: true },
+  'theme-night': { name: 'Starry night', gems: 60, text: 'A new place for the battle scene.', once: true },
+}
+export const isShopItem = (x: string): x is ShopItem => x in SHOP
+/** HP a thrown ball takes off the wild Pokemon. */
+export const THROW_HP: Partial<Record<ShopItem, number>> = { 'great-ball': 80, 'ultra-ball': 200 }
+export const THEMES = ['theme-beach', 'theme-cave', 'theme-night'] as const
+
+/** Gems for the things that happen by themselves. */
+export const GEMS = { catch: 3, shiny: 20, evolve: 10, gym: 20, elite: 30, league: 50, graduate: 15, transfer: 5 } as const
+
+/** Hearts at which a partner's bond steps up a level. */
+export const HEART_LEVELS = [10, 30, 60] as const
+export const bondLevel = (hearts: number): number => HEART_LEVELS.filter((n) => hearts >= n).length
+
+export const TEAM_SIZE = 3
+/** Each team member whose type beats the leader's adds this much to every strike. */
+export const TEAM_BONUS = 0.1
+
+export interface QuestDef { id: string; name: string; coins?: number; gems?: number }
+export const DAILY_QUESTS: QuestDef[] = [
+  { id: 'two-pillars', name: 'Finish two pillars', coins: 40 },
+  { id: 'all-pillars', name: 'Finish every pillar', coins: 80 },
+  { id: 'chores', name: 'Four-fifths of the chores', coins: 40 },
+  { id: 'perfect', name: 'A perfect day', gems: 5 },
+]
+export const WEEK_XP = 2000
+export const WEEK_DAYS = 5
+export const WEEKLY_QUESTS: QuestDef[] = [
+  { id: 'five-days', name: `${WEEK_DAYS} days with two pillars`, gems: 15 },
+  { id: 'week-xp', name: `${WEEK_XP.toLocaleString('en-IN')} XP of work`, coins: 300 },
+  { id: 'catch', name: 'Catch a Pokemon', gems: 10 },
+]

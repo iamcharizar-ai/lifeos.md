@@ -399,3 +399,10 @@ body {
 .moment-evolve, .moment-catch, .moment-graduate, .moment-form, .moment-gym, .moment-league, .moment-key, .moment-mega { box-shadow: 0 0 0 4px #f5b800, 0 0 0 7px #141a33, 0 12px 0 0 #141a33; }
 .moment-title { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-weight: 400; font-size: 18px; text-transform: none; letter-spacing: 0.02em; color: #fff; -webkit-text-stroke: 3px #141a33; paint-order: stroke fill; }
 .moment-text { color: #dfe6ff; }
+
+/* version 5: the wallet on the strip */
+.partner-wallet { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-family: 'Lilita One', sans-serif; font-size: 16px; color: #fff; }
+.partner-wallet i { display: inline-block; width: 16px; height: 16px; border: 2px solid #141a33; }
+.partner-wallet .coin { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd84a 0 45%, #f5b800 46%); }
+.partner-wallet .gem { margin-left: 8px; background: #3fd07a; clip-path: polygon(25% 0, 75% 0, 100% 40%, 50% 100%, 0 40%); border: 0; width: 17px; }
+.moment-quest { box-shadow: 0 0 0 4px #2fae66, 0 0 0 7px #141a33, 0 12px 0 0 #141a33; }

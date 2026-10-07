@@ -2,7 +2,7 @@
 
 Six small apps and one shared ledger. This guide explains what each part does, how they talk to each other, how the game on top works, why it was designed this way, and what comes next.
 
-Written 2026-10-03, last revised 2026-10-07. **The game runs rules version 4 from 8 Oct 2026. The section "The game today" below is current; sections 5 and 15 are the earlier versions, kept as history.**
+Written 2026-10-03, last revised 2026-10-07. **The game runs rules version 5 from 8 Oct 2026. The section "The game today" below is current; sections 5 and 15 are the earlier versions, kept as history.**
 
 ---
 
@@ -17,7 +17,29 @@ The one rule behind every design choice: **the only way to progress is to do the
 
 ---
 
-## The game today: rules version 4 (from 8 Oct 2026)
+## The game today: rules version 5 (from 8 Oct 2026)
+
+Version 5 begins on the day version 4 was due to, so version 4 never ran a day by itself. Everything in the version 4 section below is still in force; version 5 adds the second half of the loop: **things to do with what the work earned**. The reasoning, and the review it went through, is in `V5-LOOP.md` in the workspace folder; the audit that led to it is `GAME-AUDIT.md`.
+
+| Piece | Earned by | Used for |
+|---|---|---|
+| XP | every habit | the partner. Cannot be bought |
+| Coins | 1 for each XP of the day's work (before momentum), and daily quests | balls to throw, berries |
+| Gems | a catch, an evolution, a badge, a league, a graduation, weekly quests, the Professor | incense, scene themes |
+| Great / Ultra Ball | the shop | thrown at the wild Pokemon: 80 or 200 HP at once |
+| Berry | the shop | a heart for the partner. Hearts (days together plus berries) only go up |
+| Incense | the shop | choose the next wild Pokemon from three |
+| Team of three | fully trained Pokemon | each one whose type beats the leader's adds 10% to every strike. Left alone, it is your last three trained |
+| The Professor | any Pokemon in the Box | 5 gems, and a Box that does not pile up |
+| Quests | the day and the week | paid by themselves, no claiming |
+
+Catch damage is now 100 x (share of the day) to the power 1.5 x the ball, a softer curve than the square. Everything done in the Pokedex is one small `item_use` event in the ledger (`buy`, `throw`, `feed`, `wish`, `team`, `transfer`, `theme`), so the game is still recomputed from the ledger alone and both apps agree.
+
+The Pokedex's tabs are now Home, Team, Shop, Pokedex and Trainer; the rules are behind the "?" in the top bar.
+
+---
+
+## Rules version 4 (all still in force inside version 5)
 
 This section is the rules in force. Everything further down about the game (sections 5 and 15) is history, kept so the reasoning is not lost; where it disagrees with this section, this section is right. Every number below lives in `pokedex/core/rules.ts`.
 
@@ -76,7 +98,8 @@ The Trainer tab counts, for life: coding days; workouts and lifts that beat ever
 |---|---|---|
 | 1 | 2026-10-03 | first rules: a perfect day catches, weekly badges |
 | 3 | 2026-10-05 | the wild Pokemon with HP, the Box, leaders with HP, stones, measured Sleep (version 2 never ran) |
-| 4 | 2026-10-08 | badges as the reward, no stones, Mega for good, natures, bond never lost, a day's list only grows, domains set on the habit |
+| 4 | (never ran alone) | badges as the reward, no stones, Mega for good, natures, bond never lost, a day's list only grows, domains set on the habit |
+| 5 | 2026-10-08 | all of version 4, plus coins, gems, the shop, thrown balls, berries, incense, the team, the Professor, quests, a softer catch curve |
 
 Each day is always replayed under the version it was played under (`rulesOn` in `rules.ts`). `pokedex/core/fixtures/golden.json` is a recorded run of versions 1 and 3; the tests fail if a later change alters what those days were. After any change to the core: `npm test` and `node tools/simulate.mjs` in pokedex, then `npm run core` (the tests also fail if Life OS's copy differs).
 

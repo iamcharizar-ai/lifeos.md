@@ -76,7 +76,7 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     case 'partner':
       return { title: m.origin === 'egg' ? 'An egg hatched' : 'New partner', line: `${nameOf(m.form)} is your partner now.`, form: m.form }
     case 'catch':
-      return { title: m.how === 'perfect' ? 'Perfect day: caught!' : 'Gotcha!', line: `${m.shiny ? 'A shiny ' : ''}${nameOf(m.form)} is in your Box.`, form: m.form, shiny: m.shiny }
+      return { title: m.how === 'perfect' ? 'Perfect day: caught!' : m.how === 'ball' ? 'Caught with a ball!' : 'Gotcha!', line: `${m.shiny ? 'A shiny ' : ''}${nameOf(m.form)} is in your Box.`, form: m.form, shiny: m.shiny }
     case 'appear':
       return { title: m.rarity === 'L' ? 'A legendary appeared' : 'A wild Pokemon appeared', line: `${nameOf(m.form)} is in front of you until you catch it.`, form: m.form }
     case 'form':
@@ -99,6 +99,10 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: 'Key Stone', line: 'A fully evolved partner now keeps its Mega form the first time a leader falls to it.' }
     case 'mega':
       return { title: 'Mega, for good', line: `${nameOf(m.form)} is registered and never runs out.`, form: m.form }
+    case 'transfer':
+      return { title: 'To the Professor', line: `${nameOf(m.form)} was sent on: +${m.gems} gems.`, form: m.form }
+    case 'quest':
+      return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
     case 'use':
       return m.what === 'mega' ? { title: 'Mega Evolution', line: `${nameOf(m.form)} Mega Evolves for ${MEGA_DAYS} days.`, form: m.to ?? m.form }
         : m.what === 'branch' ? { title: 'Branch chosen', line: `${nameOf(m.form)} will evolve into ${nameOf(m.to ?? '')}.`, form: m.form }
