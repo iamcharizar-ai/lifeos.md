@@ -17,7 +17,7 @@ import { GUITAR_HABIT } from './guitarLink'
 
 export const GYM_HABIT = 'gym'
 export const ARBOR_HABIT = 'arbor-morning'
-export type Link = 'strong' | 'arbor' | 'woodshed'
+export type Link = 'strong' | 'arbor' | 'woodshed' | 'vitals'
 export const linkOf = (habitId: string): Link | null =>
   habitId === GYM_HABIT ? 'strong' : habitId === ARBOR_HABIT ? 'arbor' : habitId === GUITAR_HABIT ? 'woodshed' : null
 

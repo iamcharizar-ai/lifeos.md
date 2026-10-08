@@ -50,6 +50,12 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
           <span className="partner-name">{name}</span>
           <span className="partner-lv">Lv {game.level}</span>
           {partner.shiny && <span className="partner-tag">shiny</span>}
+          {game.version >= 5 && (
+            <span className="partner-wallet" title="Coins and gems: spend them in the Pokedex">
+              <i className="coin" aria-hidden /><AnimatedNumber value={game.wallet.coins} />
+              <i className="gem" aria-hidden /><AnimatedNumber value={game.wallet.gems} />
+            </span>
+          )}
         </div>
         <div
           className="partner-bar"
@@ -68,13 +74,17 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
             +<AnimatedNumber value={today.xp} /> XP
           </b>{' '}
           today
+          {game.version >= 5 && game.wallet.coinsToday > 0 && <> · <b className="partner-today">+<AnimatedNumber value={game.wallet.coinsToday} /></b> coins</>}
+          {game.version >= 6 && marksToday(game) > 0 && <> · <b className="partner-today">+{marksToday(game)}</b> marks</>}
           {momentum.mult > 1 && <> · ×{momentum.mult} momentum</>}
+          {game.version >= 6 && game.sleep.state === 'measured' && <> · slept <b className="partner-today">{game.sleep.score}</b></>}
+          {game.version >= 6 && game.sleep.state === 'self' && <> · sleep: waiting for the band</>}
           {' · '}
           {game.next.what === 'evolve' ? 'evolves' : 'fully trained'} at Lv {game.next.level}
         </div>
         <div className="partner-line">
           {game.asleep
-            ? 'Asleep. One pillar wakes it.'
+            ? 'Dozing. One pillar wakes it.'
             : today.perfect
               ? 'Perfect day.'
               : `${left} left for a perfect day · ${today.pillars}/${today.pillarTotal} pillars`}
@@ -92,6 +102,10 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
 }
 
 /** Level-ups, evolutions and catches, said once each, a few seconds at a time. */
+/** The moments worth stopping for: they are staged in the middle of the screen, not slipped in at the bottom. */
+const BIG = new Set<string>(['evolve', 'catch', 'graduate', 'gym', 'league', 'key', 'mega', 'hatch'])
+const marksToday = (g: Game): number => Object.values(g.wallet.marksToday ?? {}).reduce((a, b) => a + b, 0)
+
 export function Moments({ game, today, ready }: { game: Game; today: string; ready: boolean }) {
   const [line, setLine] = useState<Moment[]>([])
   const timer = useRef<number | undefined>(undefined)
@@ -116,7 +130,7 @@ export function Moments({ game, today, ready }: { game: Game; today: string; rea
 
   const text = current ? momentText(current) : null
   return (
-    <div className="moment-wrap" aria-live="polite">
+    <div className={`moment-wrap ${current && BIG.has(current.kind) ? 'is-big' : ''}`} aria-live="polite">
       <AnimatePresence>
         {current && text && (
           <motion.button
@@ -127,9 +141,9 @@ export function Moments({ game, today, ready }: { game: Game; today: string; rea
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            className={`moment moment-${current.kind}`}
+            className={`moment moment-${current.kind} ${BIG.has(current.kind) ? 'moment-big' : ''}`}
           >
-            {text.form && <Sprite form={text.form} shiny={text.shiny} size={56} />}
+            {text.form && <span className="moment-art"><Sprite form={text.form} shiny={text.shiny} size={BIG.has(current.kind) ? 96 : 56} /></span>}
             <span className="min-w-0 text-left">
               <span className="moment-title">{text.title}</span>
               <span className="moment-text">{text.line}</span>

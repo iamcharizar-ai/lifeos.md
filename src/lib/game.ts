@@ -14,6 +14,7 @@ import type { ArborState } from '../arbor-core/model.ts'
 import type { ShedState } from '../woodshed-core/model.ts'
 import { isGym, leaderOf } from '../game-core/fold.ts'
 import { LEAGUES, lineup } from '../game-core/gyms.ts'
+import { itemName as shopName } from '../game-core/economy.ts'
 import { ITEM_NAME, MEGA_DAYS, REGIONS } from '../game-core/rules.ts'
 import type { GameLink } from './gameLink'
 
@@ -29,12 +30,12 @@ export function useGame(habits: Habit[], ticks: Ticks, arbor: ArborState, shed: 
   )
 }
 
-const itemName = (item: string): string => ITEM_NAME[item] ?? item
+const itemName = (item: string): string => ITEM_NAME[item] ?? shopName(item)
 
 // ── moments: say it once when something happens ─────────────────────────────
 const SEEN_KEY = 'lifeos.game.seen.v1'
 export const momentKey = (m: Moment): string =>
-  `${m.day}|${m.kind}|${'form' in m ? m.form : ''}|${'level' in m ? m.level : ''}|${'n' in m ? m.n : ''}|${'item' in m ? m.item : ''}|${'slot' in m ? m.slot : ''}|${'what' in m ? m.what : ''}`
+  `${m.day}|${m.kind}|${'form' in m ? m.form : ''}|${'level' in m ? m.level : ''}|${'n' in m ? m.n : ''}|${'item' in m ? m.item : ''}|${'slot' in m ? m.slot : ''}|${'what' in m ? m.what : ''}|${'id' in m ? m.id : ''}`
 
 function loadSeen(): Set<string> | null {
   try {
@@ -72,11 +73,11 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     case 'evolve':
       return { title: 'Evolved', line: `${nameOf(m.from)} evolved into ${nameOf(m.form)}${m.picked ? ', the way you chose' : ''}.`, form: m.form }
     case 'graduate':
-      return { title: 'Fully trained', line: `${nameOf(m.form)} moved into the Pokedex for good${m.bond ? ', with a Bond ribbon' : ''}.`, form: m.form }
+      return { title: 'Fully trained', line: `${nameOf(m.form)} moved into the Pokedex for good.`, form: m.form }
     case 'partner':
       return { title: m.origin === 'egg' ? 'An egg hatched' : 'New partner', line: `${nameOf(m.form)} is your partner now.`, form: m.form }
     case 'catch':
-      return { title: m.how === 'perfect' ? 'Perfect day: caught!' : 'Gotcha!', line: `${m.shiny ? 'A shiny ' : ''}${nameOf(m.form)} is in your Box.`, form: m.form, shiny: m.shiny }
+      return { title: m.how === 'perfect' ? 'Perfect day: caught!' : m.how === 'ball' ? 'Caught with a ball!' : 'Gotcha!', line: `${m.shiny ? 'A shiny ' : ''}${nameOf(m.form)} is in your Box.`, form: m.form, shiny: m.shiny }
     case 'appear':
       return { title: m.rarity === 'L' ? 'A legendary appeared' : 'A wild Pokemon appeared', line: `${nameOf(m.form)} is in front of you until you catch it.`, form: m.form }
     case 'form':
@@ -95,6 +96,22 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: 'Hall of Fame', line: `The ${LEAGUES[m.league]?.name} league is yours.` }
     case 'item':
       return { title: 'A stone', line: `${itemName(m.item)} is in your Bag. Spend it in the Pokedex if you like; nothing needs it.` }
+    case 'key':
+      return { title: 'Key Stone', line: 'Three shards now forge a Mega Stone, on a fully evolved Pokemon\'s page in the Pokedex.' }
+    case 'mega':
+      return { title: 'Mega Stone forged', line: `${nameOf(m.form)} is registered and never runs out.`, form: m.form }
+    case 'feat':
+      return { title: m.name, line: `A feat reached${m.items.length ? `: ${m.items.map(itemName).join(', ')}` : ''}${m.gems ? `, +${m.gems} gems` : ''}.` }
+    case 'transfer':
+      return { title: 'To the Professor', line: `${nameOf(m.form)} was sent on: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.`, form: m.form }
+    case 'season':
+      return { title: `Season step ${m.step}`, line: m.coins ? `+${m.coins} coins.` : m.gems ? `+${m.gems} gems.` : `${itemName(m.item)} added to your items.` }
+    case 'hatch':
+      return { title: 'The egg hatched!', line: `${nameOf(m.form)} is in your Box.`, form: m.form }
+    case 'chest':
+      return { title: `Chest ${m.n}`, line: m.coins ? `${m.coins} coins.` : `${itemName(m.item)}${m.count > 1 ? ` x${m.count}` : ''}.` }
+    case 'quest':
+      return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
     case 'use':
       return m.what === 'mega' ? { title: 'Mega Evolution', line: `${nameOf(m.form)} Mega Evolves for ${MEGA_DAYS} days.`, form: m.to ?? m.form }
         : m.what === 'branch' ? { title: 'Branch chosen', line: `${nameOf(m.form)} will evolve into ${nameOf(m.to ?? '')}.`, form: m.form }

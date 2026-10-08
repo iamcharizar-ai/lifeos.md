@@ -12,7 +12,7 @@ import {
   type MetricsMap,
   type WorkoutMap,
 } from './lib/ledger'
-import { habitIdFor, isActiveOn, isLive, type Habit, type Tier } from './config/habits'
+import { domainOf, habitIdFor, isActiveOn, isLive, type Habit, type Tier } from './config/habits'
 import {
   commitConfig,
   configWithEdit,
@@ -42,8 +42,9 @@ import { ITEM_BY_ID } from './woodshed-core/course.ts'
 import { statsOf, type Feel } from './woodshed-core/model.ts'
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
 import { useGame } from './lib/game'
-import { applyGameEvents, sleepMeasured, useGameLink } from './lib/gameLink'
-import { SLEEP_DONE, SLEEP_HABIT } from './game-core/rules.ts'
+import { applyGameEvents, sleepMeasured, sleepState, useGameLink } from './lib/gameLink'
+import { listAdds } from './game-core/events.ts'
+import { SLEEP_DONE, SLEEP_HABIT, V4_START } from './game-core/rules.ts'
 import { Moments } from './components/PartnerStrip'
 
 export default function App() {
@@ -240,12 +241,17 @@ export default function App() {
   const link = useGameLink()
   const game = useGame(habits, ticks, arbor, shed, link, today)
 
-  // Record today's habit list, so editing or deleting a habit on a later day
-  // cannot change what today was. Written again if the list changes today.
+  // Record today's habit list, with each habit's tier and domain, so editing
+  // or deleting a habit cannot change what a day was. From rules version 4 the
+  // first list of a day stands and a later one can only add habits, so it is
+  // written again only when it would add one (a reorder, a removal or a tier
+  // change would not count, and waits for tomorrow's list).
   useEffect(() => {
     if (!settled || habits.length === 0) return
-    const list = habits.filter((h) => isActiveOn(h, today)).map((h) => ({ id: h.id, tier: h.tier }))
-    if (list.length === 0 || JSON.stringify(list) === JSON.stringify(link.lists[today] ?? null)) return
+    const list = habits.filter((h) => isActiveOn(h, today)).map((h) => ({ id: h.id, tier: h.tier, tag: domainOf(h) }))
+    if (list.length === 0) return
+    const stands = link.lists[today]
+    if (today >= V4_START ? !listAdds(stands, list) : JSON.stringify(list.map(({ id, tier }) => ({ id, tier }))) === JSON.stringify(stands ?? null)) return
     const payload = { habits: JSON.stringify(list) }
     applyGameEvents([{ type: 'day_list', day: today, at: new Date().toISOString(), payload }])
     cloud.emit('day_list', payload, today)
@@ -375,7 +381,7 @@ export default function App() {
             today={today}
             game={game}
             actions={actions}
-            linked={{ workout: workouts[today], arbor, plan, onSkill, guitar: { shed, session, onLog: onGuitar } }}
+            linked={{ workout: workouts[today], arbor, plan, onSkill, guitar: { shed, session, onLog: onGuitar }, sleep: { state: sleepState(link, today), night: link.nights[today] } }}
             weekly={weekly}
           />
         )}

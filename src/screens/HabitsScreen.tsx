@@ -5,14 +5,14 @@
 // same place. The old split (add in Library → walk to Daily to arrange) is gone.
 // Habits you switch off drop into the Shelf below, still ordered, one tap from
 // coming back.
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Reorder, motion, useDragControls } from 'framer-motion'
-import { TIERS, TIER_XP, type Habit, type Tier } from '../config/habits'
+import { TIERS, TIER_XP, domainOf, type Habit, type Tier } from '../config/habits'
 import type { Ticks } from '../lib/store'
 import { PartnerStrip } from '../components/PartnerStrip'
 import type { Game } from '../game-core/fold.ts'
-import { tierXp } from '../game-core/rules.ts'
-import { ArborHead, ArborSkills, GuitarHead, GuitarItems, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { SLEEP_HABIT, TAGS, tierXp, type Tag } from '../game-core/rules.ts'
+import { ArborHead, ArborSkills, GuitarHead, GuitarItems, SleepTile, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
 import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
 import { practicedOn } from '../arbor-core/model.ts'
@@ -20,7 +20,7 @@ import { practicedOn } from '../arbor-core/model.ts'
 export interface HabitActions {
   onToggle: (habitId: string) => void
   onToggleLive: (habitId: string, live: boolean) => void
-  onEdit: (habitId: string, patch: Partial<Pick<Habit, 'name' | 'emoji' | 'tier'>>) => void
+  onEdit: (habitId: string, patch: Partial<Pick<Habit, 'name' | 'emoji' | 'tier' | 'domain'>>) => void
   onDelete: (habitId: string) => void
   onDeleteMany: (habitIds: string[]) => void
   onAdd: (draft: { name: string; emoji: string; tier: Tier }) => string | null
@@ -28,7 +28,7 @@ export interface HabitActions {
 }
 
 const HANDLE = (
-  <span aria-hidden className="select-none text-base leading-none text-black/35">
+  <span aria-hidden className="select-none text-xl leading-none text-black/50">
     ⠿
   </span>
 )
@@ -58,7 +58,7 @@ function Grip({
       }}
       aria-label={`Reorder ${label} — drag, or use the arrow keys`}
       title="Drag to reorder (or use ↑ ↓)"
-      className="shrink-0 cursor-grab touch-none px-1 py-2 active:cursor-grabbing"
+      className="shrink-0 cursor-grab touch-none px-2 py-3 active:cursor-grabbing"
     >
       {HANDLE}
     </button>
@@ -80,6 +80,27 @@ function TierPicker({ value, onChange }: { value: Tier; onChange: (t: Tier) => v
           }`}
         >
           {t} · {TIER_XP[t]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const DOMAIN_NAME: Record<Tag, string> = { code: 'Code', fitness: 'Gym', guitar: 'Guitar', arbor: 'Arbor', sleep: 'Sleep', routine: 'Chore' }
+
+/** What kind of work a habit is, for the game: which gym leaders it hits hardest, which way a partner leans. */
+function DomainPicker({ value, onChange }: { value: Tag; onChange: (t: Tag) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1" role="group" aria-label="Kind of work">
+      {TAGS.map((t) => (
+        <button
+          key={t}
+          type="button"
+          aria-pressed={t === value}
+          onClick={() => onChange(t)}
+          className={`neo-button px-2 py-1 text-[10px] font-bold uppercase ${t === value ? 'neo-card-yellow' : 'bg-white'}`}
+        >
+          {DOMAIN_NAME[t]}
         </button>
       ))}
     </div>
@@ -155,6 +176,12 @@ function RowEditor({
           />
         </div>
         <TierPicker value={habit.tier} onChange={(tier) => onEdit(habit.id, { tier })} />
+        <DomainPicker value={domainOf(habit)} onChange={(domain) => onEdit(habit.id, { domain })} />
+        <p className="text-[11px] font-medium opacity-60">
+          {habit.tier === 'pillar' && domainOf(habit) === 'routine'
+            ? 'A pillar counted as a chore: pick what kind of work it is, so it hits the right gym leaders.'
+            : 'Tier and kind change from tomorrow: today’s list is already set.'}
+        </p>
         <div className="flex flex-wrap items-center gap-2 border-t-2 border-black/10 pt-2">
           <button
             onClick={() => {
@@ -212,6 +239,7 @@ function ChecklistRow({
   open,
   onOpen,
   onNudge,
+  arranging,
   tickCount,
   actions,
   linked,
@@ -222,6 +250,7 @@ function ChecklistRow({
   open: boolean
   onOpen: (id: string | null) => void
   onNudge: (dir: -1 | 1) => void
+  arranging: boolean
   tickCount: number
   actions: HabitActions
   linked: LinkedCtx
@@ -230,7 +259,8 @@ function ChecklistRow({
   const ticked = Boolean(ticks[today]?.[habit.id])
   const xp = tierXp(habit.tier)
   // Linked habits are fed by Strong / Arbor and wear that app's look.
-  const link = linkOf(habit.id)
+  // once the band is in use the Sleep row shows the night, or says it is waiting for it
+  const link = habit.id === SLEEP_HABIT && linked.sleep.state !== 'off' ? ('vitals' as const) : linkOf(habit.id)
   const strongLinked = useStrongLinked()
   const planned = linked.plan.morning
   const practised = planned.filter((id) => practicedOn(linked.arbor, today, id)).length
@@ -258,14 +288,18 @@ function ChecklistRow({
           link ? `tile-${link} ${ticked ? 'is-done' : ''}` : ticked ? 'neo-card-green' : 'bg-neo-white'
         } ${open ? 'mb-0' : ''}`}
       >
-        <Grip
-          label={habit.name}
-          onNudge={onNudge}
-          onPointerDown={(e) => {
-            onOpen(null) // never drag a row with its editor panel hanging off it
-            controls.start(e)
-          }}
-        />
+        {arranging ? (
+          <Grip
+            label={habit.name}
+            onNudge={onNudge}
+            onPointerDown={(e) => {
+              onOpen(null) // never drag a row with its editor panel hanging off it
+              controls.start(e)
+            }}
+          />
+        ) : (
+          <span className="w-2 shrink-0" aria-hidden />
+        )}
         {habit.tier === 'pillar' && <PillarMark />}
         {link === 'strong' ? (
           <StrongTile
@@ -287,6 +321,8 @@ function ChecklistRow({
             open={showSkills}
             onToggle={() => setSkillsOpen(!showSkills)}
           />
+        ) : link === 'vitals' ? (
+          <SleepTile name={habit.name} state={linked.sleep.state} night={linked.sleep.night} ticked={ticked} selfXp={TIER_XP.core} onToggle={() => actions.onToggle(habit.id)} />
         ) : link === 'woodshed' ? (
           <GuitarHead
             name={habit.name}
@@ -364,6 +400,7 @@ function ShelfRow({
   open,
   onOpen,
   onNudge,
+  arranging,
   tickCount,
   actions,
   picking,
@@ -374,6 +411,7 @@ function ShelfRow({
   open: boolean
   onOpen: (id: string | null) => void
   onNudge: (dir: -1 | 1) => void
+  arranging: boolean
   tickCount: number
   actions: HabitActions
   picking: boolean
@@ -406,7 +444,7 @@ function ShelfRow({
             aria-label={`Select ${habit.name} for deletion`}
             className="mx-1.5 h-4 w-4 shrink-0 accent-neo-red"
           />
-        ) : (
+        ) : arranging ? (
           <Grip
             label={habit.name}
             onNudge={onNudge}
@@ -415,6 +453,8 @@ function ShelfRow({
               controls.start(e)
             }}
           />
+        ) : (
+          <span className="w-2 shrink-0" aria-hidden />
         )}
         <button
           onClick={() => (picking ? onPick(habit.id) : actions.onToggleLive(habit.id, true))}
@@ -529,6 +569,9 @@ function AddHabit({ onAdd }: { onAdd: HabitActions['onAdd'] }) {
   )
 }
 
+/** A tick stays on the checklist this long, so a mis-tap can be undone. After it, the habit leaves today's view. */
+const DONE_HIDE_MS = 10_000
+
 export function HabitsScreen({
   habits,
   live,
@@ -554,6 +597,8 @@ export function HabitsScreen({
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [shelfOpen, setShelfOpen] = useState(false)
+  // Dragging only works in arrange mode, so a scroll that starts on a row can never reorder it
+  const [arranging, setArranging] = useState(false)
   // Bulk clean-up: deleting a long shelf one row at a time is three taps each.
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<string[]>([])
@@ -564,8 +609,33 @@ export function HabitsScreen({
     setPicked([])
   }
 
-  const todayTicks = ticks[today] ?? {}
+  const todayRaw = ticks[today]
+  const todayTicks = todayRaw ?? {}
   const doneCount = live.filter((h) => todayTicks[h.id]).length
+  // the clock the hiding is judged against; moved on by a timer for the next tick to expire
+  const [now, setNow] = useState(() => Date.now())
+  const [showDone, setShowDone] = useState(false)
+  useEffect(() => {
+    let soonest = Infinity
+    for (const at of Object.values(todayRaw ?? {})) {
+      const t = Date.parse(at) + DONE_HIDE_MS
+      if (t > Date.now() && t < soonest) soonest = t
+    }
+    if (soonest === Infinity) return
+    const id = window.setTimeout(() => setNow(Date.now()), soonest - Date.now() + 20)
+    return () => window.clearTimeout(id)
+  }, [todayRaw])
+  // a tick older than DONE_HIDE_MS (or one with no usable time) is done and out of the way
+  const isHidden = (id: string): boolean => {
+    const at = todayTicks[id]
+    if (!at) return false
+    const t = Date.parse(at)
+    return Number.isNaN(t) || now - t >= DONE_HIDE_MS
+  }
+  // arranging shows everything, so the order of hidden rows is never lost
+  const showAll = showDone || arranging
+  const shown = showAll ? live : live.filter((h) => !isHidden(h.id))
+  const doneHidden = live.filter((h) => isHidden(h.id)).length
 
   const tickCounts = useMemo(() => {
     const out: Record<string, number> = {}
@@ -574,6 +644,8 @@ export function HabitsScreen({
     return out
   }, [ticks])
 
+  // while arranging, a tap on a row does nothing (no stray ticks)
+  const idle: HabitActions = { ...actions, onToggle: () => {} }
   const commit = (next: Habit[]) => actions.onReorder(next.map((h) => h.id))
   /** Keyboard equivalent of a drag: swap one row with its neighbour. */
   const nudge = (list: Habit[], index: number, dir: -1 | 1) => {
@@ -596,32 +668,61 @@ export function HabitsScreen({
 
       <div className="flex items-center justify-between">
         <div className="hud-label border-black text-sm">Today</div>
-        <div className="text-[10px] font-bold uppercase tracking-wider text-neo-gray-dark">
-          ⠿ drag · tap to tick · ⋯ to edit
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setArranging((a) => !a)
+            setOpenId(null)
+          }}
+          aria-pressed={arranging}
+          className={`neo-button px-3 py-1 text-[11px] font-bold uppercase ${arranging ? 'neo-card-yellow' : 'bg-white'}`}
+        >
+          {arranging ? '✓ Done arranging' : '⠿ Arrange'}
+        </button>
       </div>
+
+      {arranging && (
+        <p className="text-[11px] font-bold leading-relaxed text-neo-gray-dark">
+          Arranging: drag the ⠿ handle, or focus it and press ↑ ↓. Ticking is paused until you are done.
+        </p>
+      )}
 
       {live.length === 0 ? (
         <div className="neo-card bg-white px-4 py-6 text-center text-sm font-bold text-neo-gray-dark">
           Nothing on today&apos;s checklist. Add one below, or pull one off the shelf.
         </div>
+      ) : shown.length === 0 ? (
+        <div className="neo-card bg-white px-4 py-6 text-center text-sm font-bold text-neo-gray-dark">
+          Everything on today&apos;s checklist is done.
+        </div>
       ) : (
-        <Reorder.Group axis="y" values={live} onReorder={commit} className="space-y-2">
-          {live.map((h, i) => (
+        <Reorder.Group axis="y" values={shown} onReorder={commit} className="space-y-2">
+          {shown.map((h, i) => (
             <ChecklistRow
               key={h.id}
               habit={h}
-              onNudge={(dir) => nudge(live, i, dir)}
+              onNudge={(dir) => nudge(shown, i, dir)}
+              arranging={arranging}
               ticks={ticks}
               today={today}
               open={openId === h.id}
               onOpen={setOpenId}
               tickCount={tickCounts[h.id] ?? 0}
-              actions={actions}
+              actions={arranging ? idle : actions}
               linked={linked}
             />
           ))}
         </Reorder.Group>
+      )}
+      {!arranging && !showDone && doneHidden > 0 && (
+        <button type="button" onClick={() => setShowDone(true)} className="w-full text-center text-[11px] font-bold uppercase text-neo-gray-dark underline">
+          {doneHidden} done today · show
+        </button>
+      )}
+      {!arranging && showDone && doneCount > 0 && (
+        <button type="button" onClick={() => setShowDone(false)} className="w-full text-center text-[11px] font-bold uppercase text-neo-gray-dark underline">
+          Hide done ones
+        </button>
       )}
 
       <SundayPanel
@@ -653,7 +754,7 @@ export function HabitsScreen({
                 <p className="flex-1 text-[11px] font-bold leading-relaxed text-neo-gray-dark">
                   {picking
                     ? 'Pick the ones to erase. Sealed months keep showing them; this month will not.'
-                    : 'Off the checklist, and off this month’s graph until you put one back. Tap one to return it to today, drag to reorder, ⋯ to rename or delete it.'}
+                    : 'Off the checklist, and off this month’s graph until you put one back. Tap one to return it to today, ⋯ to rename or delete it. Use Arrange to reorder.'}
                 </p>
                 {picking ? (
                   <div className="flex gap-2">
@@ -689,6 +790,7 @@ export function HabitsScreen({
                     key={h.id}
                     habit={h}
                     onNudge={(dir) => nudge(shelf, i, dir)}
+                    arranging={arranging}
                     open={openId === h.id}
                     onOpen={setOpenId}
                     tickCount={tickCounts[h.id] ?? 0}

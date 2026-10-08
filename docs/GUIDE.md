@@ -2,7 +2,7 @@
 
 Six small apps and one shared ledger. This guide explains what each part does, how they talk to each other, how the game on top works, why it was designed this way, and what comes next.
 
-Written 2026-10-03 for rules version 1. **Version 3 starts 5 Oct 2026: section 15 has what changed, and wins where it differs from the sections before it.**
+Written 2026-10-03, last revised 2026-10-08. **The game runs rules version 6 from 8 Oct 2026. The section "Rules version 6" and then "The game today" below are current; sections 5 and 15 are the earlier versions, kept as history.**
 
 ---
 
@@ -14,6 +14,121 @@ Written 2026-10-03 for rules version 1. **Version 3 starts 5 Oct 2026: section 1
 - All five read and write one append-only list of events (the **ledger**). Nothing else is shared, and nothing is stored about the game: it is recomputed from the ledger every time.
 
 The one rule behind every design choice: **the only way to progress is to do the day.**
+
+---
+
+## Rules version 6 (from 8 Oct 2026): an economy with a reason for each thing
+
+Version 6 starts on the same day version 5 did, so 5 never ran a day alone. It replaces the money rules of 5 and keeps everything else. The full design, with the reasoning, is `ECONOMY-V6.md` in the workspace folder.
+
+**What changed and why.** In version 5 a coin was one per XP, and the shop sold "take HP off the wild Pokemon", which is what the day's work already does. That was a closed loop with no decision in it, and nothing could be given for a streak or a record. Now:
+
+| Piece | Earned by | Used for |
+|---|---|---|
+| Coins | daily and weekly quests, the season, chests, selling a Box Pokemon to the Professor. **Not from XP** | the Mart: three deals a day, one of each (balls, berries, lures) |
+| Gems | feats, a catch, an evolution, a badge, a graduation, weekly quests | Mystery Egg, Full Incense, chests, scene themes. Never a ball |
+| Marks | one a day for each kind of work done (coding, gym, guitar, Arbor, good sleep); +2 per personal record, +3 per song part owned | that kind's own shop: Silph Co., the Dojo, Music Hall, the Farm, Dream House |
+| Shards (red, blue, yellow, green) | feats only | three forge a Mega Stone for one Pokemon |
+| Feats | runs of days (one rest day forgiven) and lifetime totals: 62 of them | gems, shards, and the items no shop sells: Key Stone, Master Ball, Amulet Coin, Exp. Share, Life Orb, the held items that strike x1.3 |
+
+Balls now have conditions: a Net Ball hits Water and Bug double, a Quick Ball is best on the day the wild Pokemon appears, a Timer Ball grows each day it waits, a Repeat Ball likes a species you own. A Pokemon can carry three TMs, each counting as one of its types against a leader, and hold one item that makes one kind of work strike harder. A lure makes the next wild Pokemon one of a domain's types.
+
+**The Farm (Arbor's own system).** Four plots, up to six with Arbor feats. Seeds cost 1 or 2 Seeds marks at the Farm (you start with two radish seeds). A full Arbor morning waters every crop one day; a day without it adds and takes nothing. Ripe after 3 to 8 mornings, a plot gives 2 crops, which sell for coins or feed the partner hearts. Actions are `plant`, `harvest` and `sell` events.
+
+**Mega, rebuilt.** The eighth badge no longer hands over the Key Stone and every Mega. The Key Stone is a feat (seven days running on any one kind of work). A Mega Stone is forged on the Pokemon's own page from three shards: red for X forms, blue or yellow for Y forms. So the Mega you get is the one your work paid for.
+
+**Where it lives in the code.** `core/economy.ts` (items, balls, shops, the Mart, feats), the version 6 block in `core/fold.ts` (`act6`, marks, runs, `evalFeats`), tests at the end of `core/fold.test.ts`. The Pokedex has a World tab (the Sunnyside scene as a map, the shops as its buildings, cloud over regions not open yet) and its sprites are the ball sheet and item icons supplied, in `public/sprites`.
+
+---
+
+## The game today: rules version 5 (from 8 Oct 2026; its money rules are replaced by version 6 above)
+
+Version 5 begins on the day version 4 was due to, so version 4 never ran a day by itself. Everything in the version 4 section below is still in force; version 5 adds the second half of the loop: **things to do with what the work earned**. The reasoning, and the review it went through, is in `V5-LOOP.md` in the workspace folder; the audit that led to it is `GAME-AUDIT.md`.
+
+| Piece | Earned by | Used for |
+|---|---|---|
+| XP | every habit | the partner. Cannot be bought |
+| Coins | 1 for each XP of the day's work (before momentum), and daily quests | balls to throw, berries |
+| Gems | a catch, an evolution, a badge, a league, a graduation, weekly quests, the Professor | incense, scene themes |
+| Great / Ultra Ball | the shop | thrown at the wild Pokemon: 80 or 200 HP at once |
+| Berry | the shop | a heart for the partner. Hearts (days together plus berries) only go up |
+| Incense | the shop | choose the next wild Pokemon from three |
+| Team of three | fully trained Pokemon | each one whose type beats the leader's adds 10% to every strike. Left alone, it is your last three trained |
+| The Professor | any Pokemon in the Box | 5 gems, and a Box that does not pile up |
+| Quests | the day and the week | paid by themselves, no claiming |
+| The season | every 1,500 XP of the month's work is a step | each step hands over coins, gems or an item by itself; it starts again each month |
+| Chest | the shop, for gems | opened as it is bought: coins, balls, berries or, now and then, incense |
+| Rare Egg | the shop, for gems | kept warm by days with two pillars; after five it hatches a rare Pokemon into the Box |
+
+Catch damage is now 100 x (share of the day) to the power 1.5 x the ball, a softer curve than the square. Everything done in the Pokedex is one small `item_use` event in the ledger (`buy`, `throw`, `feed`, `wish`, `team`, `transfer`, `theme`), so the game is still recomputed from the ledger alone and both apps agree.
+
+The Pokedex's tabs are now Home, Team, Shop, Pokedex and Trainer; the rules are behind the "?" in the top bar.
+
+---
+
+## Rules version 4 (all still in force inside version 5)
+
+This section is the rules in force. Everything further down about the game (sections 5 and 15) is history, kept so the reasoning is not lost; where it disagrees with this section, this section is right. Every number below lives in `pokedex/core/rules.ts`.
+
+Version 4 changed what rewards are, not how fast they come. No XP, HP or pace number moved. It came out of two outside reviews (a design audit and a study of how Clash Royale gives each reward one job), checked against the code.
+
+### One day does three things
+
+| What the day was | What it moves | What that earns |
+|---|---|---|
+| How **much** you did | the partner's XP | levels, evolution on its own, graduation |
+| How **whole** it was | the wild Pokemon's HP | a catch, into the Box |
+| What **kind** of work | the gym leader's HP | that leader's badge |
+
+- **XP.** Pillar 100, core 30, standard 3, basic 1. All of it goes to one partner. Arbor and Woodshed pay for the share of the block done. Momentum (how many of the last seven days had two or more pillars) multiplies XP by up to 1.5 and never resets.
+- **The partner.** Level L needs 6 x L squared XP. Three-stage lines evolve at 16 and 36, two-stage lines at 25, by themselves. At 50 (30 for a single stage) it is fully trained and the next one takes over: the one you chose, else the oldest in the Box, else an egg.
+- **The wild Pokemon.** One at a time; it stays until caught and never flees. Each day hits it for 100 x (share of the day's XP done) squared x the ball. The ball comes from the chores (Great at half done, Ultra at four-fifths). A perfect day catches it on the spot and is the only way to a shiny (1 in 10).
+- **The league.** Each leader has 4,000 HP. The day's work (before momentum) wears it down; the domains that leader is weak to count x1.5, and a partner whose type beats the leader's adds x1.2. HP carries over. There are no weeks and no losing. A region opens when the league before it is beaten and two more partners are trained.
+
+### What each reward means
+
+| Reward | It stands for | Kept how |
+|---|---|---|
+| Level, evolution, graduation | the partner you are raising | for good |
+| A catch | discovery | in the Box, in the ball of that day |
+| A badge | the campaign: every gym leader gives one | for good, in the badge case |
+| Hall of Fame | a league won | for good |
+| The Key Stone and Mega | a durable achievement | for good |
+| A nature | what the partner was raised on | for good |
+| Days together | bond | only counts up |
+
+- **Badges are the gym reward.** No stone is handed out any more, by anyone. Stones won under version 3 stay in the Bag as keepsakes and do nothing.
+- **Mega is kept for good.** The Key Stone comes with the eighth Kanto badge. From then on, a fully evolved partner that has a Mega form registers it the first time a leader falls to it, or when it finishes training at the latest, so none can be missed. It never runs out. The partner is drawn as its Mega unless you choose the plain form. Mega also still shows for the day on a day with full momentum and every pillar done, as before.
+- **A nature at graduation.** The domain the partner did best in over its whole time with you is the stat its nature raises; the one it did least in is the stat it lowers (Attack is the gym, Defense is Arbor, Sp. Atk is code, Sp. Def is guitar, Speed is the chores). The real table of twenty-five. Two Charizards raised in different months are different.
+- **Bond is never lost.** The ribbon that two empty days used to take away is gone. A partner counts the days you spent together (days with at least one pillar), and that number only goes up. Dozing off is still drawn; it costs nothing.
+- **Nothing costs anything.** Three things can be chosen by hand in the Pokedex, all free and none needed: which way a branching Pokemon evolves, bringing one forward from the Box today, and which form a partner with a Mega shows. Ignore the Pokedex for a month and the game plays the same.
+
+### A day's list can grow but not shrink
+
+Life OS writes the day's habit list to the ledger (`day_list`), with each habit's tier and domain. From version 4 the first list of a day stands. A habit added during the day joins it. Taking a habit off, reordering, or changing a tier or domain starts tomorrow. So a missed habit cannot be edited out of today to make the day perfect. (Under version 3 the last list of the day stood.) A day on which Life OS was never opened has no list and still follows the library.
+
+A habit's **domain** (code, gym, guitar, Arbor, sleep, chore) is now a setting on the habit, next to its tier. The five habits the game already knew keep theirs by id. A pillar left as a chore is flagged on the Pokedex's Trainer tab, because it would hit no leader's weakness and lead no branch.
+
+### Field notes: each domain in its own unit
+
+The Trainer tab counts, for life: coding days; workouts and lifts that beat every earlier session (read from Strong's sets); guitar sessions done in full, items played clean at tempo and song parts owned (read from Woodshed's logs); Arbor mornings done in full; steps, up to 10,000 a day, once the band reports them. Nothing is earned from these yet. They are what the next version's rewards are priced from.
+
+### What comes next (not built)
+
+- **Version 5, after about four weeks of real days:** one retune of pace from the real ledger (`node tools/export-ledger.mjs`, then `node tools/replay.mjs`), and each domain gets its own item, earned in its own unit and never taken back: a TM for coding days, a record medal for lifts, a contest ribbon for song parts owned, a field move for Arbor mornings, and Incense with each badge (the one thing that is spent: pick the next wild Pokemon from three). Thresholds come from the field notes, not from guesses.
+- **Steps hatch an egg**, once the band has reported steps for two weeks. One incubator, capped steps, hatches into the Box, never needed for the next partner.
+- **Not planned:** money, a shop, a general currency, anything that must be done in the Pokedex, anything that can be lost.
+
+### Versions
+
+| Version | From | What changed |
+|---|---|---|
+| 1 | 2026-10-03 | first rules: a perfect day catches, weekly badges |
+| 3 | 2026-10-05 | the wild Pokemon with HP, the Box, leaders with HP, stones, measured Sleep (version 2 never ran) |
+| 4 | (never ran alone) | badges as the reward, no stones, Mega for good, natures, bond never lost, a day's list only grows, domains set on the habit |
+| 5 | 2026-10-08 | all of version 4, plus coins, gems, the shop, thrown balls, berries, incense, the team, the Professor, quests, a softer catch curve |
+
+Each day is always replayed under the version it was played under (`rulesOn` in `rules.ts`). `pokedex/core/fixtures/golden.json` is a recorded run of versions 1 and 3; the tests fail if a later change alters what those days were. After any change to the core: `npm test` and `node tools/simulate.mjs` in pokedex, then `npm run core` (the tests also fail if Life OS's copy differs).
 
 ---
 
@@ -106,7 +221,9 @@ After changing a core, run `npm run core` in its home repo. It copies the files 
 
 ---
 
-## 5. The game
+## 5. History: the game under version 1 (3 and 4 Oct 2026)
+
+Kept for the reasoning. For the rules in force see "The game today" near the top.
 
 ### One partner, one bar
 
@@ -302,6 +419,10 @@ Then deploy both. If a change affects past days, bump `RULES_VERSION` and note t
 | Version | From | What changed |
 |---|---|---|
 | 1 | 2026-10-03 | first rules |
+| 3 | 2026-10-05 | see section 15 |
+| 4 | (never ran alone) | badges as the reward, natures, bond never lost; see the table at the top |
+| 5 | (never ran alone) | coins, gems, shop, thrown balls, quests, season ladder |
+| 6 | 2026-10-08 | coins are not XP, the Mart, domain shops, feats, the Farm, the world map |
 
 ### The species table
 
@@ -444,7 +565,9 @@ The rule for adding anything: it must either remove a decision or make a real th
 
 ---
 
-## 15. Version 3 (from 5 Oct 2026)
+## 15. History: version 3 (5 to 7 Oct 2026)
+
+Replaced by version 4 on 8 Oct 2026. What still holds from here: the wild Pokemon, the Box, leaders with HP, the leagues and the measured Sleep pillar. What does not: stones (no longer earned or spent), the seven-day Mega, the Bond ribbon that could be lost, and "the last list of the day stands".
 
 Written 5 Oct 2026. Where this section and an earlier one disagree, this one is current: sections 5, 8, 11 and 13 were written for version 1. Version 2 was designed and replaced before its first day, so the game has only ever run versions 1 and 3. The reasoning behind version 3 is in `V3-GAME-SPEC.md` and `GAME-DESIGN-REVIEW.md` in the workspace folder.
 
@@ -501,7 +624,9 @@ Life OS writes the day's habit list to the ledger (`day_list`) on the day itself
 
 ### Sleep, once the band is in use
 
-From the first morning the band reports a sleep score, the sleep habit becomes a pillar only the band can fill. It pays the score as a share of 100 XP and counts as done at 80 or more. It is not judged on the clock. A poor night costs XP but never a perfect day. Until the band exists, the habit is ticked by hand.
+From the first morning the band reports a sleep score, the sleep habit becomes a pillar the band fills. It pays the score as a share of 100 XP and counts as done at 80 or more. It is not judged on the clock (the score does ask for a *steady* bedtime: close to your own usual, whatever that is). A poor night costs XP but never a perfect day. Until the band exists, the habit is ticked by hand.
+
+**A morning with no reading is not a miss (from 8 Oct 2026).** If the band is in use but has not reported that morning (not worn, not synced yet, sign-in expired), the habit is a hand tick worth a core habit (30 XP), not a pillar; the reading replaces it when it arrives. Bells (the Dream House) come only from measured nights: one at 80 or more, two at 90. HP on the Trainer profile is the average of the last 28 measured nights. Life OS shows the night on the Sleep row (hours, bed and wake, score, what it paid) and the Pokedex shows it as "Last night". The partner's idle state is now called dozing, so "asleep" only ever means you. The full reasoning, and what is deliberately not done, is `SLEEP-DESIGN.md` in the workspace folder.
 
 ### Trainer stats
 

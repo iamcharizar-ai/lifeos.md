@@ -371,3 +371,70 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tile-strong::before, .tile-arbor { animation: none; }
 }
+
+/* The partner strip and its toasts, in the Pokedex look: a pale frame around a dark quilted body,
+   one heavy outlined face, a bar that is an object. Only the game's part of this app is styled this way. */
+.partner-card {
+  gap: 14px; padding: 12px 14px; color: #fff; border: 3px solid #141a33; border-radius: 16px;
+  background-color: #26315e;
+  background-image: linear-gradient(45deg, rgba(255,255,255,0.035) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.035) 75%), linear-gradient(-45deg, rgba(0,0,0,0.07) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.07) 75%);
+  background-size: 44px 44px;
+  box-shadow: 0 0 0 5px #f8f5ea, 0 0 0 8px #141a33, 0 13px 0 0 #141a33;
+  margin: 8px 8px 16px;
+}
+.partner-card.aura-mega { box-shadow: 0 0 0 5px #7fe3ff, 0 0 0 8px #141a33, 0 13px 0 0 #141a33; }
+.partner-card.aura-gmax { box-shadow: 0 0 0 5px #e0559a, 0 0 0 8px #141a33, 0 13px 0 0 #141a33; }
+/* no frame: the sprite stands on a soft shadow */
+.partner-frame { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; margin: 0 4px; width: 90px; height: 90px; }
+.partner-frame::after { content: ''; position: absolute; left: 16%; right: 16%; bottom: 4px; height: 10px; border-radius: 50%; background: rgba(0, 0, 0, 0.32); }
+.partner-frame .partner-sprite { position: relative; z-index: 1; }
+.partner-name { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-weight: 400; font-size: 24px; letter-spacing: 0.02em; text-transform: none; color: #fff; -webkit-text-stroke: 4px #141a33; paint-order: stroke fill; text-shadow: 0 2px 0 #141a33; }
+.partner-lv { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-size: 17px; color: #ffd84a; -webkit-text-stroke: 3px #141a33; paint-order: stroke fill; }
+.partner-tag { font-family: 'Lilita One', sans-serif; font-size: 12px; text-transform: none; color: #141a33; background: #f5b800; border: 2px solid #141a33; border-radius: 6px; padding: 0 6px 2px; }
+.partner-bar { height: 20px; margin: 6px 0 7px; background: #0c1126; border: 2px solid #141a33; border-radius: 8px; box-shadow: inset 0 3px 0 rgba(0,0,0,0.5); }
+.partner-bar i { box-shadow: inset 0 5px 0 rgba(255,255,255,0.38), inset 0 -4px 0 rgba(0,0,0,0.2); }
+.partner-bar .bar-base { background: #2f7fd0; }
+.partner-bar .bar-today { background: #f5b800 repeating-linear-gradient(135deg, transparent 0 4px, rgba(0,0,0,0.28) 4px 6px); }
+.partner-line { color: #aab6e6; }
+.partner-line b { color: #fff; } .partner-line b.partner-today { color: #ffd84a; }
+.partner-zzz, .partner-blank { font-family: 'Lilita One', sans-serif; }
+.moment { color: #fff; background: #26315e; border: 3px solid #141a33; border-radius: 16px; box-shadow: 0 0 0 4px #f8f5ea, 0 0 0 7px #141a33, 0 12px 0 0 #141a33; }
+.moment-evolve, .moment-catch, .moment-graduate, .moment-form, .moment-gym, .moment-league, .moment-key, .moment-mega { box-shadow: 0 0 0 4px #f5b800, 0 0 0 7px #141a33, 0 12px 0 0 #141a33; }
+.moment-title { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-weight: 400; font-size: 18px; text-transform: none; letter-spacing: 0.02em; color: #fff; -webkit-text-stroke: 3px #141a33; paint-order: stroke fill; }
+.moment-text { color: #dfe6ff; }
+
+/* version 5: the wallet on the strip */
+.partner-wallet { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-family: 'Lilita One', sans-serif; font-size: 16px; color: #fff; }
+.partner-wallet i { display: inline-block; width: 16px; height: 16px; border: 2px solid #141a33; }
+.partner-wallet .coin { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd84a 0 45%, #f5b800 46%); }
+.partner-wallet .gem { margin-left: 8px; background: #3fd07a; clip-path: polygon(25% 0, 75% 0, 100% 40%, 50% 100%, 0 40%); border: 0; width: 17px; }
+.moment-quest { box-shadow: 0 0 0 4px #2fae66, 0 0 0 7px #141a33, 0 12px 0 0 #141a33; }
+
+/* The moments worth stopping for (a catch, an evolution, a badge, a hatch...) are staged where you ticked:
+   in the middle of the screen, the sprite large with rays turning behind it. A tap sends it away; it leaves by itself too. */
+.moment-wrap.is-big { top: 0; bottom: 0; align-items: center; background: rgba(10, 14, 30, 0.55); pointer-events: auto; }
+.moment.moment-big { flex-direction: column; text-align: center; gap: 6px; max-width: 340px; padding: 18px 18px 16px; overflow: hidden; }
+.moment-big .text-left { text-align: center; }
+.moment-art { position: relative; display: grid; place-items: center; }
+.moment-big .moment-art { width: 150px; height: 130px; }
+.moment-big .moment-art::before { content: ''; position: absolute; width: 320px; height: 320px; border-radius: 50%; background: repeating-conic-gradient(rgba(255, 216, 74, 0.3) 0 10deg, transparent 10deg 20deg); mask-image: radial-gradient(circle, #000 0 28%, transparent 66%); animation: moment-spin 12s linear infinite; }
+.moment-big .moment-art > * { position: relative; animation: moment-pop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both; filter: drop-shadow(0 5px 0 rgba(0, 0, 0, 0.35)); }
+.moment-big .moment-title { font-size: 26px; -webkit-text-stroke-width: 4px; }
+.moment-big .moment-text { font-size: 15px; }
+@keyframes moment-spin { to { transform: rotate(360deg); } }
+@keyframes moment-pop { 0% { transform: scale(0.2) rotate(-14deg); opacity: 0; } 60% { transform: scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .moment-big .moment-art::before, .moment-big .moment-art > * { animation: none; } }
+
+/* Sleep once the band is in use: a night sky, with the score lit like a small moon */
+.tile-vitals {
+  background: radial-gradient(1.5px 1.5px at 18% 30%, #fff8 99%, transparent), radial-gradient(1px 1px at 62% 22%, #fff9 99%, transparent), radial-gradient(1.5px 1.5px at 84% 62%, #fff7 99%, transparent), linear-gradient(160deg, #1b2150 0%, #2b2866 55%, #3a2d78 100%);
+  color: #e9e6ff;
+  border-color: #111;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #8f86ff;
+}
+.tile-vitals.is-done { box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #f2c14e; }
+.tile-vitals:active, .tile-vitals:hover { box-shadow: 1px 1px 0 0 #111, inset 0 0 0 3px #e9e6ff; }
+.tile-vitals > button:last-child { color: #b9b6dd; }
+.vit-title { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 900; font-size: 20px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
+.vit-score { display: grid; place-items: center; min-width: 34px; height: 34px; padding: 0 6px; font-size: 16px; font-weight: 800; color: #1b2150; background: #f2e9b8; border: 2px solid #111; border-radius: 50%; }

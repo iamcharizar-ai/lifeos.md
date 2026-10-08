@@ -18,6 +18,8 @@ import { analyse, targetFor } from '../woodshed-core/coach.ts'
 import { ITEMS, ITEM_BY_ID } from '../woodshed-core/course.ts'
 import { LANE_NAME, type Feel, type ShedState } from '../woodshed-core/model.ts'
 import type { DayWorkout } from '../lib/ledger'
+import type { SleepNight } from '../game-core/events.ts'
+import type { SleepState } from '../lib/gameLink'
 
 export interface LinkedCtx {
   workout: DayWorkout | undefined
@@ -31,6 +33,8 @@ export interface LinkedCtx {
     /** log an item with how it felt; null takes today's log back */
     onLog: (itemId: string, feel: Feel | null) => void
   }
+  /** last night: measured by the band, waiting for its reading, or no band in use */
+  sleep: { state: SleepState; night: SleepNight | undefined }
 }
 
 // ── pixel pictograms (same engine Arbor draws its tree with) ────────────────
@@ -260,5 +264,47 @@ export function GuitarItems({ ctx, today }: { ctx: LinkedCtx; today: string }) {
         <a href={WOODSHED_URL} target="_blank" rel="noreferrer" className="shed-link">tabs and metronome in Woodshed ↗</a>
       )}
     </div>
+  )
+}
+
+// ── Sleep: the night as the band measured it ────────────────────────────────
+const Moon = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" className="shrink-0">
+    <path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="currentColor" />
+  </svg>
+)
+const hm = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
+const clock = (s?: string) => (s ? s.slice(11, 16) : '')
+
+/**
+ * The Sleep row once the band is in use. With last night's reading it shows the
+ * night and what it paid, and cannot be ticked. Without one it can be ticked by
+ * hand for a core habit's XP, and the reading replaces that when it arrives.
+ */
+export function SleepTile({ name, state, night, ticked, selfXp, onToggle }: { name: string; state: SleepState; night: SleepNight | undefined; ticked: boolean; selfXp: number; onToggle: () => void }) {
+  if (state === 'measured') {
+    const score = night?.score ?? 0
+    const bits = [night?.sleepMin !== undefined ? hm(night.sleepMin) : '', night?.bed && night?.wake ? `${clock(night.bed)} to ${clock(night.wake)}` : '', `score ${score}`].filter(Boolean)
+    return (
+      <div className="flex min-w-0 flex-1 items-center gap-3 py-2" title="Measured by your band. A night of 80 or more fills the pillar.">
+        <Moon />
+        <span className="min-w-0 flex-1">
+          <span className={`vit-title block truncate ${ticked ? 'opacity-90' : ''}`}>{name}</span>
+          <span className="block truncate text-[11px] font-bold opacity-80">{bits.join(' · ')}</span>
+        </span>
+        <span className="vit-score num shrink-0">{score}</span>
+        <span className="num shrink-0 text-base font-bold">{`+${score}`}</span>
+      </div>
+    )
+  }
+  return (
+    <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left" title="Your band has not reported last night yet. Tick it by hand for less; the reading replaces the tick when it arrives.">
+      <Moon />
+      <span className="min-w-0 flex-1">
+        <span className={`vit-title block truncate ${ticked ? 'line-through opacity-80' : ''}`}>{name}</span>
+        <span className="block truncate text-[11px] font-bold opacity-80">{ticked ? 'Ticked by hand · the reading will replace it' : 'Waiting for last night\'s reading · tap to tick by hand'}</span>
+      </span>
+      <span className="num shrink-0 text-base font-bold">{ticked ? `+${selfXp}` : selfXp}</span>
+    </button>
   )
 }
