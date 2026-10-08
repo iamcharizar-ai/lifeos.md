@@ -15,7 +15,7 @@ import type { ShedState } from '../woodshed-core/model.ts'
 import { isGym, leaderOf } from '../game-core/fold.ts'
 import { LEAGUES, lineup } from '../game-core/gyms.ts'
 import { itemName as shopName } from '../game-core/economy.ts'
-import { ITEM_NAME, MEGA_DAYS, REGIONS } from '../game-core/rules.ts'
+import { REGIONS } from '../game-core/rules.ts'
 import type { GameLink } from './gameLink'
 
 // localhost is only a dev default: a production build without VITE_POKEDEX_URL must not point sprites
@@ -30,7 +30,7 @@ export function useGame(habits: Habit[], ticks: Ticks, arbor: ArborState, shed: 
   )
 }
 
-const itemName = (item: string): string => ITEM_NAME[item] ?? shopName(item)
+const itemName = (item: string): string => shopName(item)
 
 // ── moments: say it once when something happens ─────────────────────────────
 const SEEN_KEY = 'lifeos.game.seen.v1'
@@ -82,8 +82,6 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: m.rarity === 'L' ? 'A legendary appeared' : 'A wild Pokemon appeared', line: `${nameOf(m.form)} is in front of you. Catch it before it gets away.`, form: m.form }
     case 'form':
       return { title: m.what === 'mega' ? 'Mega form' : 'Gigantamax', line: `${nameOf(m.form)} is registered in the Pokedex.`, form: m.form }
-    case 'badge':
-      return { title: `Badge #${m.n}`, line: 'Five solid days this week.' }
     case 'region':
       return { title: 'New region', line: `${REGIONS[m.n - 1]} is open: new species can turn up from now on.` }
     case 'gym': {
@@ -94,8 +92,6 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     }
     case 'league':
       return { title: 'Hall of Fame', line: `The ${LEAGUES[m.league]?.name} league is yours.` }
-    case 'item':
-      return { title: 'A stone', line: `${itemName(m.item)} is in your Bag. Spend it in the Pokedex if you like; nothing needs it.` }
     case 'key':
       return { title: 'Key Stone', line: 'Three shards now forge a Mega Stone, on a fully evolved Pokemon\'s page in the Pokedex.' }
     case 'mega':
@@ -103,7 +99,7 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     case 'feat':
       return { title: m.name, line: `A feat reached${m.items.length ? `: ${m.items.map(itemName).join(', ')}` : ''}${m.gems ? `, +${m.gems} gems` : ''}.` }
     case 'transfer':
-      return { title: 'To the Professor', line: `${nameOf(m.form)} was sent on: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.`, form: m.form }
+      return { title: 'To the Professor', line: `${nameOf(m.form)} was sent on: +${m.coins} coins.`, form: m.form }
     case 'season':
       return { title: `Season step ${m.step}`, line: m.coins ? `+${m.coins} coins.` : m.gems ? `+${m.gems} gems.` : `${itemName(m.item)} added to your items.` }
     case 'hatch':
@@ -114,11 +110,10 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
     case 'flee':
       return { title: 'It got away', line: `The wild ${nameOf(m.form)} left. Another one has taken its place.`, form: m.form }
-    case 'rust':
-      return { title: 'The work stopped', line: [m.heal ? `The leader won back ${m.heal} HP.` : '', m.hearts ? `${m.hearts} berry hearts faded.` : ''].filter(Boolean).join(' ') }
+    case 'slip':
+      return { title: 'An empty day', line: `Nothing was ticked on ${m.empty}: ${[m.leader ? `the leader won back ${m.leader} HP` : '', m.wild ? `the wild Pokemon ${m.wild}` : '', m.xp ? `${m.xp} XP faded` : ''].filter(Boolean).join(', ')}.` }
     case 'use':
-      return m.what === 'mega' ? { title: 'Mega Evolution', line: `${nameOf(m.form)} Mega Evolves for ${MEGA_DAYS} days.`, form: m.to ?? m.form }
-        : m.what === 'branch' ? { title: 'Branch chosen', line: `${nameOf(m.form)} will evolve into ${nameOf(m.to ?? '')}.`, form: m.form }
+      return m.what === 'branch' ? { title: 'Branch chosen', line: `${nameOf(m.form)} will evolve into ${nameOf(m.to ?? '')}.`, form: m.form }
         : { title: 'New partner', line: `${nameOf(m.form)} came forward.`, form: m.form }
   }
 }

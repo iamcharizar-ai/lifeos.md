@@ -44,7 +44,7 @@ import { SKILL_BY_ID } from './arbor-core/skills.ts'
 import { useGame } from './lib/game'
 import { applyGameEvents, sleepMeasured, sleepState, useGameLink } from './lib/gameLink'
 import { listAdds } from './game-core/events.ts'
-import { SLEEP_DONE, SLEEP_HABIT, V4_START } from './game-core/rules.ts'
+import { SLEEP_DONE, SLEEP_HABIT } from './game-core/rules.ts'
 import { Moments } from './components/PartnerStrip'
 
 export default function App() {
@@ -251,7 +251,7 @@ export default function App() {
     const list = habits.filter((h) => isActiveOn(h, today)).map((h) => ({ id: h.id, tier: h.tier, tag: domainOf(h) }))
     if (list.length === 0) return
     const stands = link.lists[today]
-    if (today >= V4_START ? !listAdds(stands, list) : JSON.stringify(list.map(({ id, tier }) => ({ id, tier }))) === JSON.stringify(stands ?? null)) return
+    if (!listAdds(stands, list)) return
     const payload = { habits: JSON.stringify(list) }
     applyGameEvents([{ type: 'day_list', day: today, at: new Date().toISOString(), payload }])
     cloud.emit('day_list', payload, today)

@@ -27,8 +27,8 @@ export function rng(seed: string): () => number {
 export const dayGap = (a: string, b: string): number => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000)
 
 // ── the five domains that have a shop ──────────────────────────────────────
-export type MarkTag = 'code' | 'fitness' | 'guitar' | 'arbor' | 'sleep' | 'routine'
-export const MARK_TAGS: MarkTag[] = ['code', 'fitness', 'guitar', 'arbor', 'sleep', 'routine']
+export type MarkTag = 'code' | 'fitness' | 'guitar' | 'arbor' | 'sleep'
+export const MARK_TAGS: MarkTag[] = ['code', 'fitness', 'guitar', 'arbor', 'sleep']
 export const isMarkTag = (t: string): t is MarkTag => (MARK_TAGS as string[]).includes(t)
 export interface MarkDef { name: string; icon: string; shard?: string }
 export const MARKS: Record<MarkTag, MarkDef> = {
@@ -37,7 +37,6 @@ export const MARKS: Record<MarkTag, MarkDef> = {
   guitar: { name: 'Tones', icon: 'poke-flute', shard: 'yellow-shard' },
   arbor: { name: 'Sprouts', icon: 'grn-apricorn', shard: 'green-shard' },
   sleep: { name: 'Bells', icon: 'lunar-wing' },
-  routine: { name: 'Shine', icon: 'star-piece' },
 }
 export const SHARDS = ['red-shard', 'blue-shard', 'yellow-shard', 'green-shard'] as const
 export const SHARD_DOMAIN: Record<string, MarkTag> = { 'red-shard': 'fitness', 'blue-shard': 'code', 'yellow-shard': 'guitar', 'green-shard': 'arbor' }
@@ -46,7 +45,7 @@ export const MARK_RECORD = 2
 export const MARK_OWNED = 3
 
 // ── items ───────────────────────────────────────────────────────────────────
-export type ItemKind = 'guard' | 'outfit' | 'seed' | 'crop' | 'ball' | 'berry' | 'held' | 'tm' | 'lure' | 'shard' | 'key' | 'unique' | 'egg' | 'chest' | 'theme' | 'incense'
+export type ItemKind = 'guard' | 'ball' | 'berry' | 'held' | 'tm' | 'lure' | 'shard' | 'key' | 'unique' | 'egg' | 'chest' | 'theme' | 'incense'
 export interface ItemDef { name: string; kind: ItemKind; text: string }
 
 const TYPES = ['Bug', 'Dark', 'Dragon', 'Electric', 'Fighting', 'Fire', 'Flying', 'Ghost', 'Grass', 'Ground', 'Ice', 'Normal', 'Poison', 'Psychic', 'Rock', 'Steel', 'Water'] as const
@@ -104,7 +103,7 @@ export const ballClass = (ball: string): 'poke' | 'great' | 'ultra' => ((BALLS[b
 
 /** Held: one at a time, on the partner. Its domain's work strikes the leader this much harder. `tag` absent = every domain. */
 export const HELD: Record<string, { tag?: MarkTag; mult: number }> = {
-  'wise-glasses': { tag: 'code', mult: 1.15 }, 'shell-bell': { tag: 'routine', mult: 1.15 }, 'kings-rock': { tag: 'routine', mult: 1.3 }, 'muscle-band': { tag: 'fitness', mult: 1.15 }, 'soothe-bell': { tag: 'guitar', mult: 1.15 },
+  'wise-glasses': { tag: 'code', mult: 1.15 }, 'muscle-band': { tag: 'fitness', mult: 1.15 }, 'soothe-bell': { tag: 'guitar', mult: 1.15 },
   'miracle-seed': { tag: 'arbor', mult: 1.15 }, leftovers: { tag: 'sleep', mult: 1.15 },
   'choice-specs': { tag: 'code', mult: 1.3 }, 'choice-band': { tag: 'fitness', mult: 1.3 }, metronome: { tag: 'guitar', mult: 1.3 },
   'big-root': { tag: 'arbor', mult: 1.3 }, 'focus-band': { tag: 'sleep', mult: 1.3 }, 'life-orb': { mult: 1.1 },
@@ -114,13 +113,8 @@ export const heldMult = (item: string | undefined, tag: Tag): number => {
   return h && (!h.tag || h.tag === tag) ? h.mult : 1
 }
 /** A lure burns, and the next wild Pokemon is one of this domain's types. */
-export const LURES: Record<string, MarkTag> = { 'odd-incense': 'code', 'rock-incense': 'fitness', 'pure-incense': 'guitar', 'rose-incense': 'arbor', 'lax-incense': 'sleep', 'sea-incense': 'routine' }
-export const lureTypes = (tag: MarkTag): string[] => Object.entries(TYPE_DOMAIN).filter(([, d]) => d === tag).map(([t]) => t)
-
-/** The map trainer's hair, from the Sunnyside pack. Short hair is the one everyone starts with. */
-export const HAIRS = ['bowl', 'curly', 'long', 'mop', 'spikey'] as const
-export const hairId = (h: string): string => `hair-${h}`
-export const hairOf = (id: string): string | null => (HAIRS as readonly string[]).find((h) => hairId(h) === id) ?? null
+export const LURES: Record<string, Tag> = { 'odd-incense': 'code', 'rock-incense': 'fitness', 'pure-incense': 'guitar', 'rose-incense': 'arbor', 'lax-incense': 'sleep', 'sea-incense': 'routine' }
+export const lureTypes = (tag: Tag): string[] => Object.entries(TYPE_DOMAIN).filter(([, d]) => d === tag).map(([t]) => t)
 
 const tmText = (t: string) => `Equip it on your partner: it counts as a ${t} Pokemon against a leader.`
 export const ITEMS: Record<string, ItemDef> = {
@@ -141,8 +135,6 @@ export const ITEMS: Record<string, ItemDef> = {
   'oran-berry': { name: 'Oran Berry', kind: 'berry', text: 'Feed your partner: one heart.' },
   'sitrus-berry': { name: 'Sitrus Berry', kind: 'berry', text: 'Feed your partner: three hearts.' },
   'wise-glasses': { name: 'Wise Glasses', kind: 'held', text: 'Hold: code work strikes leaders ×1.15.' },
-  'shell-bell': { name: 'Shell Bell', kind: 'held', text: 'Hold: chores strike leaders ×1.15.' },
-  'kings-rock': { name: "King's Rock", kind: 'held', text: 'Hold: chores strike leaders ×1.3. A reward for a month of tidy days.' },
   'muscle-band': { name: 'Muscle Band', kind: 'held', text: 'Hold: gym work strikes leaders ×1.15.' },
   'soothe-bell': { name: 'Soothe Bell', kind: 'held', text: 'Hold: guitar work strikes leaders ×1.15.' },
   'miracle-seed': { name: 'Miracle Seed', kind: 'held', text: 'Hold: Arbor work strikes leaders ×1.15.' },
@@ -154,7 +146,6 @@ export const ITEMS: Record<string, ItemDef> = {
   'focus-band': { name: 'Focus Band', kind: 'unique', text: 'Hold: sleep strikes leaders ×1.3. Earned, never sold.' },
   'life-orb': { name: 'Life Orb', kind: 'unique', text: 'Hold: every kind of work strikes leaders ×1.1.' },
   'amulet-coin': { name: 'Amulet Coin', kind: 'unique', text: 'Quest coins ×1.25.' },
-  'exp-share': { name: 'Exp. Share', kind: 'unique', text: 'A fourth place on the team.' },
   'coin-case': { name: 'Coin Case', kind: 'unique', text: 'The Mart shows four deals a day.' },
   'old-charm': { name: 'Old Charm', kind: 'unique', text: 'A Mystery Egg hatches in four days, not five.' },
   'key-stone': { name: 'Key Stone', kind: 'key', text: 'Without it, no Mega Evolution. Forge Mega Stones with shards.' },
@@ -176,64 +167,29 @@ export const ITEMS: Record<string, ItemDef> = {
 }
 ITEMS['max-repel'] = { name: 'Max Repel', kind: 'guard', text: `Use it on the wild Pokemon: it stays ${REPEL_DAYS} days longer before it flees. Once for each Pokemon.` }
 ITEMS['revive'] = { name: 'Revive', kind: 'guard', text: 'Use it on the gym leader: everything they won back while the work stopped is taken off again.' }
-ITEMS['incubator'] = { name: 'Incubator', kind: 'unique', text: 'A second egg can be kept warm at once. It is warmed by tidy days (four-fifths of the chores), not counting days. Bought once.' }
 ITEMS['sea-incense'] = { name: 'Sea Incense', kind: 'lure', text: 'Burn it: the next wild Pokemon is a chore type (Water, Ice, Bug, Poison).' }
 ITEMS['lucky-egg'] = { name: 'Lucky Egg', kind: 'unique', text: 'Catches made by wearing a wild Pokemon down are shiny one time in 25 instead of 50. Bought once.' }
-ITEMS['plot-a'] = { name: 'Extra Plot', kind: 'unique', text: 'More room on the Farm: one more plot. Bought once.' }
-ITEMS['plot-b'] = { name: 'Another Plot', kind: 'unique', text: 'One more plot on the Farm. Bought once.' }
-for (const h of HAIRS) ITEMS[hairId(h)] = { name: `${h[0].toUpperCase()}${h.slice(1)} hair`, kind: 'outfit', text: 'A new look for your trainer on the map. Wear it from the Trainer tab.' }
 for (const t of TYPES) ITEMS[tmId(t)] = { name: `TM ${t}`, kind: 'tm', text: tmText(t) }
 export const itemName = (id: string): string => ITEMS[id]?.name ?? id
-
-// ── the Farm ────────────────────────────────────────────────────────────────
-// Arbor's own system. A full Arbor morning waters every crop in the ground by
-// one day; a crop is ripe after its days of watering. A day without Arbor adds
-// nothing and takes nothing: nothing wilts.
-export interface CropDef { name: string; days: number; sell: number; hearts: number; seed: number }
-export const CROPS: Record<string, CropDef> = {
-  radish: { name: 'Radish', days: 3, sell: 9, hearts: 1, seed: 1 },
-  carrot: { name: 'Carrot', days: 4, sell: 12, hearts: 1, seed: 1 },
-  potato: { name: 'Potato', days: 5, sell: 15, hearts: 1, seed: 1 },
-  cabbage: { name: 'Cabbage', days: 5, sell: 15, hearts: 1, seed: 1 },
-  beetroot: { name: 'Beetroot', days: 6, sell: 18, hearts: 1, seed: 1 },
-  wheat: { name: 'Wheat', days: 6, sell: 18, hearts: 1, seed: 1 },
-  pumpkin: { name: 'Pumpkin', days: 8, sell: 24, hearts: 2, seed: 2 },
-  sunflower: { name: 'Sunflower', days: 8, sell: 24, hearts: 2, seed: 2 },
-}
-export const CROP_IDS = Object.keys(CROPS)
-/** Version 7: the Farm kitchen. Crops (any kind) cooked into a guard: the Arbor domain's own road to protection. */
-export const KITCHEN: Record<string, number> = { 'max-repel': 8, revive: 12 }
-/** A ripe plot gives this many of its crop. */
-export const YIELD = 2
-/** Plots at the start, and one more for each of these two Arbor feats. */
-export const PLOTS = 4
-export const PLOT_FEATS = ['days25-arbor', 'days100-arbor']
-/** Two come from Arbor feats and two can be bought at the Mart. */
-export const PLOTS_MAX = PLOTS + PLOT_FEATS.length + 2
-/** What a new player is given to start with: two radish seeds. */
-export const STARTER_SEEDS: Record<string, number> = { 'seed-radish': 2 }
-export const seedId = (c: string): string => `seed-${c}`
-export const cropId = (c: string): string => `crop-${c}`
-/** 'seed-carrot' -> 'carrot', 'crop-carrot' -> 'carrot', anything else null */
-export const cropOf = (id: string): string | null => { const m = /^(?:seed|crop)-(.+)$/.exec(id); return m && CROPS[m[1]] ? m[1] : null }
-for (const c of CROP_IDS) {
-  ITEMS[seedId(c)] = { name: `${CROPS[c].name} seeds`, kind: 'seed', text: `Plant them at the Farm: ripe after ${CROPS[c].days} Arbor mornings, ${YIELD} ${CROPS[c].name.toLowerCase()}s.` }
-  ITEMS[cropId(c)] = { name: CROPS[c].name, kind: 'crop', text: `Sell for ${CROPS[c].sell} coins, or feed it to your partner for ${CROPS[c].hearts} heart${CROPS[c].hearts > 1 ? 's' : ''}.` }
-}
 
 // ── shops ───────────────────────────────────────────────────────────────────
 export interface Offer { item: string; coins?: number; gems?: number; marks?: number }
 export type ShopId = 'mart' | 'rare' | MarkTag
 
-/** The pool the Mart draws its daily deals from (coins). */
+/** The pool the Mart draws its daily deals from (coins). The chore types (Water, Ice, Bug, Poison) have no domain shop, so their ball and lure are here. */
 export const MART_POOL: Offer[] = [
   { item: 'poke-ball', coins: 60 }, { item: 'great-ball', coins: 150 }, { item: 'ultra-ball', coins: 380 },
-  { item: 'repeat-ball', coins: 250 }, { item: 'oran-berry', coins: 50 }, { item: 'sitrus-berry', coins: 130 },
+  { item: 'repeat-ball', coins: 250 }, { item: 'net-ball', coins: 200 }, { item: 'oran-berry', coins: 50 }, { item: 'sitrus-berry', coins: 130 },
+  { item: 'sea-incense', coins: 220 },
 ]
-/** Always on the shelf, bought once: more room on the Farm. Coins are for conveniences, so these are the long goals for them. */
-/** Version 7: the two guards are always on the Mart's shelf (an emergency item that is only sometimes for sale is no use), the first real use for coins. */
-export const GUARDS: Offer[] = [{ item: 'max-repel', coins: 220 }, { item: 'revive', coins: 300 }]
-export const STANDING: Offer[] = [{ item: 'plot-a', coins: 500 }, { item: 'plot-b', coins: 1000 }]
+/**
+ * Always on the Mart's shelf. The two guards (an emergency item that is only sometimes for sale is no use) are what coins are for, and the TMs of the four
+ * chore types, which no domain shop sells.
+ */
+export const STANDING: Offer[] = [
+  { item: 'max-repel', coins: 220 }, { item: 'revive', coins: 300 },
+  ...['Water', 'Ice', 'Bug', 'Poison'].map((t) => ({ item: tmId(t), coins: 350 })),
+]
 export const MART_DEALS = 3
 /** The Coin Case adds a deal; the Amulet Coin raises quest coins; berries feed this many hearts. Read by the fold and by the item text, so they cannot drift apart. */
 export const COIN_CASE_DEALS = 4
@@ -249,48 +205,44 @@ export function martDeals(day: string, n: number = MART_DEALS): Offer[] {
   return out
 }
 
-/** The rare shelf (gems). Themes are bought once. */
+/** The rare shelf (gems). Themes and the Lucky Egg are bought once. */
 export const RARE_SHELF: Offer[] = [
   { item: 'full-incense', gems: 40 }, { item: 'chest', gems: 30 }, { item: 'rare-egg', gems: 150 },
   { item: 'theme-beach', gems: 60 }, { item: 'theme-cave', gems: 60 }, { item: 'theme-night', gems: 60 },
-  ...HAIRS.map((h) => ({ item: hairId(h), gems: 40 })),
   { item: 'lucky-egg', gems: 500 },
 ]
 /** Bought once, kept for good. */
-export const ONCE = new Set<string>([...TYPES.map(tmId), 'theme-beach', 'theme-cave', 'theme-night', 'plot-a', 'plot-b', 'lucky-egg', 'incubator', ...HAIRS.map(hairId), ...Object.keys(HELD).filter((h) => HELD[h].mult < 1.2)])
+export const ONCE = new Set<string>([...TYPES.map(tmId), 'theme-beach', 'theme-cave', 'theme-night', 'lucky-egg', ...Object.keys(HELD).filter((h) => HELD[h].mult < 1.2)])
 
 export interface DomainShop { name: string; place: string; stock: Offer[] }
+/** A domain's TMs: the types that domain owns (see TYPE_DOMAIN). Nine marks for the rarer types, six for the rest. */
 const tms = (...types: string[]): Offer[] => types.map((t) => ({ item: tmId(t), marks: ['Psychic', 'Ghost', 'Dark', 'Steel', 'Dragon'].includes(t) ? 9 : 6 }))
 export const DOMAIN_SHOPS: Record<MarkTag, DomainShop> = {
   code: {
     name: 'Silph Co.', place: 'the tower on the hill',
-    stock: [{ item: 'quick-ball', marks: 6 }, { item: 'timer-ball', marks: 6 }, { item: 'odd-incense', marks: 3 }, { item: 'wise-glasses', marks: 12 }, ...tms(...TYPES)],
+    stock: [{ item: 'quick-ball', marks: 6 }, { item: 'timer-ball', marks: 6 }, { item: 'odd-incense', marks: 3 }, { item: 'wise-glasses', marks: 12 }, ...tms('Psychic', 'Electric', 'Ghost')],
   },
   fitness: {
     name: 'The Dojo', place: 'the mine on the west shore',
-    stock: [{ item: 'heavy-ball', marks: 6 }, { item: 'fast-ball', marks: 6 }, { item: 'rock-incense', marks: 3 }, { item: 'muscle-band', marks: 12 }],
+    stock: [{ item: 'heavy-ball', marks: 6 }, { item: 'fast-ball', marks: 6 }, { item: 'rock-incense', marks: 3 }, { item: 'muscle-band', marks: 12 }, ...tms('Fighting', 'Rock', 'Ground', 'Steel', 'Fire', 'Dragon')],
   },
   guitar: {
     name: 'Music Hall', place: 'the purple house',
-    stock: [{ item: 'luxury-ball', marks: 8 }, { item: 'moon-ball', marks: 6 }, { item: 'pure-incense', marks: 3 }, { item: 'soothe-bell', marks: 12 }],
+    stock: [{ item: 'luxury-ball', marks: 8 }, { item: 'moon-ball', marks: 6 }, { item: 'pure-incense', marks: 3 }, { item: 'soothe-bell', marks: 12 }, ...tms('Normal', 'Flying')],
   },
   arbor: {
-    name: 'The Farm', place: 'the terraces in the north-west',
-    stock: [{ item: 'rose-incense', marks: 3 }, { item: 'miracle-seed', marks: 12 }, ...CROP_IDS.map((c) => ({ item: seedId(c), marks: CROPS[c].seed }))],
-  },
-  routine: {
-    name: 'The Home', place: 'the little house by the river',
-    stock: [{ item: 'net-ball', marks: 6 }, { item: 'sea-incense', marks: 3 }, { item: 'shell-bell', marks: 12 }, { item: 'incubator', marks: 15 }],
+    name: 'The Garden', place: 'the terraces in the north-west',
+    stock: [{ item: 'rose-incense', marks: 3 }, { item: 'miracle-seed', marks: 12 }, { item: 'sitrus-berry', marks: 3 }, ...tms('Grass')],
   },
   sleep: {
     name: 'Dream House', place: 'the big house on the east shore',
-    stock: [{ item: 'dusk-ball', marks: 6 }, { item: 'lax-incense', marks: 3 }, { item: 'leftovers', marks: 12 }],
+    stock: [{ item: 'dusk-ball', marks: 6 }, { item: 'lax-incense', marks: 3 }, { item: 'leftovers', marks: 12 }, ...tms('Dark')],
   },
 }
 /** Where an item can be bought, searched in this order when the shop is not named. */
-export function offerFor(shop: ShopId | undefined, item: string, day: string, deals: number, v7 = false): { shop: ShopId; offer: Offer } | null {
+export function offerFor(shop: ShopId | undefined, item: string, day: string, deals: number): { shop: ShopId; offer: Offer } | null {
   const find = (s: ShopId): Offer | undefined =>
-    s === 'mart' ? [...martDeals(day, deals), ...STANDING, ...(v7 ? GUARDS : [])].find((o) => o.item === item) : s === 'rare' ? RARE_SHELF.find((o) => o.item === item) : DOMAIN_SHOPS[s].stock.find((o) => o.item === item)
+    s === 'mart' ? [...martDeals(day, deals), ...STANDING].find((o) => o.item === item) : s === 'rare' ? RARE_SHELF.find((o) => o.item === item) : DOMAIN_SHOPS[s].stock.find((o) => o.item === item)
   const order: ShopId[] = shop ? [shop] : ['mart', 'rare', ...MARK_TAGS]
   for (const s of order) { const offer = find(s); if (offer) return { shop: s, offer } }
   return null
@@ -301,9 +253,8 @@ export function offerFor(shop: ShopId | undefined, item: string, day: string, de
 export const MASTERY_MAX = 10
 export const MASTERY_STEP = 0.03
 export const masteryCost = (level: number): number => 4 * (level + 1)
-/** A bond level (10, 30 and 60 hearts) makes every strike this much harder; a partner with a Mega registered strikes this much harder too. */
+/** A bond level (10, 30 and 60 hearts) makes every strike this much harder. */
 export const BOND_STEP = 0.05
-export const MEGA_MULT = 1.1
 
 // ── the Professor, the Smithy ──────────────────────────────────────────────
 /** What a Box Pokemon is worth to the Professor, by rarity. */
@@ -317,24 +268,23 @@ export function forgeShard(count: number, index: number, own: Tag | undefined, i
   return order.find(has) ?? null
 }
 
-// ── quests and the season, as priced in version 6 ──────────────────────────
-export interface QuestDef6 { id: string; name: string; coins?: number; gems?: number }
-export const DAILY_QUESTS6: QuestDef6[] = [
+// ── quests, the season and chests ───────────────────────────────────────────
+export interface QuestDef { id: string; name: string; coins?: number; gems?: number }
+export const DAILY_QUESTS: QuestDef[] = [
   { id: 'two-pillars', name: 'Finish two pillars', coins: 30 },
   { id: 'all-pillars', name: 'Finish every pillar', coins: 50 },
-  { id: 'chores', name: 'Four-fifths of the chores', coins: 20 },
   { id: 'perfect', name: 'A perfect day', gems: 5 },
 ]
-export const WEEKLY_QUESTS6: QuestDef6[] = [
+export const WEEKLY_QUESTS: QuestDef[] = [
   { id: 'five-days', name: '5 days with two pillars', coins: 100, gems: 10 },
   { id: 'week-xp', name: '2,000 XP of work', coins: 100 },
   { id: 'catch', name: 'Catch a Pokemon', gems: 10 },
 ]
-export interface SeasonReward6 { coins?: number; gems?: number; item?: string }
-export const SEASON_REWARDS6: SeasonReward6[] = [{ coins: 100 }, { item: 'great-ball' }, { gems: 10 }, { item: 'oran-berry' }, { coins: 200 }, { item: 'ultra-ball' }, { gems: 25 }]
-export const seasonReward6 = (step: number): SeasonReward6 => SEASON_REWARDS6[(step - 1) % SEASON_REWARDS6.length]
+export interface SeasonReward { coins?: number; gems?: number; item?: string }
+export const SEASON_REWARDS: SeasonReward[] = [{ coins: 100 }, { item: 'great-ball' }, { gems: 10 }, { item: 'oran-berry' }, { coins: 200 }, { item: 'ultra-ball' }, { gems: 25 }]
+export const seasonReward = (step: number): SeasonReward => SEASON_REWARDS[(step - 1) % SEASON_REWARDS.length]
 /** What a chest holds, with the odds out of 100. */
-export const CHEST6: { odds: number; coins?: number; item?: string; n?: number }[] = [
+export const CHEST: { odds: number; coins?: number; item?: string; n?: number }[] = [
   { odds: 40, coins: 250 }, { odds: 25, item: 'great-ball', n: 2 }, { odds: 15, item: 'ultra-ball', n: 1 }, { odds: 12, item: 'sitrus-berry', n: 2 }, { odds: 8, item: 'full-incense', n: 1 },
 ]
 export const EGG_DAYS_OLD_CHARM = 4
@@ -345,9 +295,9 @@ export interface Feat { id: string; name: string; text: string; group: 'run' | '
 
 const DOMAIN_WORD: Record<MarkTag, { run: string; unit: string }> = {
   code: { run: 'Code', unit: 'coding days' }, fitness: { run: 'Gym', unit: 'gym days' }, guitar: { run: 'Guitar', unit: 'guitar days' },
-  arbor: { run: 'Arbor', unit: 'Arbor mornings' }, sleep: { run: 'Sleep', unit: 'good nights' }, routine: { run: 'Home', unit: 'tidy days' },
+  arbor: { run: 'Arbor', unit: 'Arbor mornings' }, sleep: { run: 'Sleep', unit: 'good nights' },
 }
-export const UNIQUE_HELD: Record<MarkTag, string> = { code: 'choice-specs', fitness: 'choice-band', guitar: 'metronome', arbor: 'big-root', sleep: 'focus-band', routine: 'kings-rock' }
+export const UNIQUE_HELD: Record<MarkTag, string> = { code: 'choice-specs', fitness: 'choice-band', guitar: 'metronome', arbor: 'big-root', sleep: 'focus-band' }
 const shardOf = (t: MarkTag, n = 1): Record<string, number> => (MARKS[t].shard ? { [MARKS[t].shard!]: n } : {})
 
 function domainFeats(): Feat[] {
@@ -396,12 +346,10 @@ export const FEATS: Feat[] = [
   { id: 'mega1', name: 'Mega', text: 'Forge your first Mega Stone', group: 'collect', key: 'megas', n: 1, reward: { gems: 25 } },
   { id: 'grads1', name: 'First one trained', text: 'Fully train a Pokemon', group: 'raise', key: 'grads', n: 1, reward: { gems: 10 } },
   { id: 'grads3', name: 'Three trained', text: 'Fully train three Pokemon', group: 'raise', key: 'grads', n: 3, reward: { gems: 20 } },
-  { id: 'grads5', name: 'Five trained', text: 'Fully train five Pokemon', group: 'raise', key: 'grads', n: 5, reward: { gems: 30, items: { 'exp-share': 1 } } },
+  { id: 'grads5', name: 'Five trained', text: 'Fully train five Pokemon', group: 'raise', key: 'grads', n: 5, reward: { gems: 30 } },
   { id: 'grads10', name: 'Ten trained', text: 'Fully train ten Pokemon', group: 'raise', key: 'grads', n: 10, reward: { gems: 50 } },
   { id: 'hearts30', name: 'Close', text: 'A partner reaches thirty hearts', group: 'raise', key: 'hearts', n: 30, reward: { gems: 15, items: { 'luxury-ball': 2 } } },
   { id: 'hatch1', name: 'It hatched', text: 'Hatch a Mystery Egg', group: 'raise', key: 'hatched', n: 1, reward: { gems: 10, items: { 'old-charm': 1 } } },
-  { id: 'harvest10', name: 'Green fingers', text: 'Ten harvests at the Farm', group: 'raise', key: 'harvests', n: 10, reward: { gems: 10 } },
-  { id: 'harvest50', name: 'A full barn', text: 'Fifty harvests at the Farm', group: 'raise', key: 'harvests', n: 50, reward: { gems: 40 } },
   { id: 'chests5', name: 'Five chests', text: 'Open five chests', group: 'raise', key: 'chests', n: 5, reward: { gems: 20 } },
   { id: 'badge1', name: 'First badge', text: 'Win a gym badge', group: 'league', key: 'badges', n: 1, reward: { items: { 'oran-berry': 3 } } },
   { id: 'badge8', name: 'Eight badges', text: 'Win eight gym badges', group: 'league', key: 'badges', n: 8, reward: { gems: 40 } },

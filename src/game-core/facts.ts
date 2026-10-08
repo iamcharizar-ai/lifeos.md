@@ -2,7 +2,7 @@
 // one plain list of days. The game itself (fold.ts) only ever sees this list,
 // so Life OS and Pokedex cannot disagree about what happened on a day.
 import type { ListedHabit } from './events.ts'
-import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V3_START, V4_START, V6_START, isTag, tagOf, tierXp, type Tag } from './rules.ts'
+import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, isTag, tagOf, tierXp, type Tag } from './rules.ts'
 
 export interface HabitLite {
   id: string
@@ -139,12 +139,12 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
   const byId = new Map(input.habits.map((h) => [h.id, h]))
   const todays: HabitLite[] = frozen
     ? frozen.map((f) => ({ ...(byId.get(f.id) ?? { id: f.id, spans: [] }), id: f.id, tier: f.tier, domain: f.tag }))
-    : input.habits.filter((h) => activeOn(h, day)).map((h) => (day >= V4_START ? h : { ...h, domain: undefined }))
+    : input.habits.filter((h) => activeOn(h, day))
   for (const h of todays) {
     // version 2, with a band: Sleep is a pillar paid on last night's score, and a hand tick no longer counts
     // from version 6, no reading is not a miss: that morning's habit is a hand tick, paid as a core habit and not a pillar
-    const unread = h.id === SLEEP_HABIT && day >= V3_START && band !== null && day >= band && typeof body?.sleepScore !== 'number' && day >= V6_START
-    if (h.id === SLEEP_HABIT && day >= V3_START && band !== null && day >= band && !unread) {
+    const unread = h.id === SLEEP_HABIT && band !== null && day >= band && typeof body?.sleepScore !== 'number'
+    if (h.id === SLEEP_HABIT && band !== null && day >= band && !unread) {
       const score = Math.max(0, Math.min(100, body?.sleepScore ?? 0))
       habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: 'sleep', worth: TIER_XP.pillar, pillar: true, frac: score / 100, done: score >= SLEEP_DONE, measured: true })
       continue

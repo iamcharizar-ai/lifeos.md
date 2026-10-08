@@ -2,7 +2,7 @@
 // facts.ts takes. Pokedex and Life OS both call these, so the two apps cannot
 // read the same event differently.
 import type { BodyFacts, ItemUse } from './facts.ts'
-import { V4_START, isTag, type Tag } from './rules.ts'
+import { isTag, type Tag } from './rules.ts'
 
 export interface GameEvent {
   type: string
@@ -107,17 +107,12 @@ function parseList(raw: unknown): ListedHabit[] | null {
  * tier waits for tomorrow. So a missed habit cannot be edited out of today.
  * A list written with `fix: true` is a deliberate correction and replaces the day's.
  */
-export function listsOf(events: GameEvent[], v4From: string = V4_START): Record<string, ListedHabit[]> {
+export function listsOf(events: GameEvent[]): Record<string, ListedHabit[]> {
   const out: Record<string, ListedHabit[]> = {}
   for (const ev of events) {
     if (ev.type !== LIST_EVENT) continue
     const list = parseList(ev.payload?.habits)
     if (!list) continue
-    if (ev.day < v4From) {
-      // those lists never carried a domain: the id decided, and still does for those days
-      if (list.length) out[ev.day] = list.map(({ id, tier }) => ({ id, tier }))
-      continue
-    }
     const cur = out[ev.day]
     if (!cur || ev.payload?.fix === true) out[ev.day] = list
     else {

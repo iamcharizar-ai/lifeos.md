@@ -50,7 +50,7 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
           <span className="partner-name">{name}</span>
           <span className="partner-lv">Lv {game.level}</span>
           {partner.shiny && <span className="partner-tag">shiny</span>}
-          {game.version >= 5 && (
+          {(
             <span className="partner-wallet" title="Coins and gems: spend them in the Pokedex">
               <i className="coin" aria-hidden /><AnimatedNumber value={game.wallet.coins} />
               <i className="gem" aria-hidden /><AnimatedNumber value={game.wallet.gems} />
@@ -74,11 +74,11 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
             +<AnimatedNumber value={today.xp} /> XP
           </b>{' '}
           today
-          {game.version >= 5 && game.wallet.coinsToday > 0 && <> · <b className="partner-today">+<AnimatedNumber value={game.wallet.coinsToday} /></b> coins</>}
-          {game.version >= 6 && marksToday(game) > 0 && <> · <b className="partner-today">+{marksToday(game)}</b> marks</>}
+          {game.wallet.coinsToday > 0 && <> · <b className="partner-today">+<AnimatedNumber value={game.wallet.coinsToday} /></b> coins</>}
+          {marksToday(game) > 0 && <> · <b className="partner-today">+{marksToday(game)}</b> marks</>}
           {momentum.mult > 1 && <> · ×{momentum.mult} momentum</>}
-          {game.version >= 6 && game.sleep.state === 'measured' && <> · slept <b className="partner-today">{game.sleep.score}</b></>}
-          {game.version >= 6 && game.sleep.state === 'self' && <> · sleep: waiting for the band</>}
+          {game.sleep.state === 'measured' && <> · slept <b className="partner-today">{game.sleep.score}</b></>}
+          {game.sleep.state === 'self' && <> · sleep: waiting for the band</>}
           {' · '}
           {game.next.what === 'evolve' ? 'evolves' : 'fully trained'} at Lv {game.next.level}
         </div>
