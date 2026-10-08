@@ -5,7 +5,7 @@
 // same place. The old split (add in Library → walk to Daily to arrange) is gone.
 // Habits you switch off drop into the Shelf below, still ordered, one tap from
 // coming back.
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Reorder, motion, useDragControls } from 'framer-motion'
 import { TIERS, TIER_XP, domainOf, type Habit, type Tier } from '../config/habits'
 import type { Ticks } from '../lib/store'
@@ -569,6 +569,9 @@ function AddHabit({ onAdd }: { onAdd: HabitActions['onAdd'] }) {
   )
 }
 
+/** A tick stays on the checklist this long, so a mis-tap can be undone. After it, the habit leaves today's view. */
+const DONE_HIDE_MS = 10_000
+
 export function HabitsScreen({
   habits,
   live,
@@ -606,8 +609,33 @@ export function HabitsScreen({
     setPicked([])
   }
 
-  const todayTicks = ticks[today] ?? {}
+  const todayRaw = ticks[today]
+  const todayTicks = todayRaw ?? {}
   const doneCount = live.filter((h) => todayTicks[h.id]).length
+  // the clock the hiding is judged against; moved on by a timer for the next tick to expire
+  const [now, setNow] = useState(() => Date.now())
+  const [showDone, setShowDone] = useState(false)
+  useEffect(() => {
+    let soonest = Infinity
+    for (const at of Object.values(todayRaw ?? {})) {
+      const t = Date.parse(at) + DONE_HIDE_MS
+      if (t > Date.now() && t < soonest) soonest = t
+    }
+    if (soonest === Infinity) return
+    const id = window.setTimeout(() => setNow(Date.now()), soonest - Date.now() + 20)
+    return () => window.clearTimeout(id)
+  }, [todayRaw])
+  // a tick older than DONE_HIDE_MS (or one with no usable time) is done and out of the way
+  const isHidden = (id: string): boolean => {
+    const at = todayTicks[id]
+    if (!at) return false
+    const t = Date.parse(at)
+    return Number.isNaN(t) || now - t >= DONE_HIDE_MS
+  }
+  // arranging shows everything, so the order of hidden rows is never lost
+  const showAll = showDone || arranging
+  const shown = showAll ? live : live.filter((h) => !isHidden(h.id))
+  const doneHidden = live.filter((h) => isHidden(h.id)).length
 
   const tickCounts = useMemo(() => {
     const out: Record<string, number> = {}
@@ -663,13 +691,17 @@ export function HabitsScreen({
         <div className="neo-card bg-white px-4 py-6 text-center text-sm font-bold text-neo-gray-dark">
           Nothing on today&apos;s checklist. Add one below, or pull one off the shelf.
         </div>
+      ) : shown.length === 0 ? (
+        <div className="neo-card bg-white px-4 py-6 text-center text-sm font-bold text-neo-gray-dark">
+          Everything on today&apos;s checklist is done.
+        </div>
       ) : (
-        <Reorder.Group axis="y" values={live} onReorder={commit} className="space-y-2">
-          {live.map((h, i) => (
+        <Reorder.Group axis="y" values={shown} onReorder={commit} className="space-y-2">
+          {shown.map((h, i) => (
             <ChecklistRow
               key={h.id}
               habit={h}
-              onNudge={(dir) => nudge(live, i, dir)}
+              onNudge={(dir) => nudge(shown, i, dir)}
               arranging={arranging}
               ticks={ticks}
               today={today}
@@ -681,6 +713,16 @@ export function HabitsScreen({
             />
           ))}
         </Reorder.Group>
+      )}
+      {!arranging && !showDone && doneHidden > 0 && (
+        <button type="button" onClick={() => setShowDone(true)} className="w-full text-center text-[11px] font-bold uppercase text-neo-gray-dark underline">
+          {doneHidden} done today · show
+        </button>
+      )}
+      {!arranging && showDone && doneCount > 0 && (
+        <button type="button" onClick={() => setShowDone(false)} className="w-full text-center text-[11px] font-bold uppercase text-neo-gray-dark underline">
+          Hide done ones
+        </button>
       )}
 
       <SundayPanel
