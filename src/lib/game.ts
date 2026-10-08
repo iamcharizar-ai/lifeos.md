@@ -14,7 +14,8 @@ import type { ArborState } from '../arbor-core/model.ts'
 import type { ShedState } from '../woodshed-core/model.ts'
 import { isGym, leaderOf } from '../game-core/fold.ts'
 import { LEAGUES, lineup } from '../game-core/gyms.ts'
-import { ITEM_NAME, MEGA_DAYS, REGIONS, SHOP } from '../game-core/rules.ts'
+import { itemName as shopName } from '../game-core/economy.ts'
+import { ITEM_NAME, MEGA_DAYS, REGIONS } from '../game-core/rules.ts'
 import type { GameLink } from './gameLink'
 
 // localhost is only a dev default: a production build without VITE_POKEDEX_URL must not point sprites
@@ -29,12 +30,12 @@ export function useGame(habits: Habit[], ticks: Ticks, arbor: ArborState, shed: 
   )
 }
 
-const itemName = (item: string): string => ITEM_NAME[item] ?? item
+const itemName = (item: string): string => ITEM_NAME[item] ?? shopName(item)
 
 // ── moments: say it once when something happens ─────────────────────────────
 const SEEN_KEY = 'lifeos.game.seen.v1'
 export const momentKey = (m: Moment): string =>
-  `${m.day}|${m.kind}|${'form' in m ? m.form : ''}|${'level' in m ? m.level : ''}|${'n' in m ? m.n : ''}|${'item' in m ? m.item : ''}|${'slot' in m ? m.slot : ''}|${'what' in m ? m.what : ''}`
+  `${m.day}|${m.kind}|${'form' in m ? m.form : ''}|${'level' in m ? m.level : ''}|${'n' in m ? m.n : ''}|${'item' in m ? m.item : ''}|${'slot' in m ? m.slot : ''}|${'what' in m ? m.what : ''}|${'id' in m ? m.id : ''}`
 
 function loadSeen(): Set<string> | null {
   try {
@@ -96,17 +97,19 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     case 'item':
       return { title: 'A stone', line: `${itemName(m.item)} is in your Bag. Spend it in the Pokedex if you like; nothing needs it.` }
     case 'key':
-      return { title: 'Key Stone', line: 'A fully evolved partner now keeps its Mega form the first time a leader falls to it.' }
+      return { title: 'Key Stone', line: 'Three shards now forge a Mega Stone, on a fully evolved Pokemon\'s page in the Pokedex.' }
     case 'mega':
-      return { title: 'Mega, for good', line: `${nameOf(m.form)} is registered and never runs out.`, form: m.form }
+      return { title: 'Mega Stone forged', line: `${nameOf(m.form)} is registered and never runs out.`, form: m.form }
+    case 'feat':
+      return { title: m.name, line: `A feat reached${m.items.length ? `: ${m.items.map(itemName).join(', ')}` : ''}${m.gems ? `, +${m.gems} gems` : ''}.` }
     case 'transfer':
-      return { title: 'To the Professor', line: `${nameOf(m.form)} was sent on: +${m.gems} gems.`, form: m.form }
+      return { title: 'To the Professor', line: `${nameOf(m.form)} was sent on: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.`, form: m.form }
     case 'season':
-      return { title: `Season step ${m.step}`, line: m.coins ? `+${m.coins} coins.` : m.gems ? `+${m.gems} gems.` : `${SHOP[m.item as keyof typeof SHOP]?.name ?? m.item} added to your items.` }
+      return { title: `Season step ${m.step}`, line: m.coins ? `+${m.coins} coins.` : m.gems ? `+${m.gems} gems.` : `${itemName(m.item)} added to your items.` }
     case 'hatch':
       return { title: 'The egg hatched!', line: `${nameOf(m.form)} is in your Box.`, form: m.form }
     case 'chest':
-      return { title: `Chest ${m.n}`, line: m.coins ? `${m.coins} coins.` : `${SHOP[m.item as keyof typeof SHOP]?.name ?? m.item}${m.count > 1 ? ` x${m.count}` : ''}.` }
+      return { title: `Chest ${m.n}`, line: m.coins ? `${m.coins} coins.` : `${itemName(m.item)}${m.count > 1 ? ` x${m.count}` : ''}.` }
     case 'quest':
       return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
     case 'use':

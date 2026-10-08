@@ -75,6 +75,7 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
           </b>{' '}
           today
           {game.version >= 5 && game.wallet.coinsToday > 0 && <> · <b className="partner-today">+<AnimatedNumber value={game.wallet.coinsToday} /></b> coins</>}
+          {game.version >= 6 && marksToday(game) > 0 && <> · <b className="partner-today">+{marksToday(game)}</b> marks</>}
           {momentum.mult > 1 && <> · ×{momentum.mult} momentum</>}
           {' · '}
           {game.next.what === 'evolve' ? 'evolves' : 'fully trained'} at Lv {game.next.level}
@@ -101,6 +102,7 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
 /** Level-ups, evolutions and catches, said once each, a few seconds at a time. */
 /** The moments worth stopping for: they are staged in the middle of the screen, not slipped in at the bottom. */
 const BIG = new Set<string>(['evolve', 'catch', 'graduate', 'gym', 'league', 'key', 'mega', 'hatch'])
+const marksToday = (g: Game): number => Object.values(g.wallet.marksToday ?? {}).reduce((a, b) => a + b, 0)
 
 export function Moments({ game, today, ready }: { game: Game; today: string; ready: boolean }) {
   const [line, setLine] = useState<Moment[]>([])

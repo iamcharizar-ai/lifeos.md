@@ -2,7 +2,7 @@
 
 Six small apps and one shared ledger. This guide explains what each part does, how they talk to each other, how the game on top works, why it was designed this way, and what comes next.
 
-Written 2026-10-03, last revised 2026-10-07. **The game runs rules version 5 from 8 Oct 2026. The section "The game today" below is current; sections 5 and 15 are the earlier versions, kept as history.**
+Written 2026-10-03, last revised 2026-10-08. **The game runs rules version 6 from 8 Oct 2026. The section "Rules version 6" and then "The game today" below are current; sections 5 and 15 are the earlier versions, kept as history.**
 
 ---
 
@@ -17,7 +17,29 @@ The one rule behind every design choice: **the only way to progress is to do the
 
 ---
 
-## The game today: rules version 5 (from 8 Oct 2026)
+## Rules version 6 (from 8 Oct 2026): an economy with a reason for each thing
+
+Version 6 starts on the same day version 5 did, so 5 never ran a day alone. It replaces the money rules of 5 and keeps everything else. The full design, with the reasoning, is `ECONOMY-V6.md` in the workspace folder.
+
+**What changed and why.** In version 5 a coin was one per XP, and the shop sold "take HP off the wild Pokemon", which is what the day's work already does. That was a closed loop with no decision in it, and nothing could be given for a streak or a record. Now:
+
+| Piece | Earned by | Used for |
+|---|---|---|
+| Coins | daily and weekly quests, the season, chests, selling a Box Pokemon to the Professor. **Not from XP** | the Mart: three deals a day, one of each (balls, berries, lures) |
+| Gems | feats, a catch, an evolution, a badge, a graduation, weekly quests | Mystery Egg, Full Incense, chests, scene themes. Never a ball |
+| Marks | one a day for each kind of work done (coding, gym, guitar, Arbor, good sleep); +2 per personal record, +3 per song part owned | that kind's own shop: Silph Co., the Dojo, Music Hall, the Farm, Dream House |
+| Shards (red, blue, yellow, green) | feats only | three forge a Mega Stone for one Pokemon |
+| Feats | runs of days (one rest day forgiven) and lifetime totals: 60 of them | gems, shards, and the items no shop sells: Key Stone, Master Ball, Amulet Coin, Exp. Share, Life Orb, the held items that strike x1.3 |
+
+Balls now have conditions: a Net Ball hits Water and Bug double, a Quick Ball is best on the day the wild Pokemon appears, a Timer Ball grows each day it waits, a Repeat Ball likes a species you own. A Pokemon can carry three TMs, each counting as one of its types against a leader, and hold one item that makes one kind of work strike harder. A lure makes the next wild Pokemon one of a domain's types.
+
+**Mega, rebuilt.** The eighth badge no longer hands over the Key Stone and every Mega. The Key Stone is a feat (seven days running on any one kind of work). A Mega Stone is forged on the Pokemon's own page from three shards: red for X forms, blue or yellow for Y forms. So the Mega you get is the one your work paid for.
+
+**Where it lives in the code.** `core/economy.ts` (items, balls, shops, the Mart, feats), the version 6 block in `core/fold.ts` (`act6`, marks, runs, `evalFeats`), tests at the end of `core/fold.test.ts`. The Pokedex has a World tab (the Sunnyside scene as a map, the shops as its buildings, cloud over regions not open yet) and its sprites are the ball sheet and item icons supplied, in `public/sprites`.
+
+---
+
+## The game today: rules version 5 (from 8 Oct 2026; its money rules are replaced by version 6 above)
 
 Version 5 begins on the day version 4 was due to, so version 4 never ran a day by itself. Everything in the version 4 section below is still in force; version 5 adds the second half of the loop: **things to do with what the work earned**. The reasoning, and the review it went through, is in `V5-LOOP.md` in the workspace folder; the audit that led to it is `GAME-AUDIT.md`.
 

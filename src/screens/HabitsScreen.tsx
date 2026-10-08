@@ -28,7 +28,7 @@ export interface HabitActions {
 }
 
 const HANDLE = (
-  <span aria-hidden className="select-none text-base leading-none text-black/35">
+  <span aria-hidden className="select-none text-xl leading-none text-black/50">
     ⠿
   </span>
 )
@@ -58,7 +58,7 @@ function Grip({
       }}
       aria-label={`Reorder ${label} — drag, or use the arrow keys`}
       title="Drag to reorder (or use ↑ ↓)"
-      className="shrink-0 cursor-grab touch-none px-1 py-2 active:cursor-grabbing"
+      className="shrink-0 cursor-grab touch-none px-2 py-3 active:cursor-grabbing"
     >
       {HANDLE}
     </button>
@@ -239,6 +239,7 @@ function ChecklistRow({
   open,
   onOpen,
   onNudge,
+  arranging,
   tickCount,
   actions,
   linked,
@@ -249,6 +250,7 @@ function ChecklistRow({
   open: boolean
   onOpen: (id: string | null) => void
   onNudge: (dir: -1 | 1) => void
+  arranging: boolean
   tickCount: number
   actions: HabitActions
   linked: LinkedCtx
@@ -285,14 +287,18 @@ function ChecklistRow({
           link ? `tile-${link} ${ticked ? 'is-done' : ''}` : ticked ? 'neo-card-green' : 'bg-neo-white'
         } ${open ? 'mb-0' : ''}`}
       >
-        <Grip
-          label={habit.name}
-          onNudge={onNudge}
-          onPointerDown={(e) => {
-            onOpen(null) // never drag a row with its editor panel hanging off it
-            controls.start(e)
-          }}
-        />
+        {arranging ? (
+          <Grip
+            label={habit.name}
+            onNudge={onNudge}
+            onPointerDown={(e) => {
+              onOpen(null) // never drag a row with its editor panel hanging off it
+              controls.start(e)
+            }}
+          />
+        ) : (
+          <span className="w-2 shrink-0" aria-hidden />
+        )}
         {habit.tier === 'pillar' && <PillarMark />}
         {link === 'strong' ? (
           <StrongTile
@@ -391,6 +397,7 @@ function ShelfRow({
   open,
   onOpen,
   onNudge,
+  arranging,
   tickCount,
   actions,
   picking,
@@ -401,6 +408,7 @@ function ShelfRow({
   open: boolean
   onOpen: (id: string | null) => void
   onNudge: (dir: -1 | 1) => void
+  arranging: boolean
   tickCount: number
   actions: HabitActions
   picking: boolean
@@ -433,7 +441,7 @@ function ShelfRow({
             aria-label={`Select ${habit.name} for deletion`}
             className="mx-1.5 h-4 w-4 shrink-0 accent-neo-red"
           />
-        ) : (
+        ) : arranging ? (
           <Grip
             label={habit.name}
             onNudge={onNudge}
@@ -442,6 +450,8 @@ function ShelfRow({
               controls.start(e)
             }}
           />
+        ) : (
+          <span className="w-2 shrink-0" aria-hidden />
         )}
         <button
           onClick={() => (picking ? onPick(habit.id) : actions.onToggleLive(habit.id, true))}
@@ -581,6 +591,8 @@ export function HabitsScreen({
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [shelfOpen, setShelfOpen] = useState(false)
+  // Dragging only works in arrange mode, so a scroll that starts on a row can never reorder it
+  const [arranging, setArranging] = useState(false)
   // Bulk clean-up: deleting a long shelf one row at a time is three taps each.
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<string[]>([])
@@ -601,6 +613,8 @@ export function HabitsScreen({
     return out
   }, [ticks])
 
+  // while arranging, a tap on a row does nothing (no stray ticks)
+  const idle: HabitActions = { ...actions, onToggle: () => {} }
   const commit = (next: Habit[]) => actions.onReorder(next.map((h) => h.id))
   /** Keyboard equivalent of a drag: swap one row with its neighbour. */
   const nudge = (list: Habit[], index: number, dir: -1 | 1) => {
@@ -623,10 +637,24 @@ export function HabitsScreen({
 
       <div className="flex items-center justify-between">
         <div className="hud-label border-black text-sm">Today</div>
-        <div className="text-[10px] font-bold uppercase tracking-wider text-neo-gray-dark">
-          ⠿ drag · tap to tick · ⋯ to edit
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setArranging((a) => !a)
+            setOpenId(null)
+          }}
+          aria-pressed={arranging}
+          className={`neo-button px-3 py-1 text-[11px] font-bold uppercase ${arranging ? 'neo-card-yellow' : 'bg-white'}`}
+        >
+          {arranging ? '✓ Done arranging' : '⠿ Arrange'}
+        </button>
       </div>
+
+      {arranging && (
+        <p className="text-[11px] font-bold leading-relaxed text-neo-gray-dark">
+          Arranging: drag the ⠿ handle, or focus it and press ↑ ↓. Ticking is paused until you are done.
+        </p>
+      )}
 
       {live.length === 0 ? (
         <div className="neo-card bg-white px-4 py-6 text-center text-sm font-bold text-neo-gray-dark">
@@ -639,12 +667,13 @@ export function HabitsScreen({
               key={h.id}
               habit={h}
               onNudge={(dir) => nudge(live, i, dir)}
+              arranging={arranging}
               ticks={ticks}
               today={today}
               open={openId === h.id}
               onOpen={setOpenId}
               tickCount={tickCounts[h.id] ?? 0}
-              actions={actions}
+              actions={arranging ? idle : actions}
               linked={linked}
             />
           ))}
@@ -680,7 +709,7 @@ export function HabitsScreen({
                 <p className="flex-1 text-[11px] font-bold leading-relaxed text-neo-gray-dark">
                   {picking
                     ? 'Pick the ones to erase. Sealed months keep showing them; this month will not.'
-                    : 'Off the checklist, and off this month’s graph until you put one back. Tap one to return it to today, drag to reorder, ⋯ to rename or delete it.'}
+                    : 'Off the checklist, and off this month’s graph until you put one back. Tap one to return it to today, ⋯ to rename or delete it. Use Arrange to reorder.'}
                 </p>
                 {picking ? (
                   <div className="flex gap-2">
@@ -716,6 +745,7 @@ export function HabitsScreen({
                     key={h.id}
                     habit={h}
                     onNudge={(dir) => nudge(shelf, i, dir)}
+                    arranging={arranging}
                     open={openId === h.id}
                     onOpen={setOpenId}
                     tickCount={tickCounts[h.id] ?? 0}

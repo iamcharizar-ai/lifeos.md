@@ -384,7 +384,10 @@ body {
 }
 .partner-card.aura-mega { box-shadow: 0 0 0 5px #7fe3ff, 0 0 0 8px #141a33, 0 13px 0 0 #141a33; }
 .partner-card.aura-gmax { box-shadow: 0 0 0 5px #e0559a, 0 0 0 8px #141a33, 0 13px 0 0 #141a33; }
-.partner-frame { padding: 0; border: 3px solid #141a33; border-radius: 12px; background: radial-gradient(circle at 50% 40%, #6f86d6 0 30%, #3a4a8e 72%); box-shadow: 0 0 0 4px #f5b800, 0 0 0 7px #141a33; margin: 7px; width: 90px; height: 90px; }
+/* no frame: the sprite stands on a soft shadow */
+.partner-frame { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; margin: 0 4px; width: 90px; height: 90px; }
+.partner-frame::after { content: ''; position: absolute; left: 16%; right: 16%; bottom: 4px; height: 10px; border-radius: 50%; background: rgba(0, 0, 0, 0.32); }
+.partner-frame .partner-sprite { position: relative; z-index: 1; }
 .partner-name { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-weight: 400; font-size: 24px; letter-spacing: 0.02em; text-transform: none; color: #fff; -webkit-text-stroke: 4px #141a33; paint-order: stroke fill; text-shadow: 0 2px 0 #141a33; }
 .partner-lv { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-size: 17px; color: #ffd84a; -webkit-text-stroke: 3px #141a33; paint-order: stroke fill; }
 .partner-tag { font-family: 'Lilita One', sans-serif; font-size: 12px; text-transform: none; color: #141a33; background: #f5b800; border: 2px solid #141a33; border-radius: 6px; padding: 0 6px 2px; }

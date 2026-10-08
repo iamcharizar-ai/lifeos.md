@@ -5,7 +5,7 @@
 // Every number that shapes the game is in this file.
 
 /** Bump when a rule changes, and note the day it took effect in the guide. */
-export const RULES_VERSION = 5
+export const RULES_VERSION = 6
 /** Days before this are not part of the game. */
 export const GAME_START = '2026-10-03'
 /**
@@ -29,9 +29,16 @@ export const V4_START = '2026-10-08'
  * day (as version 2 never did); its rules are all still in force inside 5.
  */
 export const V5_START = '2026-10-08'
+/**
+ * Rules version 6 applies from this day: coins no longer follow XP, a Mart with
+ * daily deals, marks and a shop for each domain, feats and runs that pay unique
+ * items, Mega Stones forged from shards, held items, TMs and lures. See
+ * ECONOMY-V6.md. Like 4, it starts on the day 5 did, so 5 never ran alone.
+ */
+export const V6_START = '2026-10-08'
 /** Which rules a day is played under. */
-export const rulesOn = (day: string, v3From: string = V3_START, v4From: string = V4_START, v5From: string = V5_START): 1 | 3 | 4 | 5 =>
-  day >= v5From ? 5 : day >= v4From ? 4 : day >= v3From ? 3 : 1
+export const rulesOn = (day: string, v3From: string = V3_START, v4From: string = V4_START, v5From: string = V5_START, v6From: string = V6_START): 1 | 3 | 4 | 5 | 6 =>
+  day >= v6From ? 6 : day >= v5From ? 5 : day >= v4From ? 4 : day >= v3From ? 3 : 1
 
 // ── XP ──────────────────────────────────────────────────────────────────────
 export type Tier = 'pillar' | 'core' | 'standard' | 'basic'
