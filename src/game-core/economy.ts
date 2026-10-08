@@ -173,6 +173,7 @@ export const ITEMS: Record<string, ItemDef> = {
 }
 ITEMS['max-repel'] = { name: 'Max Repel', kind: 'guard', text: `Use it on the wild Pokemon: it stays ${REPEL_DAYS} days longer before it flees. Once for each Pokemon.` }
 ITEMS['revive'] = { name: 'Revive', kind: 'guard', text: 'Use it on the gym leader: everything they won back while the work stopped is taken off again.' }
+ITEMS['lucky-egg'] = { name: 'Lucky Egg', kind: 'unique', text: 'Catches made by wearing a wild Pokemon down are shiny one time in 25 instead of 50. Bought once.' }
 ITEMS['plot-a'] = { name: 'Extra Plot', kind: 'unique', text: 'More room on the Farm: one more plot. Bought once.' }
 ITEMS['plot-b'] = { name: 'Another Plot', kind: 'unique', text: 'One more plot on the Farm. Bought once.' }
 for (const h of HAIRS) ITEMS[hairId(h)] = { name: `${h[0].toUpperCase()}${h.slice(1)} hair`, kind: 'outfit', text: 'A new look for your trainer on the map. Wear it from the Trainer tab.' }
@@ -195,6 +196,8 @@ export const CROPS: Record<string, CropDef> = {
   sunflower: { name: 'Sunflower', days: 8, sell: 24, hearts: 2, seed: 2 },
 }
 export const CROP_IDS = Object.keys(CROPS)
+/** Version 7: the Farm kitchen. Crops (any kind) cooked into a guard: the Arbor domain's own road to protection. */
+export const KITCHEN: Record<string, number> = { 'max-repel': 8, revive: 12 }
 /** A ripe plot gives this many of its crop. */
 export const YIELD = 2
 /** Plots at the start, and one more for each of these two Arbor feats. */
@@ -246,9 +249,10 @@ export const RARE_SHELF: Offer[] = [
   { item: 'full-incense', gems: 40 }, { item: 'chest', gems: 30 }, { item: 'rare-egg', gems: 150 },
   { item: 'theme-beach', gems: 60 }, { item: 'theme-cave', gems: 60 }, { item: 'theme-night', gems: 60 },
   ...HAIRS.map((h) => ({ item: hairId(h), gems: 40 })),
+  { item: 'lucky-egg', gems: 500 },
 ]
 /** Bought once, kept for good. */
-export const ONCE = new Set<string>([...TYPES.map(tmId), 'theme-beach', 'theme-cave', 'theme-night', 'plot-a', 'plot-b', ...HAIRS.map(hairId), ...Object.keys(HELD).filter((h) => HELD[h].mult < 1.2)])
+export const ONCE = new Set<string>([...TYPES.map(tmId), 'theme-beach', 'theme-cave', 'theme-night', 'plot-a', 'plot-b', 'lucky-egg', ...HAIRS.map(hairId), ...Object.keys(HELD).filter((h) => HELD[h].mult < 1.2)])
 
 export interface DomainShop { name: string; place: string; stock: Offer[] }
 const tms = (...types: string[]): Offer[] => types.map((t) => ({ item: tmId(t), marks: ['Psychic', 'Ghost', 'Dark', 'Steel', 'Dragon'].includes(t) ? 9 : 6 }))

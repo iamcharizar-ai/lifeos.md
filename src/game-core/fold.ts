@@ -19,7 +19,7 @@ import {
 } from './rules.ts'
 import { SPECIES, type SpeciesRec } from './species.ts'
 import {
-  AMULET_MULT, BALLS, BERRY_HEARTS, BOND_STEP, CHEST6, CROPS, DAILY_QUESTS6, PLOTS, PLOTS_MAX, PLOT_FEATS, STARTER_SEEDS, YIELD, cropId, cropOf, dealsFor, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, GUARDS, HAIRS, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, MASTERY_MAX, MASTERY_STEP, MEGA_MULT, ONCE, SELL, STANDING, TM_SLOTS, WEEKLY_QUESTS6,
+  AMULET_MULT, BALLS, CROP_IDS, KITCHEN, BERRY_HEARTS, BOND_STEP, CHEST6, CROPS, DAILY_QUESTS6, PLOTS, PLOTS_MAX, PLOT_FEATS, STARTER_SEEDS, YIELD, cropId, cropOf, dealsFor, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, GUARDS, HAIRS, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, MASTERY_MAX, MASTERY_STEP, MEGA_MULT, ONCE, SELL, STANDING, TM_SLOTS, WEEKLY_QUESTS6,
   ballClass, dayGap, forgeShard, hairId, masteryCost, heldMult, isMarkTag, lureTypes, martDeals, offerFor, rng, seasonReward6, throwHp, tmType,
   type MarkTag, type Offer, type Reward, type ShopId,
 } from './economy.ts'
@@ -652,6 +652,21 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       lg.rust -= back
       return true
     }
+    if (u.what === 'cook') {
+      const need = KITCHEN[item]
+      if (!v7Day || !need) return true
+      const have = CROP_IDS.reduce((n, c) => n + (inv[cropId(c)] ?? 0), 0)
+      if (have < need) return true
+      let left = need
+      for (const c of CROP_IDS) {
+        const take = Math.min(left, inv[cropId(c)] ?? 0)
+        inv[cropId(c)] = (inv[cropId(c)] ?? 0) - take
+        left -= take
+      }
+      inv[item] = (inv[item] ?? 0) + 1
+      bump('cooked')
+      return true
+    }
     if (u.what === 'plant') {
       const crop = item.startsWith('seed-') ? cropOf(item) : null
       const i = Number(u.to)
@@ -990,7 +1005,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       w.hp -= result.hit
       if (w.hp <= 0) {
         // a perfect day is the only way to a shiny
-        const shiny = perfect ? rng(`shiny:${f.day}`)() < 1 / SHINY_ODDS : v7 && rng(`shiny-worn:${f.day}`)() < 1 / SHINY_ODDS_WORN
+        const shiny = perfect ? rng(`shiny:${f.day}`)() < 1 / SHINY_ODDS : v7 && rng(`shiny-worn:${f.day}`)() < 1 / (inv['lucky-egg'] ? SHINY_ODDS_WORN / 2 : SHINY_ODDS_WORN)
         catchWild(w, f.day, shiny, ball, perfect ? 'perfect' : 'worn') // the next one appears tomorrow morning
       }
       if (perfect) {
