@@ -19,7 +19,7 @@ import {
 } from './rules.ts'
 import { SPECIES, type SpeciesRec } from './species.ts'
 import {
-  BALLS, CHEST6, DAILY_QUESTS6, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, ONCE, SELL, TM_SLOTS, WEEKLY_QUESTS6,
+  BALLS, CHEST6, CROPS, DAILY_QUESTS6, PLOTS, PLOTS_MAX, PLOT_FEATS, STARTER_SEEDS, YIELD, cropId, cropOf, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, ONCE, SELL, TM_SLOTS, WEEKLY_QUESTS6,
   ballClass, dayGap, forgeShard, heldMult, isMarkTag, lureTypes, martDeals, offerFor, rng, seasonReward6, throwHp, tmType,
   type MarkTag, type Offer, type Reward, type ShopId,
 } from './economy.ts'
@@ -229,6 +229,8 @@ export interface Game {
   wish: { options: string[]; chosen: string | null }
   /** version 6: today's Mart deals and which are already bought, runs (now, best), the counters feats read, the feats reached, and a lure waiting */
   mart: { deals: Offer[]; bought: string[] }
+  /** version 6: the Farm. One entry per place for a plot (a plot is null when empty): what is planted, and the mornings it has been watered */
+  plots: ({ crop: string; grown: number; days: number; ripe: boolean } | null)[]
   runs: Record<string, { cur: number; best: number }>
   counters: Record<string, number>
   feats: { id: string; day: string }[]
@@ -329,6 +331,9 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   const gotFeat = new Set<string>()
   let lureFor: MarkTag | null = null
   let v6Day = false
+  const plots: ({ crop: string; grown: number } | null)[] = Array.from({ length: PLOTS_MAX }, () => null)
+  let starter = false
+  const plotCount = (): number => PLOTS + PLOT_FEATS.filter((id) => gotFeat.has(id)).length
   const bump = (k: string, n = 1) => { cn[k] = (cn[k] ?? 0) + n }
   const runDay = (key: string, day: string) => {
     const r = (runs[key] ??= { cur: 0, best: 0, last: '' })
@@ -609,8 +614,35 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       }
       return true
     }
+    if (u.what === 'plant') {
+      const crop = item.startsWith('seed-') ? cropOf(item) : null
+      const i = Number(u.to)
+      if (!crop || !inv[item] || !Number.isInteger(i) || i < 0 || i >= plotCount() || plots[i]) return true
+      inv[item]--
+      plots[i] = { crop, grown: 0 }
+      return true
+    }
+    if (u.what === 'harvest') {
+      const i = Number(u.to)
+      const p = Number.isInteger(i) && i >= 0 && i < plotCount() ? plots[i] : null
+      if (!p || p.grown < CROPS[p.crop].days) return true
+      inv[cropId(p.crop)] = (inv[cropId(p.crop)] ?? 0) + YIELD
+      plots[i] = null
+      bump('harvests')
+      return true
+    }
+    if (u.what === 'sell') {
+      const crop = item.startsWith('crop-') ? cropOf(item) : null
+      if (!crop || !inv[item]) return true
+      const n = u.to && u.to !== 'all' ? Math.min(inv[item], Math.max(0, Math.floor(Number(u.to)) || 0)) : inv[item]
+      if (n <= 0) return true
+      inv[item] -= n
+      earn(n * CROPS[crop].sell, 0)
+      return true
+    }
     if (u.what === 'feed') {
-      const hearts = item === 'sitrus-berry' ? 3 : item === 'oran-berry' ? 1 : 0
+      const crop = item.startsWith('crop-') ? cropOf(item) : null
+      const hearts = crop ? CROPS[crop].hearts : item === 'sitrus-berry' ? 3 : item === 'oran-berry' ? 1 : 0
       if (!hearts || !inv[item]) return true
       inv[item]--
       partner.fed = (partner.fed ?? 0) + hearts
@@ -852,6 +884,8 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       if (v6) { wallet.marks[t]++; wallet.marksToday[t]++ }
     }
     if (counts) runDay('work', f.day)
+    if (v6 && !starter) { starter = true; for (const [id, n] of Object.entries(STARTER_SEEDS)) inv[id] = (inv[id] ?? 0) + n }
+    if (v6 && unit.arbor) for (const p of plots) if (p && p.grown < CROPS[p.crop].days) p.grown++
     if (v6) {
       const extra = (t: MarkTag, n: number) => { wallet.marks[t] += n; wallet.marksToday[t] += n }
       extra('fitness', MARK_RECORD * (f.marks?.records ?? 0))
@@ -1170,6 +1204,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     egg: egg ? { have: (egg as { have: number }).have, need: version >= 6 && inv['old-charm'] ? EGG_DAYS_OLD_CHARM : EGG_DAYS } : null,
     wish: { options: version >= 5 ? wishOptions() : [], chosen: wishFor },
     version,
+    plots: plots.slice(0, version >= 6 ? plotCount() : 0).map((p) => (p ? { crop: p.crop, grown: p.grown, days: CROPS[p.crop].days, ripe: p.grown >= CROPS[p.crop].days } : null)),
     mart: { deals: last && version >= 6 ? martDeals(last.day, inv['coin-case'] ? 4 : 3) : [], bought: last ? [...sold].filter((k) => k.startsWith(last.day + ':')).map((k) => k.slice(11)) : [] },
     runs: Object.fromEntries(Object.entries(runs).map(([k, r]) => [k, { cur: last && dayGap(r.last, last.day) <= 2 ? r.cur : 0, best: r.best }])),
     counters: cn,

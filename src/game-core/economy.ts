@@ -45,7 +45,7 @@ export const MARK_RECORD = 2
 export const MARK_OWNED = 3
 
 // ── items ───────────────────────────────────────────────────────────────────
-export type ItemKind = 'ball' | 'berry' | 'held' | 'tm' | 'lure' | 'shard' | 'key' | 'unique' | 'egg' | 'chest' | 'theme' | 'incense'
+export type ItemKind = 'seed' | 'crop' | 'ball' | 'berry' | 'held' | 'tm' | 'lure' | 'shard' | 'key' | 'unique' | 'egg' | 'chest' | 'theme' | 'incense'
 export interface ItemDef { name: string; kind: ItemKind; text: string }
 
 const TYPES = ['Bug', 'Dark', 'Dragon', 'Electric', 'Fighting', 'Fire', 'Flying', 'Ghost', 'Grass', 'Ground', 'Ice', 'Normal', 'Poison', 'Psychic', 'Rock', 'Steel', 'Water'] as const
@@ -169,6 +169,39 @@ export const ITEMS: Record<string, ItemDef> = {
 for (const t of TYPES) ITEMS[tmId(t)] = { name: `TM ${t}`, kind: 'tm', text: tmText(t) }
 export const itemName = (id: string): string => ITEMS[id]?.name ?? id
 
+// ── the Farm ────────────────────────────────────────────────────────────────
+// Arbor's own system. A full Arbor morning waters every crop in the ground by
+// one day; a crop is ripe after its days of watering. A day without Arbor adds
+// nothing and takes nothing: nothing wilts.
+export interface CropDef { name: string; days: number; sell: number; hearts: number; seed: number }
+export const CROPS: Record<string, CropDef> = {
+  radish: { name: 'Radish', days: 3, sell: 9, hearts: 1, seed: 1 },
+  carrot: { name: 'Carrot', days: 4, sell: 12, hearts: 1, seed: 1 },
+  potato: { name: 'Potato', days: 5, sell: 15, hearts: 1, seed: 1 },
+  cabbage: { name: 'Cabbage', days: 5, sell: 15, hearts: 1, seed: 1 },
+  beetroot: { name: 'Beetroot', days: 6, sell: 18, hearts: 1, seed: 1 },
+  wheat: { name: 'Wheat', days: 6, sell: 18, hearts: 1, seed: 1 },
+  pumpkin: { name: 'Pumpkin', days: 8, sell: 24, hearts: 2, seed: 2 },
+  sunflower: { name: 'Sunflower', days: 8, sell: 24, hearts: 2, seed: 2 },
+}
+export const CROP_IDS = Object.keys(CROPS)
+/** A ripe plot gives this many of its crop. */
+export const YIELD = 2
+/** Plots at the start, and one more for each of these two Arbor feats. */
+export const PLOTS = 4
+export const PLOT_FEATS = ['days25-arbor', 'days100-arbor']
+export const PLOTS_MAX = PLOTS + PLOT_FEATS.length
+/** What a new player is given to start with: two radish seeds. */
+export const STARTER_SEEDS: Record<string, number> = { 'seed-radish': 2 }
+export const seedId = (c: string): string => `seed-${c}`
+export const cropId = (c: string): string => `crop-${c}`
+/** 'seed-carrot' -> 'carrot', 'crop-carrot' -> 'carrot', anything else null */
+export const cropOf = (id: string): string | null => { const m = /^(?:seed|crop)-(.+)$/.exec(id); return m && CROPS[m[1]] ? m[1] : null }
+for (const c of CROP_IDS) {
+  ITEMS[seedId(c)] = { name: `${CROPS[c].name} seeds`, kind: 'seed', text: `Plant them at the Farm: ripe after ${CROPS[c].days} Arbor mornings, ${YIELD} ${CROPS[c].name.toLowerCase()}s.` }
+  ITEMS[cropId(c)] = { name: CROPS[c].name, kind: 'crop', text: `Sell for ${CROPS[c].sell} coins, or feed it to your partner for ${CROPS[c].hearts} heart${CROPS[c].hearts > 1 ? 's' : ''}.` }
+}
+
 // ── shops ───────────────────────────────────────────────────────────────────
 export interface Offer { item: string; coins?: number; gems?: number; marks?: number }
 export type ShopId = 'mart' | 'rare' | MarkTag
@@ -214,7 +247,7 @@ export const DOMAIN_SHOPS: Record<MarkTag, DomainShop> = {
   },
   arbor: {
     name: 'The Farm', place: 'the terraces in the north-west',
-    stock: [{ item: 'net-ball', marks: 6 }, { item: 'sitrus-berry', marks: 3 }, { item: 'rose-incense', marks: 3 }, { item: 'miracle-seed', marks: 12 }],
+    stock: [{ item: 'net-ball', marks: 6 }, { item: 'sitrus-berry', marks: 3 }, { item: 'rose-incense', marks: 3 }, { item: 'miracle-seed', marks: 12 }, ...CROP_IDS.map((c) => ({ item: seedId(c), marks: CROPS[c].seed }))],
   },
   sleep: {
     name: 'Dream House', place: 'the big house on the east shore',
@@ -323,6 +356,8 @@ export const FEATS: Feat[] = [
   { id: 'grads10', name: 'Ten trained', text: 'Fully train ten Pokemon', group: 'raise', key: 'grads', n: 10, reward: { gems: 50 } },
   { id: 'hearts30', name: 'Close', text: 'A partner reaches thirty hearts', group: 'raise', key: 'hearts', n: 30, reward: { gems: 15, items: { 'luxury-ball': 2 } } },
   { id: 'hatch1', name: 'It hatched', text: 'Hatch a Mystery Egg', group: 'raise', key: 'hatched', n: 1, reward: { gems: 10, items: { 'old-charm': 1 } } },
+  { id: 'harvest10', name: 'Green fingers', text: 'Ten harvests at the Farm', group: 'raise', key: 'harvests', n: 10, reward: { gems: 10 } },
+  { id: 'harvest50', name: 'A full barn', text: 'Fifty harvests at the Farm', group: 'raise', key: 'harvests', n: 50, reward: { gems: 40 } },
   { id: 'chests5', name: 'Five chests', text: 'Open five chests', group: 'raise', key: 'chests', n: 5, reward: { gems: 20 } },
   { id: 'badge1', name: 'First badge', text: 'Win a gym badge', group: 'league', key: 'badges', n: 1, reward: { items: { 'oran-berry': 3 } } },
   { id: 'badge8', name: 'Eight badges', text: 'Win eight gym badges', group: 'league', key: 'badges', n: 8, reward: { gems: 40 } },

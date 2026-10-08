@@ -29,9 +29,11 @@ Version 6 starts on the same day version 5 did, so 5 never ran a day alone. It r
 | Gems | feats, a catch, an evolution, a badge, a graduation, weekly quests | Mystery Egg, Full Incense, chests, scene themes. Never a ball |
 | Marks | one a day for each kind of work done (coding, gym, guitar, Arbor, good sleep); +2 per personal record, +3 per song part owned | that kind's own shop: Silph Co., the Dojo, Music Hall, the Farm, Dream House |
 | Shards (red, blue, yellow, green) | feats only | three forge a Mega Stone for one Pokemon |
-| Feats | runs of days (one rest day forgiven) and lifetime totals: 60 of them | gems, shards, and the items no shop sells: Key Stone, Master Ball, Amulet Coin, Exp. Share, Life Orb, the held items that strike x1.3 |
+| Feats | runs of days (one rest day forgiven) and lifetime totals: 62 of them | gems, shards, and the items no shop sells: Key Stone, Master Ball, Amulet Coin, Exp. Share, Life Orb, the held items that strike x1.3 |
 
 Balls now have conditions: a Net Ball hits Water and Bug double, a Quick Ball is best on the day the wild Pokemon appears, a Timer Ball grows each day it waits, a Repeat Ball likes a species you own. A Pokemon can carry three TMs, each counting as one of its types against a leader, and hold one item that makes one kind of work strike harder. A lure makes the next wild Pokemon one of a domain's types.
+
+**The Farm (Arbor's own system).** Four plots, up to six with Arbor feats. Seeds cost 1 or 2 Seeds marks at the Farm (you start with two radish seeds). A full Arbor morning waters every crop one day; a day without it adds and takes nothing. Ripe after 3 to 8 mornings, a plot gives 2 crops, which sell for coins or feed the partner hearts. Actions are `plant`, `harvest` and `sell` events.
 
 **Mega, rebuilt.** The eighth badge no longer hands over the Key Stone and every Mega. The Key Stone is a feat (seven days running on any one kind of work). A Mega Stone is forged on the Pokemon's own page from three shards: red for X forms, blue or yellow for Y forms. So the Mega you get is the one your work paid for.
 
