@@ -27,8 +27,8 @@ export function rng(seed: string): () => number {
 export const dayGap = (a: string, b: string): number => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000)
 
 // ── the five domains that have a shop ──────────────────────────────────────
-export type MarkTag = 'code' | 'fitness' | 'guitar' | 'arbor' | 'sleep'
-export const MARK_TAGS: MarkTag[] = ['code', 'fitness', 'guitar', 'arbor', 'sleep']
+export type MarkTag = 'code' | 'fitness' | 'guitar' | 'arbor' | 'sleep' | 'routine'
+export const MARK_TAGS: MarkTag[] = ['code', 'fitness', 'guitar', 'arbor', 'sleep', 'routine']
 export const isMarkTag = (t: string): t is MarkTag => (MARK_TAGS as string[]).includes(t)
 export interface MarkDef { name: string; icon: string; shard?: string }
 export const MARKS: Record<MarkTag, MarkDef> = {
@@ -37,6 +37,7 @@ export const MARKS: Record<MarkTag, MarkDef> = {
   guitar: { name: 'Tones', icon: 'poke-flute', shard: 'yellow-shard' },
   arbor: { name: 'Sprouts', icon: 'grn-apricorn', shard: 'green-shard' },
   sleep: { name: 'Bells', icon: 'lunar-wing' },
+  routine: { name: 'Shine', icon: 'star-piece' },
 }
 export const SHARDS = ['red-shard', 'blue-shard', 'yellow-shard', 'green-shard'] as const
 export const SHARD_DOMAIN: Record<string, MarkTag> = { 'red-shard': 'fitness', 'blue-shard': 'code', 'yellow-shard': 'guitar', 'green-shard': 'arbor' }
@@ -103,7 +104,7 @@ export const ballClass = (ball: string): 'poke' | 'great' | 'ultra' => ((BALLS[b
 
 /** Held: one at a time, on the partner. Its domain's work strikes the leader this much harder. `tag` absent = every domain. */
 export const HELD: Record<string, { tag?: MarkTag; mult: number }> = {
-  'wise-glasses': { tag: 'code', mult: 1.15 }, 'muscle-band': { tag: 'fitness', mult: 1.15 }, 'soothe-bell': { tag: 'guitar', mult: 1.15 },
+  'wise-glasses': { tag: 'code', mult: 1.15 }, 'shell-bell': { tag: 'routine', mult: 1.15 }, 'kings-rock': { tag: 'routine', mult: 1.3 }, 'muscle-band': { tag: 'fitness', mult: 1.15 }, 'soothe-bell': { tag: 'guitar', mult: 1.15 },
   'miracle-seed': { tag: 'arbor', mult: 1.15 }, leftovers: { tag: 'sleep', mult: 1.15 },
   'choice-specs': { tag: 'code', mult: 1.3 }, 'choice-band': { tag: 'fitness', mult: 1.3 }, metronome: { tag: 'guitar', mult: 1.3 },
   'big-root': { tag: 'arbor', mult: 1.3 }, 'focus-band': { tag: 'sleep', mult: 1.3 }, 'life-orb': { mult: 1.1 },
@@ -113,7 +114,7 @@ export const heldMult = (item: string | undefined, tag: Tag): number => {
   return h && (!h.tag || h.tag === tag) ? h.mult : 1
 }
 /** A lure burns, and the next wild Pokemon is one of this domain's types. */
-export const LURES: Record<string, MarkTag> = { 'odd-incense': 'code', 'rock-incense': 'fitness', 'pure-incense': 'guitar', 'rose-incense': 'arbor', 'lax-incense': 'sleep' }
+export const LURES: Record<string, MarkTag> = { 'odd-incense': 'code', 'rock-incense': 'fitness', 'pure-incense': 'guitar', 'rose-incense': 'arbor', 'lax-incense': 'sleep', 'sea-incense': 'routine' }
 export const lureTypes = (tag: MarkTag): string[] => Object.entries(TYPE_DOMAIN).filter(([, d]) => d === tag).map(([t]) => t)
 
 /** The map trainer's hair, from the Sunnyside pack. Short hair is the one everyone starts with. */
@@ -140,6 +141,8 @@ export const ITEMS: Record<string, ItemDef> = {
   'oran-berry': { name: 'Oran Berry', kind: 'berry', text: 'Feed your partner: one heart.' },
   'sitrus-berry': { name: 'Sitrus Berry', kind: 'berry', text: 'Feed your partner: three hearts.' },
   'wise-glasses': { name: 'Wise Glasses', kind: 'held', text: 'Hold: code work strikes leaders ×1.15.' },
+  'shell-bell': { name: 'Shell Bell', kind: 'held', text: 'Hold: chores strike leaders ×1.15.' },
+  'kings-rock': { name: "King's Rock", kind: 'held', text: 'Hold: chores strike leaders ×1.3. A reward for a month of tidy days.' },
   'muscle-band': { name: 'Muscle Band', kind: 'held', text: 'Hold: gym work strikes leaders ×1.15.' },
   'soothe-bell': { name: 'Soothe Bell', kind: 'held', text: 'Hold: guitar work strikes leaders ×1.15.' },
   'miracle-seed': { name: 'Miracle Seed', kind: 'held', text: 'Hold: Arbor work strikes leaders ×1.15.' },
@@ -173,6 +176,8 @@ export const ITEMS: Record<string, ItemDef> = {
 }
 ITEMS['max-repel'] = { name: 'Max Repel', kind: 'guard', text: `Use it on the wild Pokemon: it stays ${REPEL_DAYS} days longer before it flees. Once for each Pokemon.` }
 ITEMS['revive'] = { name: 'Revive', kind: 'guard', text: 'Use it on the gym leader: everything they won back while the work stopped is taken off again.' }
+ITEMS['incubator'] = { name: 'Incubator', kind: 'unique', text: 'A second egg can be kept warm at once. It is warmed by tidy days (four-fifths of the chores), not counting days. Bought once.' }
+ITEMS['sea-incense'] = { name: 'Sea Incense', kind: 'lure', text: 'Burn it: the next wild Pokemon is a chore type (Water, Ice, Bug, Poison).' }
 ITEMS['lucky-egg'] = { name: 'Lucky Egg', kind: 'unique', text: 'Catches made by wearing a wild Pokemon down are shiny one time in 25 instead of 50. Bought once.' }
 ITEMS['plot-a'] = { name: 'Extra Plot', kind: 'unique', text: 'More room on the Farm: one more plot. Bought once.' }
 ITEMS['plot-b'] = { name: 'Another Plot', kind: 'unique', text: 'One more plot on the Farm. Bought once.' }
@@ -252,7 +257,7 @@ export const RARE_SHELF: Offer[] = [
   { item: 'lucky-egg', gems: 500 },
 ]
 /** Bought once, kept for good. */
-export const ONCE = new Set<string>([...TYPES.map(tmId), 'theme-beach', 'theme-cave', 'theme-night', 'plot-a', 'plot-b', 'lucky-egg', ...HAIRS.map(hairId), ...Object.keys(HELD).filter((h) => HELD[h].mult < 1.2)])
+export const ONCE = new Set<string>([...TYPES.map(tmId), 'theme-beach', 'theme-cave', 'theme-night', 'plot-a', 'plot-b', 'lucky-egg', 'incubator', ...HAIRS.map(hairId), ...Object.keys(HELD).filter((h) => HELD[h].mult < 1.2)])
 
 export interface DomainShop { name: string; place: string; stock: Offer[] }
 const tms = (...types: string[]): Offer[] => types.map((t) => ({ item: tmId(t), marks: ['Psychic', 'Ghost', 'Dark', 'Steel', 'Dragon'].includes(t) ? 9 : 6 }))
@@ -271,7 +276,11 @@ export const DOMAIN_SHOPS: Record<MarkTag, DomainShop> = {
   },
   arbor: {
     name: 'The Farm', place: 'the terraces in the north-west',
-    stock: [{ item: 'net-ball', marks: 6 }, { item: 'rose-incense', marks: 3 }, { item: 'miracle-seed', marks: 12 }, ...CROP_IDS.map((c) => ({ item: seedId(c), marks: CROPS[c].seed }))],
+    stock: [{ item: 'rose-incense', marks: 3 }, { item: 'miracle-seed', marks: 12 }, ...CROP_IDS.map((c) => ({ item: seedId(c), marks: CROPS[c].seed }))],
+  },
+  routine: {
+    name: 'The Home', place: 'the little house by the river',
+    stock: [{ item: 'net-ball', marks: 6 }, { item: 'sea-incense', marks: 3 }, { item: 'shell-bell', marks: 12 }, { item: 'incubator', marks: 15 }],
   },
   sleep: {
     name: 'Dream House', place: 'the big house on the east shore',
@@ -336,9 +345,9 @@ export interface Feat { id: string; name: string; text: string; group: 'run' | '
 
 const DOMAIN_WORD: Record<MarkTag, { run: string; unit: string }> = {
   code: { run: 'Code', unit: 'coding days' }, fitness: { run: 'Gym', unit: 'gym days' }, guitar: { run: 'Guitar', unit: 'guitar days' },
-  arbor: { run: 'Arbor', unit: 'Arbor mornings' }, sleep: { run: 'Sleep', unit: 'good nights' },
+  arbor: { run: 'Arbor', unit: 'Arbor mornings' }, sleep: { run: 'Sleep', unit: 'good nights' }, routine: { run: 'Home', unit: 'tidy days' },
 }
-export const UNIQUE_HELD: Record<MarkTag, string> = { code: 'choice-specs', fitness: 'choice-band', guitar: 'metronome', arbor: 'big-root', sleep: 'focus-band' }
+export const UNIQUE_HELD: Record<MarkTag, string> = { code: 'choice-specs', fitness: 'choice-band', guitar: 'metronome', arbor: 'big-root', sleep: 'focus-band', routine: 'kings-rock' }
 const shardOf = (t: MarkTag, n = 1): Record<string, number> => (MARKS[t].shard ? { [MARKS[t].shard!]: n } : {})
 
 function domainFeats(): Feat[] {
@@ -364,6 +373,8 @@ export const FEATS: Feat[] = [
   { id: 'work30', name: 'A month of it', text: 'Three pillars a day for thirty days running', group: 'run', key: 'run:work3', n: 30, reward: { gems: 40, items: { 'master-ball': 1 } } },
   { id: 'work60', name: 'Two months', text: 'Three pillars a day for sixty days running', group: 'run', key: 'run:work3', n: 60, reward: { gems: 100 } },
   ...domainFeats(),
+  { id: 'walk30', name: 'Thirty long walks', text: 'Thirty days of 10,000 steps', group: 'total', key: 'walk', n: 30, reward: { gems: 25 } },
+  { id: 'walk100', name: 'A hundred long walks', text: 'A hundred days of 10,000 steps', group: 'total', key: 'walk', n: 100, reward: { gems: 70 } },
   { id: 'workouts10', name: 'Ten workouts', text: 'Ten workouts logged in Strong', group: 'total', key: 'workouts', n: 10, reward: { gems: 15 } },
   { id: 'workouts50', name: 'Fifty workouts', text: 'Fifty workouts logged in Strong', group: 'total', key: 'workouts', n: 50, reward: { gems: 40 } },
   { id: 'records1', name: 'A record', text: 'Your first personal record', group: 'total', key: 'records', n: 1, reward: { gems: 10 } },

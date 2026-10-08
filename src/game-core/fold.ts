@@ -233,6 +233,8 @@ export interface Game {
   season: { month: string; step: number; into: number; need: number; next: { coins?: number; gems?: number; item?: string } }
   /** the egg being kept warm, if there is one */
   egg: { have: number; need: number } | null
+  /** version 7: the Incubator's egg */
+  egg2: { have: number; need: number } | null
   /** the three the next wild Pokemon can be chosen from with incense, and the one chosen */
   wish: { options: string[]; chosen: string | null }
   /** version 6: last night. `state`: measured by the band, a hand tick because there is no reading yet ('self'), or no band in use ('off') */
@@ -339,7 +341,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   let chosenNext: string | null = null
   let keyStone: string | null = null
   // version 5: the wallet, what is held, the team, quests already paid
-  const zeroMarks = (): Record<MarkTag, number> => ({ code: 0, fitness: 0, guitar: 0, arbor: 0, sleep: 0 })
+  const zeroMarks = (): Record<MarkTag, number> => ({ code: 0, fitness: 0, guitar: 0, arbor: 0, sleep: 0, routine: 0 })
   const wallet = { coins: 0, gems: 0, coinsToday: 0, gemsToday: 0, marks: zeroMarks(), marksToday: zeroMarks() }
   const inv: Record<string, number> = {}
   // version 6: the Mart's sales, runs, counters and feats
@@ -354,7 +356,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   let fledToday: string | null = null
   const plots: ({ crop: string; grown: number } | null)[] = Array.from({ length: PLOTS_MAX }, () => null)
   let starter = false
-  const mastery: Record<MarkTag, number> = { code: 0, fitness: 0, guitar: 0, arbor: 0, sleep: 0 }
+  const mastery: Record<MarkTag, number> = { code: 0, fitness: 0, guitar: 0, arbor: 0, sleep: 0, routine: 0 }
   let outfit = ''
   const plotCount = (): number => PLOTS + PLOT_FEATS.filter((id) => gotFeat.has(id)).length + (inv['plot-a'] ? 1 : 0) + (inv['plot-b'] ? 1 : 0)
   const bump = (k: string, n = 1) => { cn[k] = (cn[k] ?? 0) + n }
@@ -371,6 +373,8 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   const paid = new Set<string>()
   const monthXp: Record<string, number> = {}, monthStep: Record<string, number> = {}
   let egg: { have: number } | null = null
+  /** version 7: the Incubator's egg, warmed by tidy days */
+  let egg2: { have: number } | null = null
   let chests = 0
   const weekXp: Record<string, number> = {}, weekDays: Record<string, number> = {}, weekCatch: Record<string, number> = {}
   let v5Day = false
@@ -951,8 +955,10 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       notes.stepDays++
     }
     // version 6: each domain's own unit-day. Counted for every day (history counts toward feats); marks are paid only from version 6
+    /** a tidy day: four-fifths of the chores done (the same bar as the chores quest) */
+    const tidy = (hs: typeof f.habits): boolean => { const rs = hs.filter((h) => h.tag === 'routine'); return rs.length >= 3 && rs.filter((h) => h.done).length / rs.length >= 0.8 }
     const did = (t: Tag): boolean => f.habits.some((h) => h.tag === t && (h.frac >= 1 || h.done))
-    const unit: Record<MarkTag, boolean> = { code: did('code'), fitness: did('fitness') || (f.marks?.workouts ?? 0) > 0, guitar: did('guitar'), arbor: did('arbor'), sleep: f.habits.some((h) => h.tag === 'sleep' && h.measured === true && h.done) }
+    const unit: Record<MarkTag, boolean> = { code: did('code'), fitness: did('fitness') || (f.marks?.workouts ?? 0) > 0, guitar: did('guitar'), arbor: did('arbor'), sleep: f.habits.some((h) => h.tag === 'sleep' && h.measured === true && h.done), routine: tidy(f.habits) }
     for (const t of MARK_TAGS) {
       if (!unit[t]) continue
       bump(`days:${t}`)
@@ -966,6 +972,8 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     if (v6) {
       const extra = (t: MarkTag, n: number) => { wallet.marks[t] += n; wallet.marksToday[t] += n }
       extra('fitness', MARK_RECORD * (f.marks?.records ?? 0))
+      // version 7: a day of 10,000 steps pays an Iron mark of its own, whatever else the day was
+      if (v7 && typeof f.body?.steps === 'number' && f.body.steps >= STEPS_GOAL) { extra('fitness', 1); bump('walk') }
       extra('guitar', MARK_OWNED * (f.marks?.owned ?? 0))
       // a deep night (90 or more) pays a second Bell
       if (unit.sleep && (f.body?.sleepScore ?? 0) >= SLEEP_DEEP) extra('sleep', 1)
@@ -1117,6 +1125,18 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
           see(mon.form, f.day, false)
           moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form })
           egg = null
+        }
+        // version 7: the Incubator keeps a second egg, warmed by tidy days
+        if (v7 && inv['incubator']) {
+          if (!egg2 && egg && inv['rare-egg']) { inv['rare-egg']--; egg2 = { have: 0 } }
+          else if (egg2 && unit.routine && ++egg2.have >= (inv['old-charm'] ? EGG_DAYS_OLD_CHARM : EGG_DAYS)) {
+            bump('hatched')
+            const mon = make(roll(`rare-egg2:${f.day}`, 'R'), 'egg', f.day)
+            queue.push(mon)
+            see(mon.form, f.day, false)
+            moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form })
+            egg2 = null
+          }
         }
       }
 
@@ -1300,6 +1320,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       const xp = monthXp[ym] ?? 0, step = monthStep[ym] ?? 0
       return { month: ym, step, into: xp - step * SEASON_STEP, need: SEASON_STEP, next: version >= 6 ? seasonReward6(step + 1) : seasonReward(step + 1) }
     })(),
+    egg2: egg2 ? { have: (egg2 as { have: number }).have, need: inv['old-charm'] ? EGG_DAYS_OLD_CHARM : EGG_DAYS } : null,
     egg: egg ? { have: (egg as { have: number }).have, need: version >= 6 && inv['old-charm'] ? EGG_DAYS_OLD_CHARM : EGG_DAYS } : null,
     wish: { options: version >= 5 ? wishOptions() : [], chosen: wishFor },
     version,
