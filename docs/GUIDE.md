@@ -17,6 +17,20 @@ The one rule behind every design choice: **the only way to progress is to do the
 
 ---
 
+## Rules version 7 (from 9 Oct 2026): things can go wrong, a little
+
+Until version 6 nothing could be lost. Version 7 adds three small stakes. None of them takes back anything already earned: badges, caught Pokemon, XP, feats and items stay.
+
+| What | Rule | Why it is small |
+|---|---|---|
+| A wild Pokemon flees | It stays 21 days (28 if rare, 42 if legendary), then is gone by morning and the next one takes its place. A fled one is seen in the Pokedex, never caught. The Home screen warns three days ahead. | A steady player catches one in about a week and never sees this. |
+| An idle day | A second day in a row with no pillar done: the leader you are fighting wins back 200 HP, and 2 hearts that berries gave fade. The first miss is always free. Hearts from days together never fade. | It only undoes recent work on the current leader. |
+| Shiny | A catch made by wearing the wild Pokemon down is shiny one time in 50. A perfect day stays one in ten. | A reward, so the ordinary week has something to hope for. |
+
+Two items protect you, both always on the Mart's shelf: **Max Repel** (220 coins) keeps the wild Pokemon 7 days longer, once for each Pokemon; **Revive** (300 coins) takes back what the leader won while the work stopped. This is what coins are for.
+
+In the simulator a strong or ordinary player never loses anything. A patchy one loses about 1 wild Pokemon a year, a player who stops for weeks loses about 7, and one who only ever does one thing loses 8 of 20. The numbers are tuned on invented behaviour and need a retune from the real ledger after three to four weeks.
+
 ## Rules version 6 (from 8 Oct 2026): an economy with a reason for each thing
 
 Version 6 starts on the same day version 5 did, so 5 never ran a day alone. It replaces the money rules of 5 and keeps everything else. The full design, with the reasoning, is `ECONOMY-V6.md` in the workspace folder.
@@ -423,6 +437,7 @@ Then deploy both. If a change affects past days, bump `RULES_VERSION` and note t
 | 4 | (never ran alone) | badges as the reward, natures, bond never lost; see the table at the top |
 | 5 | (never ran alone) | coins, gems, shop, thrown balls, quests, season ladder |
 | 6 | 2026-10-08 | coins are not XP, the Mart, domain shops, feats, the Farm, the world map |
+| 7 | 2026-10-09 | stakes: wild Pokemon flee, idle days, Max Repel and Revive |
 
 ### The species table
 

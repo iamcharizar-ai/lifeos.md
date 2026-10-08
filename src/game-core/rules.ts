@@ -275,7 +275,7 @@ export const EGG_DAYS = 5
 // Until now nothing could go wrong. These are the three things that can, each
 // small enough that a bad week costs something and a bad month is not the end.
 /** Days a wild Pokemon stays before it flees, by rarity. A fled one is seen, never caught, and the next appears at once. */
-export const WILD_STAY: Record<Rarity, number> = { C: 14, U: 14, R: 18, L: 28 }
+export const WILD_STAY: Record<Rarity, number> = { C: 21, U: 21, R: 28, L: 42 }
 /** Max Repel adds this many days to the wild Pokemon's stay. One per Pokemon. */
 export const REPEL_DAYS = 7
 /** A day with no pillar done, straight after another one, is an idle day. The first miss is always free. */
