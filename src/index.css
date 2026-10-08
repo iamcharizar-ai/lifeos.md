@@ -424,3 +424,17 @@ body {
 @keyframes moment-spin { to { transform: rotate(360deg); } }
 @keyframes moment-pop { 0% { transform: scale(0.2) rotate(-14deg); opacity: 0; } 60% { transform: scale(1.2); } }
 @media (prefers-reduced-motion: reduce) { .moment-big .moment-art::before, .moment-big .moment-art > * { animation: none; } }
+
+/* Sleep once the band is in use: a night sky, with the score lit like a small moon */
+.tile-vitals {
+  background: radial-gradient(1.5px 1.5px at 18% 30%, #fff8 99%, transparent), radial-gradient(1px 1px at 62% 22%, #fff9 99%, transparent), radial-gradient(1.5px 1.5px at 84% 62%, #fff7 99%, transparent), linear-gradient(160deg, #1b2150 0%, #2b2866 55%, #3a2d78 100%);
+  color: #e9e6ff;
+  border-color: #111;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #8f86ff;
+}
+.tile-vitals.is-done { box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #f2c14e; }
+.tile-vitals:active, .tile-vitals:hover { box-shadow: 1px 1px 0 0 #111, inset 0 0 0 3px #e9e6ff; }
+.tile-vitals > button:last-child { color: #b9b6dd; }
+.vit-title { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 900; font-size: 20px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
+.vit-score { display: grid; place-items: center; min-width: 34px; height: 34px; padding: 0 6px; font-size: 16px; font-weight: 800; color: #1b2150; background: #f2e9b8; border: 2px solid #111; border-radius: 50%; }

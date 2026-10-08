@@ -65,6 +65,8 @@ export const isTag = (x: unknown): x is Tag => typeof x === 'string' && (TAGS as
 export const SLEEP_HABIT = 'sleep-before-10'
 /** Sleep score (0-100) at which the Sleep pillar counts as done. It pays score/100 of a pillar either way. */
 export const SLEEP_DONE = 80
+/** A measured night at this score or more pays two Bells instead of one (version 6). See SLEEP-DESIGN.md. */
+export const SLEEP_DEEP = 90
 
 /** Habits that open into a block of items and pay for the share that was done. */
 export const ARBOR_HABIT = 'arbor-morning'

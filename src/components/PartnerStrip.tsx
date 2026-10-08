@@ -77,12 +77,14 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
           {game.version >= 5 && game.wallet.coinsToday > 0 && <> · <b className="partner-today">+<AnimatedNumber value={game.wallet.coinsToday} /></b> coins</>}
           {game.version >= 6 && marksToday(game) > 0 && <> · <b className="partner-today">+{marksToday(game)}</b> marks</>}
           {momentum.mult > 1 && <> · ×{momentum.mult} momentum</>}
+          {game.version >= 6 && game.sleep.state === 'measured' && <> · slept <b className="partner-today">{game.sleep.score}</b></>}
+          {game.version >= 6 && game.sleep.state === 'self' && <> · sleep: waiting for the band</>}
           {' · '}
           {game.next.what === 'evolve' ? 'evolves' : 'fully trained'} at Lv {game.next.level}
         </div>
         <div className="partner-line">
           {game.asleep
-            ? 'Asleep. One pillar wakes it.'
+            ? 'Dozing. One pillar wakes it.'
             : today.perfect
               ? 'Perfect day.'
               : `${left} left for a perfect day · ${today.pillars}/${today.pillarTotal} pillars`}

@@ -13,7 +13,7 @@ import { addDays } from './facts.ts'
 import { LEAGUES, lineup, type Leader } from './gyms.ts'
 import {
   ADVANTAGE_MULT, BADGE_DAYS, BALL_MULT, CATCH_WEIGHTS, CHEST, DAILY_QUESTS, EGG_DAYS, GEMS, KEY_STONE_BADGES, LEADER_HP, LEGENDARY_EVERY, LEGENDARY_EVERY_WILD, MEGA_DAYS, MILESTONE_STONES,
-  MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS, PILLARS_FOR_A_DAY, RARE_EVERY, SHINY_EVERY, SHINY_ODDS, SLEEP_AFTER, START_SPECIES, STAT_DAYS, STEPS_GOAL, STONE_FOR_TAG, TAGS, TEAM_BONUS, TEAM_SIZE, THROW_HP, V3_START, V4_START, V5_START, V6_START, WEEKLY_QUESTS, WEEK_DAYS, WEEK_XP,
+  MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS, PILLARS_FOR_A_DAY, RARE_EVERY, SHINY_EVERY, SHINY_ODDS, SLEEP_AFTER, SLEEP_DEEP, SLEEP_HABIT, START_SPECIES, STAT_DAYS, STEPS_GOAL, STONE_FOR_TAG, TAGS, TEAM_BONUS, TEAM_SIZE, THROW_HP, V3_START, V4_START, V5_START, V6_START, WEEKLY_QUESTS, WEEK_DAYS, WEEK_XP,
   SEASON_STEP, WEAK_MULT, WILD_HP, SHOP, ballFor, isShopItem, seasonReward, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, regionsOpenV2, rulesOn, wildHit, wildHit5, xpForLevel,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
@@ -227,6 +227,8 @@ export interface Game {
   egg: { have: number; need: number } | null
   /** the three the next wild Pokemon can be chosen from with incense, and the one chosen */
   wish: { options: string[]; chosen: string | null }
+  /** version 6: last night. `state`: measured by the band, a hand tick because there is no reading yet ('self'), or no band in use ('off') */
+  sleep: { band: boolean; state: 'measured' | 'self' | 'off'; score: number | null; xp: number }
   /** version 6: today's Mart deals and which are already bought, runs (now, best), the counters feats read, the feats reached, and a lure waiting */
   mart: { deals: Offer[]; bought: string[] }
   /** version 6: the Farm. One entry per place for a plot (a plot is null when empty): what is planted, and the mornings it has been watered */
@@ -876,7 +878,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     }
     // version 6: each domain's own unit-day. Counted for every day (history counts toward feats); marks are paid only from version 6
     const did = (t: Tag): boolean => f.habits.some((h) => h.tag === t && (h.frac >= 1 || h.done))
-    const unit: Record<MarkTag, boolean> = { code: did('code'), fitness: did('fitness') || (f.marks?.workouts ?? 0) > 0, guitar: did('guitar'), arbor: did('arbor'), sleep: did('sleep') }
+    const unit: Record<MarkTag, boolean> = { code: did('code'), fitness: did('fitness') || (f.marks?.workouts ?? 0) > 0, guitar: did('guitar'), arbor: did('arbor'), sleep: f.habits.some((h) => h.tag === 'sleep' && h.measured === true && h.done) }
     for (const t of MARK_TAGS) {
       if (!unit[t]) continue
       bump(`days:${t}`)
@@ -890,6 +892,8 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       const extra = (t: MarkTag, n: number) => { wallet.marks[t] += n; wallet.marksToday[t] += n }
       extra('fitness', MARK_RECORD * (f.marks?.records ?? 0))
       extra('guitar', MARK_OWNED * (f.marks?.owned ?? 0))
+      // a deep night (90 or more) pays a second Bell
+      if (unit.sleep && (f.body?.sleepScore ?? 0) >= SLEEP_DEEP) extra('sleep', 1)
     }
     const share = full > 0 ? base / full : 0
     const chores = f.habits.filter((h) => h.tag === 'routine')
@@ -1205,6 +1209,10 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     wish: { options: version >= 5 ? wishOptions() : [], chosen: wishFor },
     version,
     plots: plots.slice(0, version >= 6 ? plotCount() : 0).map((p) => (p ? { crop: p.crop, grown: p.grown, days: CROPS[p.crop].days, ripe: p.grown >= CROPS[p.crop].days } : null)),
+    sleep: (() => {
+      const h = lastFacts?.habits.find((x) => x.id === SLEEP_HABIT && x.tag === 'sleep')
+      return { band: facts.some((f) => f.habits.some((x) => x.measured)), state: h?.measured ? 'measured' as const : h?.selfReported ? 'self' as const : 'off' as const, score: typeof lastFacts?.body?.sleepScore === 'number' ? lastFacts.body.sleepScore : null, xp: h ? Math.round(h.worth * h.frac) : 0 }
+    })(),
     mart: { deals: last && version >= 6 ? martDeals(last.day, inv['coin-case'] ? 4 : 3) : [], bought: last ? [...sold].filter((k) => k.startsWith(last.day + ':')).map((k) => k.slice(11)) : [] },
     runs: Object.fromEntries(Object.entries(runs).map(([k, r]) => [k, { cur: last && dayGap(r.last, last.day) <= 2 ? r.cur : 0, best: r.best }])),
     counters: cn,
@@ -1229,9 +1237,11 @@ export function statsOf(facts: DayFacts[]): Stats {
   }
   const mean = (xs: number[]): number | null => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null)
   const recovery = recent.flatMap((d) => (typeof d.body?.recovery === 'number' ? [d.body.recovery] : []))
+  // HP is the average of the nights the band measured; a night it did not is left out, not counted as nothing
+  const nights = recent.flatMap((d) => (typeof d.body?.sleepScore === 'number' ? [d.body.sleepScore] : []))
   const steps = recent.flatMap((d) => (typeof d.body?.steps === 'number' ? [Math.min(100, (d.body.steps / STEPS_GOAL) * 100)] : []))
   return {
-    hp: share('sleep'),
+    hp: nights.length ? mean(nights) : share('sleep'),
     atk: share('fitness'),
     // recovery once the band reports it; the morning mobility block stands in until then
     def: recovery.length ? mean(recovery) : share('arbor'),

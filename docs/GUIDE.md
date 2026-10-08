@@ -622,7 +622,9 @@ Life OS writes the day's habit list to the ledger (`day_list`) on the day itself
 
 ### Sleep, once the band is in use
 
-From the first morning the band reports a sleep score, the sleep habit becomes a pillar only the band can fill. It pays the score as a share of 100 XP and counts as done at 80 or more. It is not judged on the clock. A poor night costs XP but never a perfect day. Until the band exists, the habit is ticked by hand.
+From the first morning the band reports a sleep score, the sleep habit becomes a pillar the band fills. It pays the score as a share of 100 XP and counts as done at 80 or more. It is not judged on the clock (the score does ask for a *steady* bedtime: close to your own usual, whatever that is). A poor night costs XP but never a perfect day. Until the band exists, the habit is ticked by hand.
+
+**A morning with no reading is not a miss (from 8 Oct 2026).** If the band is in use but has not reported that morning (not worn, not synced yet, sign-in expired), the habit is a hand tick worth a core habit (30 XP), not a pillar; the reading replaces it when it arrives. Bells (the Dream House) come only from measured nights: one at 80 or more, two at 90. HP on the Trainer profile is the average of the last 28 measured nights. Life OS shows the night on the Sleep row (hours, bed and wake, score, what it paid) and the Pokedex shows it as "Last night". The partner's idle state is now called dozing, so "asleep" only ever means you. The full reasoning, and what is deliberately not done, is `SLEEP-DESIGN.md` in the workspace folder.
 
 ### Trainer stats
 

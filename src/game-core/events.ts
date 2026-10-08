@@ -34,6 +34,41 @@ export function bodyOf(events: GameEvent[]): Record<string, BodyFacts> {
   return out
 }
 
+/** One night as the band reported it, for showing. The game itself only reads the score (see BodyFacts). */
+export interface SleepNight {
+  /** the morning it ended: the day it is filed under */
+  day: string
+  score?: number
+  /** "YYYY-MM-DDTHH:MM", where you were */
+  bed?: string
+  wake?: string
+  sleepMin?: number
+  awakeMin?: number
+  deepMin?: number
+  remMin?: number
+  lightMin?: number
+}
+const NIGHT_NUMBERS = ['sleepMin', 'awakeMin', 'deepMin', 'remMin', 'lightMin'] as const
+const NIGHT_TEXT = ['bed', 'wake'] as const
+
+/** day → the night that ended on it. Same rules as bodyOf: oldest first, a later reading replaces an earlier one, null takes it back. A day with nothing about sleep is absent. */
+export function sleepOf(events: GameEvent[]): Record<string, SleepNight> {
+  const out: Record<string, SleepNight> = {}
+  for (const ev of events) {
+    if (ev.type !== BODY_EVENT) continue
+    const p = ev.payload ?? {}
+    const set = (k: keyof SleepNight, v: unknown, ok: boolean) => {
+      if (ok) (out[ev.day] ??= { day: ev.day } as SleepNight)[k as 'score'] = v as never
+      else if (v === null && out[ev.day]) delete out[ev.day][k as 'score']
+    }
+    set('score', p.sleepScore, typeof p.sleepScore === 'number' && Number.isFinite(p.sleepScore))
+    for (const k of NIGHT_NUMBERS) set(k, p[k], typeof p[k] === 'number' && Number.isFinite(p[k] as number))
+    for (const k of NIGHT_TEXT) set(k, p[k], typeof p[k] === 'string' && (p[k] as string).length > 0)
+  }
+  for (const d of Object.keys(out)) if (Object.keys(out[d]).length <= 1) delete out[d]
+  return out
+}
+
 /** Items used from the Bag, in the order they were used. */
 export function usesOf(events: GameEvent[]): ItemUse[] {
   const out: ItemUse[] = []

@@ -11,8 +11,8 @@ import { TIERS, TIER_XP, domainOf, type Habit, type Tier } from '../config/habit
 import type { Ticks } from '../lib/store'
 import { PartnerStrip } from '../components/PartnerStrip'
 import type { Game } from '../game-core/fold.ts'
-import { TAGS, tierXp, type Tag } from '../game-core/rules.ts'
-import { ArborHead, ArborSkills, GuitarHead, GuitarItems, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { SLEEP_HABIT, TAGS, tierXp, type Tag } from '../game-core/rules.ts'
+import { ArborHead, ArborSkills, GuitarHead, GuitarItems, SleepTile, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
 import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
 import { practicedOn } from '../arbor-core/model.ts'
@@ -259,7 +259,8 @@ function ChecklistRow({
   const ticked = Boolean(ticks[today]?.[habit.id])
   const xp = tierXp(habit.tier)
   // Linked habits are fed by Strong / Arbor and wear that app's look.
-  const link = linkOf(habit.id)
+  // once the band is in use the Sleep row shows the night, or says it is waiting for it
+  const link = habit.id === SLEEP_HABIT && linked.sleep.state !== 'off' ? ('vitals' as const) : linkOf(habit.id)
   const strongLinked = useStrongLinked()
   const planned = linked.plan.morning
   const practised = planned.filter((id) => practicedOn(linked.arbor, today, id)).length
@@ -320,6 +321,8 @@ function ChecklistRow({
             open={showSkills}
             onToggle={() => setSkillsOpen(!showSkills)}
           />
+        ) : link === 'vitals' ? (
+          <SleepTile name={habit.name} state={linked.sleep.state} night={linked.sleep.night} ticked={ticked} selfXp={TIER_XP.core} onToggle={() => actions.onToggle(habit.id)} />
         ) : link === 'woodshed' ? (
           <GuitarHead
             name={habit.name}

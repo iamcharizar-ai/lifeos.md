@@ -2,7 +2,7 @@
 // one plain list of days. The game itself (fold.ts) only ever sees this list,
 // so Life OS and Pokedex cannot disagree about what happened on a day.
 import type { ListedHabit } from './events.ts'
-import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V3_START, V4_START, isTag, tagOf, tierXp, type Tag } from './rules.ts'
+import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V3_START, V4_START, V6_START, isTag, tagOf, tierXp, type Tag } from './rules.ts'
 
 export interface HabitLite {
   id: string
@@ -92,6 +92,8 @@ export interface HabitFact {
   done: boolean
   /** set by the band, not by a tick */
   measured?: true
+  /** version 6: the band is in use but has no reading for this morning, so the habit is a hand tick worth a core habit (SLEEP-DESIGN.md D2) */
+  selfReported?: true
 }
 
 export interface DayFacts {
@@ -140,7 +142,9 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
     : input.habits.filter((h) => activeOn(h, day)).map((h) => (day >= V4_START ? h : { ...h, domain: undefined }))
   for (const h of todays) {
     // version 2, with a band: Sleep is a pillar paid on last night's score, and a hand tick no longer counts
-    if (h.id === SLEEP_HABIT && day >= V3_START && band !== null && day >= band) {
+    // from version 6, no reading is not a miss: that morning's habit is a hand tick, paid as a core habit and not a pillar
+    const unread = h.id === SLEEP_HABIT && day >= V3_START && band !== null && day >= band && typeof body?.sleepScore !== 'number' && day >= V6_START
+    if (h.id === SLEEP_HABIT && day >= V3_START && band !== null && day >= band && !unread) {
       const score = Math.max(0, Math.min(100, body?.sleepScore ?? 0))
       habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: 'sleep', worth: TIER_XP.pillar, pillar: true, frac: score / 100, done: score >= SLEEP_DONE, measured: true })
       continue
@@ -157,7 +161,7 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
       const logs = input.shed?.logs ?? {}
       if (plan.length) frac = plan.filter((id) => logs[id]?.[day]?.done && inTime(logs[id][day].at, day)).length / plan.length
     }
-    habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: isTag(h.domain) ? h.domain : tagOf(h.id), worth: tierXp(h.tier), pillar: h.tier === 'pillar', frac, done })
+    habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: isTag(h.domain) ? h.domain : tagOf(h.id), worth: unread ? TIER_XP.core : tierXp(h.tier), pillar: unread ? false : h.tier === 'pillar', frac, done, ...(unread ? { selfReported: true as const } : {}) })
   }
   const marks = input.marks?.[day]
   return { day, habits, ...(body ? { body } : {}), ...(uses?.length ? { uses } : {}), ...(marks ? { marks } : {}) }

@@ -42,7 +42,7 @@ import { ITEM_BY_ID } from './woodshed-core/course.ts'
 import { statsOf, type Feel } from './woodshed-core/model.ts'
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
 import { useGame } from './lib/game'
-import { applyGameEvents, sleepMeasured, useGameLink } from './lib/gameLink'
+import { applyGameEvents, sleepMeasured, sleepState, useGameLink } from './lib/gameLink'
 import { listAdds } from './game-core/events.ts'
 import { SLEEP_DONE, SLEEP_HABIT, V4_START } from './game-core/rules.ts'
 import { Moments } from './components/PartnerStrip'
@@ -381,7 +381,7 @@ export default function App() {
             today={today}
             game={game}
             actions={actions}
-            linked={{ workout: workouts[today], arbor, plan, onSkill, guitar: { shed, session, onLog: onGuitar } }}
+            linked={{ workout: workouts[today], arbor, plan, onSkill, guitar: { shed, session, onLog: onGuitar }, sleep: { state: sleepState(link, today), night: link.nights[today] } }}
             weekly={weekly}
           />
         )}
