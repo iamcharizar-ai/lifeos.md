@@ -420,7 +420,9 @@ Then deploy both. If a change affects past days, bump `RULES_VERSION` and note t
 |---|---|---|
 | 1 | 2026-10-03 | first rules |
 | 3 | 2026-10-05 | see section 15 |
-| 4 | 2026-10-08 | see "The game today" |
+| 4 | (never ran alone) | badges as the reward, natures, bond never lost; see the table at the top |
+| 5 | (never ran alone) | coins, gems, shop, thrown balls, quests, season ladder |
+| 6 | 2026-10-08 | coins are not XP, the Mart, domain shops, feats, the Farm, the world map |
 
 ### The species table
 

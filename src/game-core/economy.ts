@@ -213,6 +213,11 @@ export const MART_POOL: Offer[] = [
   { item: 'odd-incense', coins: 220 }, { item: 'rock-incense', coins: 220 }, { item: 'pure-incense', coins: 220 }, { item: 'rose-incense', coins: 220 }, { item: 'lax-incense', coins: 220 },
 ]
 export const MART_DEALS = 3
+/** The Coin Case adds a deal; the Amulet Coin raises quest coins; berries feed this many hearts. Read by the fold and by the item text, so they cannot drift apart. */
+export const COIN_CASE_DEALS = 4
+export const AMULET_MULT = 1.25
+export const BERRY_HEARTS: Record<string, number> = { 'oran-berry': 1, 'sitrus-berry': 3 }
+export const dealsFor = (inv: Record<string, number>): number => (inv['coin-case'] ? COIN_CASE_DEALS : MART_DEALS)
 /** The day's deals: the same three on every device, and one of each can be bought. */
 export function martDeals(day: string, n: number = MART_DEALS): Offer[] {
   const r = rng(`mart:${day}`)

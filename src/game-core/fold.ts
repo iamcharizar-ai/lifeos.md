@@ -19,7 +19,7 @@ import {
 } from './rules.ts'
 import { SPECIES, type SpeciesRec } from './species.ts'
 import {
-  BALLS, CHEST6, CROPS, DAILY_QUESTS6, PLOTS, PLOTS_MAX, PLOT_FEATS, STARTER_SEEDS, YIELD, cropId, cropOf, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, ONCE, SELL, TM_SLOTS, WEEKLY_QUESTS6,
+  AMULET_MULT, BALLS, BERRY_HEARTS, CHEST6, CROPS, DAILY_QUESTS6, PLOTS, PLOTS_MAX, PLOT_FEATS, STARTER_SEEDS, YIELD, cropId, cropOf, dealsFor, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, ONCE, SELL, TM_SLOTS, WEEKLY_QUESTS6,
   ballClass, dayGap, forgeShard, heldMult, isMarkTag, lureTypes, martDeals, offerFor, rng, seasonReward6, throwHp, tmType,
   type MarkTag, type Offer, type Reward, type ShopId,
 } from './economy.ts'
@@ -549,7 +549,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
 
   /** Version 6: what a feat or a chest hands over. The Key Stone also starts the Mega road. */
   const grant = (r: Reward, day: string) => {
-    earn(Math.round((r.coins ?? 0) * (r.coins && inv['amulet-coin'] ? 1.25 : 1)), r.gems ?? 0)
+    earn(Math.round((r.coins ?? 0) * (r.coins && inv['amulet-coin'] ? AMULET_MULT : 1)), r.gems ?? 0)
     for (const [id, n] of Object.entries(r.items ?? {})) {
       inv[id] = (inv[id] ?? 0) + n
       if (id === 'key-stone' && !keyStone) { keyStone = day; moments.push({ kind: 'key', day }) }
@@ -576,11 +576,11 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     const today = days[days.length - 1]
     if (u.what === 'buy') {
       const named = u.to && (u.to === 'mart' || u.to === 'rare' || isMarkTag(u.to)) ? (u.to as ShopId) : undefined
-      const hit = offerFor(named, item, day, inv['coin-case'] ? 4 : 3)
+      const hit = offerFor(named, item, day, dealsFor(inv))
       if (!hit) return true
       const { shop, offer } = hit
       if (shop === 'mart' && sold.has(`${day}:${item}`)) return true
-      if (ONCE.has(item) && inv[item]) return true
+      if (ONCE.has(item) && (inv[item] || partner.held === item)) return true
       const marks = isMarkTag(shop) ? wallet.marks[shop] : 0
       if ((offer.coins ?? 0) > wallet.coins || (offer.gems ?? 0) > wallet.gems || (offer.marks ?? 0) > marks) return true
       wallet.coins -= offer.coins ?? 0; wallet.gems -= offer.gems ?? 0
@@ -644,7 +644,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     }
     if (u.what === 'feed') {
       const crop = item.startsWith('crop-') ? cropOf(item) : null
-      const hearts = crop ? CROPS[crop].hearts : item === 'sitrus-berry' ? 3 : item === 'oran-berry' ? 1 : 0
+      const hearts = crop ? CROPS[crop].hearts : BERRY_HEARTS[item] ?? 0
       if (!hearts || !inv[item]) return true
       inv[item]--
       partner.fed = (partner.fed ?? 0) + hearts
@@ -1040,7 +1040,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
           for (const q of list) {
             if (!met[q.id] || paid.has(`${key}:${q.id}`)) continue
             paid.add(`${key}:${q.id}`)
-            const coins = Math.round((q.coins ?? 0) * (v6 && inv['amulet-coin'] ? 1.25 : 1))
+            const coins = Math.round((q.coins ?? 0) * (v6 && inv['amulet-coin'] ? AMULET_MULT : 1))
             earn(coins, q.gems ?? 0)
             moments.push({ kind: 'quest', day: f.day, id: q.id, name: q.name, coins, gems: q.gems ?? 0 })
           }
@@ -1213,7 +1213,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       const h = lastFacts?.habits.find((x) => x.id === SLEEP_HABIT && x.tag === 'sleep')
       return { band: facts.some((f) => f.habits.some((x) => x.measured)), state: h?.measured ? 'measured' as const : h?.selfReported ? 'self' as const : 'off' as const, score: typeof lastFacts?.body?.sleepScore === 'number' ? lastFacts.body.sleepScore : null, xp: h ? Math.round(h.worth * h.frac) : 0 }
     })(),
-    mart: { deals: last && version >= 6 ? martDeals(last.day, inv['coin-case'] ? 4 : 3) : [], bought: last ? [...sold].filter((k) => k.startsWith(last.day + ':')).map((k) => k.slice(11)) : [] },
+    mart: { deals: last && version >= 6 ? martDeals(last.day, dealsFor(inv)) : [], bought: last ? [...sold].filter((k) => k.startsWith(last.day + ':')).map((k) => k.slice(11)) : [] },
     runs: Object.fromEntries(Object.entries(runs).map(([k, r]) => [k, { cur: last && dayGap(r.last, last.day) <= 2 ? r.cur : 0, best: r.best }])),
     counters: cn,
     feats,
