@@ -79,7 +79,7 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     case 'catch':
       return { title: m.how === 'perfect' ? 'Perfect day: caught!' : m.how === 'ball' ? 'Caught with a ball!' : 'Gotcha!', line: `${m.shiny ? 'A shiny ' : ''}${nameOf(m.form)} is in your Box.`, form: m.form, shiny: m.shiny }
     case 'appear':
-      return { title: m.rarity === 'L' ? 'A legendary appeared' : 'A wild Pokemon appeared', line: `${nameOf(m.form)} is in front of you until you catch it.`, form: m.form }
+      return { title: m.rarity === 'L' ? 'A legendary appeared' : 'A wild Pokemon appeared', line: `${nameOf(m.form)} is in front of you. Catch it before it gets away.`, form: m.form }
     case 'form':
       return { title: m.what === 'mega' ? 'Mega form' : 'Gigantamax', line: `${nameOf(m.form)} is registered in the Pokedex.`, form: m.form }
     case 'badge':
@@ -112,6 +112,10 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: `Chest ${m.n}`, line: m.coins ? `${m.coins} coins.` : `${itemName(m.item)}${m.count > 1 ? ` x${m.count}` : ''}.` }
     case 'quest':
       return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
+    case 'flee':
+      return { title: 'It got away', line: `The wild ${nameOf(m.form)} left. Another one has taken its place.`, form: m.form }
+    case 'rust':
+      return { title: 'The work stopped', line: [m.heal ? `The leader won back ${m.heal} HP.` : '', m.hearts ? `${m.hearts} berry hearts faded.` : ''].filter(Boolean).join(' ') }
     case 'use':
       return m.what === 'mega' ? { title: 'Mega Evolution', line: `${nameOf(m.form)} Mega Evolves for ${MEGA_DAYS} days.`, form: m.to ?? m.form }
         : m.what === 'branch' ? { title: 'Branch chosen', line: `${nameOf(m.form)} will evolve into ${nameOf(m.to ?? '')}.`, form: m.form }

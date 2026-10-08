@@ -3,7 +3,7 @@
 //
 // An item's id is the name of its sprite file (public/sprites/items/<id>.png),
 // so a new item is one line here and one picture.
-import type { Tag } from './rules.ts'
+import { REPEL_DAYS, type Tag } from './rules.ts'
 import { TYPE_DOMAIN } from './types.ts'
 
 /** seeded randomness: the same seed always gives the same run of numbers */
@@ -35,7 +35,7 @@ export const MARKS: Record<MarkTag, MarkDef> = {
   code: { name: 'Machine Parts', icon: 'machine-part', shard: 'blue-shard' },
   fitness: { name: 'Iron', icon: 'iron', shard: 'red-shard' },
   guitar: { name: 'Tones', icon: 'poke-flute', shard: 'yellow-shard' },
-  arbor: { name: 'Seeds', icon: 'grn-apricorn', shard: 'green-shard' },
+  arbor: { name: 'Sprouts', icon: 'grn-apricorn', shard: 'green-shard' },
   sleep: { name: 'Bells', icon: 'lunar-wing' },
 }
 export const SHARDS = ['red-shard', 'blue-shard', 'yellow-shard', 'green-shard'] as const
@@ -45,7 +45,7 @@ export const MARK_RECORD = 2
 export const MARK_OWNED = 3
 
 // ── items ───────────────────────────────────────────────────────────────────
-export type ItemKind = 'seed' | 'crop' | 'ball' | 'berry' | 'held' | 'tm' | 'lure' | 'shard' | 'key' | 'unique' | 'egg' | 'chest' | 'theme' | 'incense'
+export type ItemKind = 'guard' | 'outfit' | 'seed' | 'crop' | 'ball' | 'berry' | 'held' | 'tm' | 'lure' | 'shard' | 'key' | 'unique' | 'egg' | 'chest' | 'theme' | 'incense'
 export interface ItemDef { name: string; kind: ItemKind; text: string }
 
 const TYPES = ['Bug', 'Dark', 'Dragon', 'Electric', 'Fighting', 'Fire', 'Flying', 'Ghost', 'Grass', 'Ground', 'Ice', 'Normal', 'Poison', 'Psychic', 'Rock', 'Steel', 'Water'] as const
@@ -116,6 +116,11 @@ export const heldMult = (item: string | undefined, tag: Tag): number => {
 export const LURES: Record<string, MarkTag> = { 'odd-incense': 'code', 'rock-incense': 'fitness', 'pure-incense': 'guitar', 'rose-incense': 'arbor', 'lax-incense': 'sleep' }
 export const lureTypes = (tag: MarkTag): string[] => Object.entries(TYPE_DOMAIN).filter(([, d]) => d === tag).map(([t]) => t)
 
+/** The map trainer's hair, from the Sunnyside pack. Short hair is the one everyone starts with. */
+export const HAIRS = ['bowl', 'curly', 'long', 'mop', 'spikey'] as const
+export const hairId = (h: string): string => `hair-${h}`
+export const hairOf = (id: string): string | null => (HAIRS as readonly string[]).find((h) => hairId(h) === id) ?? null
+
 const tmText = (t: string) => `Equip it on your partner: it counts as a ${t} Pokemon against a leader.`
 export const ITEMS: Record<string, ItemDef> = {
   'poke-ball': { name: 'Poké Ball', kind: 'ball', text: 'Throw: 20 HP off the wild Pokemon.' },
@@ -166,6 +171,11 @@ export const ITEMS: Record<string, ItemDef> = {
   'theme-cave': { name: 'Cave', kind: 'theme', text: 'A new place for the battle scene.' },
   'theme-night': { name: 'Starry night', kind: 'theme', text: 'A new place for the battle scene.' },
 }
+ITEMS['max-repel'] = { name: 'Max Repel', kind: 'guard', text: `Use it on the wild Pokemon: it stays ${REPEL_DAYS} days longer before it flees. Once for each Pokemon.` }
+ITEMS['revive'] = { name: 'Revive', kind: 'guard', text: 'Use it on the gym leader: everything they won back while the work stopped is taken off again.' }
+ITEMS['plot-a'] = { name: 'Extra Plot', kind: 'unique', text: 'More room on the Farm: one more plot. Bought once.' }
+ITEMS['plot-b'] = { name: 'Another Plot', kind: 'unique', text: 'One more plot on the Farm. Bought once.' }
+for (const h of HAIRS) ITEMS[hairId(h)] = { name: `${h[0].toUpperCase()}${h.slice(1)} hair`, kind: 'outfit', text: 'A new look for your trainer on the map. Wear it from the Trainer tab.' }
 for (const t of TYPES) ITEMS[tmId(t)] = { name: `TM ${t}`, kind: 'tm', text: tmText(t) }
 export const itemName = (id: string): string => ITEMS[id]?.name ?? id
 
@@ -190,7 +200,8 @@ export const YIELD = 2
 /** Plots at the start, and one more for each of these two Arbor feats. */
 export const PLOTS = 4
 export const PLOT_FEATS = ['days25-arbor', 'days100-arbor']
-export const PLOTS_MAX = PLOTS + PLOT_FEATS.length
+/** Two come from Arbor feats and two can be bought at the Mart. */
+export const PLOTS_MAX = PLOTS + PLOT_FEATS.length + 2
 /** What a new player is given to start with: two radish seeds. */
 export const STARTER_SEEDS: Record<string, number> = { 'seed-radish': 2 }
 export const seedId = (c: string): string => `seed-${c}`
@@ -210,8 +221,11 @@ export type ShopId = 'mart' | 'rare' | MarkTag
 export const MART_POOL: Offer[] = [
   { item: 'poke-ball', coins: 60 }, { item: 'great-ball', coins: 150 }, { item: 'ultra-ball', coins: 380 },
   { item: 'repeat-ball', coins: 250 }, { item: 'oran-berry', coins: 50 }, { item: 'sitrus-berry', coins: 130 },
-  { item: 'odd-incense', coins: 220 }, { item: 'rock-incense', coins: 220 }, { item: 'pure-incense', coins: 220 }, { item: 'rose-incense', coins: 220 }, { item: 'lax-incense', coins: 220 },
 ]
+/** Always on the shelf, bought once: more room on the Farm. Coins are for conveniences, so these are the long goals for them. */
+/** Version 7: the two guards are always on the Mart's shelf (an emergency item that is only sometimes for sale is no use), the first real use for coins. */
+export const GUARDS: Offer[] = [{ item: 'max-repel', coins: 220 }, { item: 'revive', coins: 300 }]
+export const STANDING: Offer[] = [{ item: 'plot-a', coins: 500 }, { item: 'plot-b', coins: 1000 }]
 export const MART_DEALS = 3
 /** The Coin Case adds a deal; the Amulet Coin raises quest coins; berries feed this many hearts. Read by the fold and by the item text, so they cannot drift apart. */
 export const COIN_CASE_DEALS = 4
@@ -231,9 +245,10 @@ export function martDeals(day: string, n: number = MART_DEALS): Offer[] {
 export const RARE_SHELF: Offer[] = [
   { item: 'full-incense', gems: 40 }, { item: 'chest', gems: 30 }, { item: 'rare-egg', gems: 150 },
   { item: 'theme-beach', gems: 60 }, { item: 'theme-cave', gems: 60 }, { item: 'theme-night', gems: 60 },
+  ...HAIRS.map((h) => ({ item: hairId(h), gems: 40 })),
 ]
 /** Bought once, kept for good. */
-export const ONCE = new Set<string>([...TYPES.map(tmId), 'theme-beach', 'theme-cave', 'theme-night', ...Object.keys(HELD).filter((h) => HELD[h].mult < 1.2)])
+export const ONCE = new Set<string>([...TYPES.map(tmId), 'theme-beach', 'theme-cave', 'theme-night', 'plot-a', 'plot-b', ...HAIRS.map(hairId), ...Object.keys(HELD).filter((h) => HELD[h].mult < 1.2)])
 
 export interface DomainShop { name: string; place: string; stock: Offer[] }
 const tms = (...types: string[]): Offer[] => types.map((t) => ({ item: tmId(t), marks: ['Psychic', 'Ghost', 'Dark', 'Steel', 'Dragon'].includes(t) ? 9 : 6 }))
@@ -252,7 +267,7 @@ export const DOMAIN_SHOPS: Record<MarkTag, DomainShop> = {
   },
   arbor: {
     name: 'The Farm', place: 'the terraces in the north-west',
-    stock: [{ item: 'net-ball', marks: 6 }, { item: 'sitrus-berry', marks: 3 }, { item: 'rose-incense', marks: 3 }, { item: 'miracle-seed', marks: 12 }, ...CROP_IDS.map((c) => ({ item: seedId(c), marks: CROPS[c].seed }))],
+    stock: [{ item: 'net-ball', marks: 6 }, { item: 'rose-incense', marks: 3 }, { item: 'miracle-seed', marks: 12 }, ...CROP_IDS.map((c) => ({ item: seedId(c), marks: CROPS[c].seed }))],
   },
   sleep: {
     name: 'Dream House', place: 'the big house on the east shore',
@@ -260,13 +275,22 @@ export const DOMAIN_SHOPS: Record<MarkTag, DomainShop> = {
   },
 }
 /** Where an item can be bought, searched in this order when the shop is not named. */
-export function offerFor(shop: ShopId | undefined, item: string, day: string, deals: number): { shop: ShopId; offer: Offer } | null {
+export function offerFor(shop: ShopId | undefined, item: string, day: string, deals: number, v7 = false): { shop: ShopId; offer: Offer } | null {
   const find = (s: ShopId): Offer | undefined =>
-    s === 'mart' ? martDeals(day, deals).find((o) => o.item === item) : s === 'rare' ? RARE_SHELF.find((o) => o.item === item) : DOMAIN_SHOPS[s].stock.find((o) => o.item === item)
+    s === 'mart' ? [...martDeals(day, deals), ...STANDING, ...(v7 ? GUARDS : [])].find((o) => o.item === item) : s === 'rare' ? RARE_SHELF.find((o) => o.item === item) : DOMAIN_SHOPS[s].stock.find((o) => o.item === item)
   const order: ShopId[] = shop ? [shop] : ['mart', 'rare', ...MARK_TAGS]
   for (const s of order) { const offer = find(s); if (offer) return { shop: s, offer } }
   return null
 }
+
+// ── what a domain's marks keep paying for ───────────────────────────────────
+/** Spend marks to raise a domain's level: that domain's work strikes a leader this much harder per level. The next level costs MASTERY_COST × (level + 1). */
+export const MASTERY_MAX = 10
+export const MASTERY_STEP = 0.03
+export const masteryCost = (level: number): number => 4 * (level + 1)
+/** A bond level (10, 30 and 60 hearts) makes every strike this much harder; a partner with a Mega registered strikes this much harder too. */
+export const BOND_STEP = 0.05
+export const MEGA_MULT = 1.1
 
 // ── the Professor, the Smithy ──────────────────────────────────────────────
 /** What a Box Pokemon is worth to the Professor, by rarity. */
@@ -332,9 +356,9 @@ function domainFeats(): Feat[] {
 }
 export const FEATS: Feat[] = [
   { id: 'work7', name: 'A week running', text: 'Any one kind of work on seven days running (one rest day is forgiven)', group: 'run', key: 'run:any', n: 7, reward: { gems: 10, items: { 'key-stone': 1 } } },
-  { id: 'work14', name: 'A fortnight', text: 'Two pillars a day for fourteen days running', group: 'run', key: 'run:work', n: 14, reward: { gems: 15, items: { 'amulet-coin': 1 } } },
-  { id: 'work30', name: 'A month of it', text: 'Two pillars a day for thirty days running', group: 'run', key: 'run:work', n: 30, reward: { gems: 40, items: { 'master-ball': 1 } } },
-  { id: 'work60', name: 'Two months', text: 'Two pillars a day for sixty days running', group: 'run', key: 'run:work', n: 60, reward: { gems: 100 } },
+  { id: 'work14', name: 'A fortnight', text: 'Three pillars a day for fourteen days running (one rest day is forgiven)', group: 'run', key: 'run:work3', n: 14, reward: { gems: 15, items: { 'amulet-coin': 1 } } },
+  { id: 'work30', name: 'A month of it', text: 'Three pillars a day for thirty days running', group: 'run', key: 'run:work3', n: 30, reward: { gems: 40, items: { 'master-ball': 1 } } },
+  { id: 'work60', name: 'Two months', text: 'Three pillars a day for sixty days running', group: 'run', key: 'run:work3', n: 60, reward: { gems: 100 } },
   ...domainFeats(),
   { id: 'workouts10', name: 'Ten workouts', text: 'Ten workouts logged in Strong', group: 'total', key: 'workouts', n: 10, reward: { gems: 15 } },
   { id: 'workouts50', name: 'Fifty workouts', text: 'Fifty workouts logged in Strong', group: 'total', key: 'workouts', n: 50, reward: { gems: 40 } },

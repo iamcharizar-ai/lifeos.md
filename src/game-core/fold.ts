@@ -14,13 +14,13 @@ import { LEAGUES, lineup, type Leader } from './gyms.ts'
 import {
   ADVANTAGE_MULT, BADGE_DAYS, BALL_MULT, CATCH_WEIGHTS, CHEST, DAILY_QUESTS, EGG_DAYS, GEMS, KEY_STONE_BADGES, LEADER_HP, LEGENDARY_EVERY, LEGENDARY_EVERY_WILD, MEGA_DAYS, MILESTONE_STONES,
   MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS, PILLARS_FOR_A_DAY, RARE_EVERY, SHINY_EVERY, SHINY_ODDS, SLEEP_AFTER, SLEEP_DEEP, SLEEP_HABIT, START_SPECIES, STAT_DAYS, STEPS_GOAL, STONE_FOR_TAG, TAGS, TEAM_BONUS, TEAM_SIZE, THROW_HP, V3_START, V4_START, V5_START, V6_START, WEEKLY_QUESTS, WEEK_DAYS, WEEK_XP,
-  SEASON_STEP, WEAK_MULT, WILD_HP, SHOP, ballFor, isShopItem, seasonReward, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, regionsOpenV2, rulesOn, wildHit, wildHit5, xpForLevel,
+  SEASON_STEP, WEAK_MULT, WILD_HP, SHOP, HEART_DRAIN, LEADER_RUST, REPEL_DAYS, SHINY_ODDS_WORN, WILD_STAY, V7_START, ballFor, bondLevel, isShopItem, seasonReward, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, regionsOpenV2, rulesOn, wildHit, wildHit5, xpForLevel,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { SPECIES, type SpeciesRec } from './species.ts'
 import {
-  AMULET_MULT, BALLS, BERRY_HEARTS, CHEST6, CROPS, DAILY_QUESTS6, PLOTS, PLOTS_MAX, PLOT_FEATS, STARTER_SEEDS, YIELD, cropId, cropOf, dealsFor, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, ONCE, SELL, TM_SLOTS, WEEKLY_QUESTS6,
-  ballClass, dayGap, forgeShard, heldMult, isMarkTag, lureTypes, martDeals, offerFor, rng, seasonReward6, throwHp, tmType,
+  AMULET_MULT, BALLS, BERRY_HEARTS, BOND_STEP, CHEST6, CROPS, DAILY_QUESTS6, PLOTS, PLOTS_MAX, PLOT_FEATS, STARTER_SEEDS, YIELD, cropId, cropOf, dealsFor, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, GUARDS, HAIRS, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, MASTERY_MAX, MASTERY_STEP, MEGA_MULT, ONCE, SELL, STANDING, TM_SLOTS, WEEKLY_QUESTS6,
+  ballClass, dayGap, forgeShard, hairId, masteryCost, heldMult, isMarkTag, lureTypes, martDeals, offerFor, rng, seasonReward6, throwHp, tmType,
   type MarkTag, type Offer, type Reward, type ShopId,
 } from './economy.ts'
 import { beats, weakDomains } from './types.ts'
@@ -97,6 +97,9 @@ export type Moment =
   | { kind: 'hatch'; day: string; uid: string; form: string }
   /** `n` counts chests opened for life, so each one is told apart */
   | { kind: 'chest'; day: string; n: number; coins: number; item: string; count: number }
+  /** version 7: a wild Pokemon fled; and the work stopped, so the leader won HP back and berry hearts drained */
+  | { kind: 'flee'; day: string; form: string; rarity: Rarity }
+  | { kind: 'rust'; day: string; heal: number; hearts: number }
 
 export interface DayResult {
   day: string
@@ -138,6 +141,9 @@ export interface Wild {
   shiny: boolean
   /** it was caught today (so `hp` is 0 and the next one appears tomorrow) */
   caught: boolean
+  /** version 7: a Max Repel was used on it (days added to its stay), and days left before it flees (0 = gone after today) */
+  repel?: number
+  leavesIn?: number
 }
 
 /** Where the trainer stands in the leagues. `index` runs past the end of LEAGUES when every one is beaten. */
@@ -155,6 +161,8 @@ export interface LeagueState {
   waiting: boolean
   /** regional leagues beaten (the ones that open the next region) */
   beaten: number
+  /** version 7: HP this leader won back while the work stopped, which a Revive takes off again */
+  rust: number
 }
 
 export interface HallEntry {
@@ -230,15 +238,21 @@ export interface Game {
   /** version 6: last night. `state`: measured by the band, a hand tick because there is no reading yet ('self'), or no band in use ('off') */
   sleep: { band: boolean; state: 'measured' | 'self' | 'off'; score: number | null; xp: number }
   /** version 6: today's Mart deals and which are already bought, runs (now, best), the counters feats read, the feats reached, and a lure waiting */
-  mart: { deals: Offer[]; bought: string[] }
+  mart: { deals: Offer[]; bought: string[]; standing: Offer[] }
   /** version 6: the Farm. One entry per place for a plot (a plot is null when empty): what is planted, and the mornings it has been watered */
   plots: ({ crop: string; grown: number; days: number; ripe: boolean } | null)[]
+  /** version 6: each domain's level (what its marks were spent on), the trainer's hair on the map, and what a bond level adds to every strike */
+  mastery: Record<MarkTag, number>
+  outfit: string
+  bond: { level: number; mult: number }
   runs: Record<string, { cur: number; best: number }>
   counters: Record<string, number>
   feats: { id: string; day: string }[]
   lure: MarkTag | null
   /** the rules today is played under */
-  version: 1 | 3 | 4 | 5 | 6
+  version: 1 | 3 | 4 | 5 | 6 | 7
+  /** version 7: the Pokemon that fled at the start of today, if one did */
+  fled: string | null
   /** day the Key Stone was earned */
   keyStone: string | null
   /** each domain counted in its own unit, for life */
@@ -296,6 +310,8 @@ export interface FoldOptions {
   v5From?: string
   /** first day of rules version 6 */
   v6From?: string
+  /** first day of rules version 7 */
+  v7From?: string
 }
 
 export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
@@ -303,6 +319,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   const v4From = opts.v4From ?? V4_START
   const v5From = opts.v5From ?? V5_START
   const v6From = opts.v6From ?? V6_START
+  const v7From = opts.v7From ?? V7_START
   const moments: Moment[] = []
   const dex: Record<string, DexEntry> = {}
   const queue: Mon[] = []
@@ -333,9 +350,13 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   const gotFeat = new Set<string>()
   let lureFor: MarkTag | null = null
   let v6Day = false
+  let v7Day = false
+  let fledToday: string | null = null
   const plots: ({ crop: string; grown: number } | null)[] = Array.from({ length: PLOTS_MAX }, () => null)
   let starter = false
-  const plotCount = (): number => PLOTS + PLOT_FEATS.filter((id) => gotFeat.has(id)).length
+  const mastery: Record<MarkTag, number> = { code: 0, fitness: 0, guitar: 0, arbor: 0, sleep: 0 }
+  let outfit = ''
+  const plotCount = (): number => PLOTS + PLOT_FEATS.filter((id) => gotFeat.has(id)).length + (inv['plot-a'] ? 1 : 0) + (inv['plot-b'] ? 1 : 0)
   const bump = (k: string, n = 1) => { cn[k] = (cn[k] ?? 0) + n }
   const runDay = (key: string, day: string) => {
     const r = (runs[key] ??= { cur: 0, best: 0, last: '' })
@@ -372,7 +393,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   let caughtToday: Wild | null = null
 
   // the league: who is up, their HP, and how much each domain has hit them
-  const lg = { index: 0, slot: 0, hp: LEADER_HP, beaten: 0 }
+  const lg = { index: 0, slot: 0, hp: LEADER_HP, beaten: 0, rust: 0 }
   let hitBy: Partial<Record<Tag, number>> = {}
 
   const see = (form: string, day: string, shiny: boolean, own = true) => {
@@ -576,7 +597,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     const today = days[days.length - 1]
     if (u.what === 'buy') {
       const named = u.to && (u.to === 'mart' || u.to === 'rare' || isMarkTag(u.to)) ? (u.to as ShopId) : undefined
-      const hit = offerFor(named, item, day, dealsFor(inv))
+      const hit = offerFor(named, item, day, dealsFor(inv), v7Day)
       if (!hit) return true
       const { shop, offer } = hit
       if (shop === 'mart' && sold.has(`${day}:${item}`)) return true
@@ -616,6 +637,21 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       }
       return true
     }
+    if (u.what === 'repel') {
+      const w: Wild | null = wild
+      if (item !== 'max-repel' || !inv[item] || !w || w.caught || w.repel) return true
+      inv[item]--
+      w.repel = REPEL_DAYS
+      return true
+    }
+    if (u.what === 'revive') {
+      if (item !== 'revive' || !inv[item] || lg.rust <= 0 || !leaderOf(lg.index, lg.slot)) return true
+      inv[item]--
+      const back = Math.min(lg.rust, lg.hp - 1)
+      lg.hp -= back
+      lg.rust -= back
+      return true
+    }
     if (u.what === 'plant') {
       const crop = item.startsWith('seed-') ? cropOf(item) : null
       const i = Number(u.to)
@@ -648,6 +684,22 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       if (!hearts || !inv[item]) return true
       inv[item]--
       partner.fed = (partner.fed ?? 0) + hearts
+      return true
+    }
+    if (u.what === 'train') {
+      const tag = u.to ?? ''
+      if (!isMarkTag(tag) || mastery[tag] >= MASTERY_MAX) return true
+      const cost = masteryCost(mastery[tag])
+      if (wallet.marks[tag] < cost) return true
+      wallet.marks[tag] -= cost
+      mastery[tag]++
+      bump('mastery')
+      return true
+    }
+    if (u.what === 'outfit') {
+      const to = u.to ?? ''
+      if (to && !((HAIRS as readonly string[]).includes(to) && inv[hairId(to)])) return true
+      outfit = to
       return true
     }
     if (u.what === 'wish') {
@@ -824,8 +876,10 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
   let dayStart = { uid: partner.uid, xp: partner.xp }
 
   facts.forEach((f, i) => {
-    const ver = rulesOn(f.day, v3From, v4From, v5From, v6From)
-    const v3 = ver >= 3, v4 = ver >= 4, v5 = ver >= 5, v6 = ver >= 6
+    const ver = rulesOn(f.day, v3From, v4From, v5From, v6From, v7From)
+    const v3 = ver >= 3, v4 = ver >= 4, v5 = ver >= 5, v6 = ver >= 6, v7 = ver >= 7
+    v7Day = v7
+    fledToday = null
     v5Day = v5
     v6Day = v6
     wallet.coinsToday = 0; wallet.gemsToday = 0; wallet.marksToday = zeroMarks()
@@ -852,6 +906,11 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     if (dry && !v4) partner.bond = false
     if (pillars > 0) partner.together = (partner.together ?? 0) + 1
     asleep = dry && pillars === 0
+    // version 7: a second day running with no pillar. The leader wins HP back (below) and berry hearts drain; the first miss is always free
+    const idle = v7 && pillars === 0 && days.length > 0 && days[days.length - 1].pillars === 0
+    let hearts7 = 0
+    if (idle) { hearts7 = Math.min(partner.fed ?? 0, HEART_DRAIN); partner.fed = (partner.fed ?? 0) - hearts7 }
+    let heal7 = 0
 
     const base = f.habits.reduce((s, h) => s + h.worth * h.frac, 0)
     const full = f.habits.reduce((s, h) => s + h.worth, 0)
@@ -886,6 +945,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       if (v6) { wallet.marks[t]++; wallet.marksToday[t]++ }
     }
     if (counts) runDay('work', f.day)
+    if (pillarTotal > 0 && pillars >= Math.min(3, pillarTotal)) runDay('work3', f.day)
     if (v6 && !starter) { starter = true; for (const [id, n] of Object.entries(STARTER_SEEDS)) inv[id] = (inv[id] ?? 0) + n }
     if (v6 && unit.arbor) for (const p of plots) if (p && p.grown < CROPS[p.crop].days) p.grown++
     if (v6) {
@@ -906,6 +966,13 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
 
     if (v3) {
       // ── how whole: the wild Pokemon ──
+      // version 7: a wild Pokemon that has stayed its days is gone by morning, and the next one stands in its place
+      if (v7 && wild && !wild.caught && dayGap(wild.from, f.day) >= WILD_STAY[wild.rarity] + (wild.repel ?? 0)) {
+        moments.push({ kind: 'flee', day: f.day, form: wild.form, rarity: wild.rarity })
+        fledToday = wild.form
+        bump('fled')
+        wild = null
+      }
       if (!wild) {
         spawns++
         const want = spawns % LEGENDARY_EVERY_WILD === 0 ? 'L' : 'any'
@@ -923,7 +990,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       w.hp -= result.hit
       if (w.hp <= 0) {
         // a perfect day is the only way to a shiny
-        const shiny = perfect && rng(`shiny:${f.day}`)() < 1 / SHINY_ODDS
+        const shiny = perfect ? rng(`shiny:${f.day}`)() < 1 / SHINY_ODDS : v7 && rng(`shiny-worn:${f.day}`)() < 1 / SHINY_ODDS_WORN
         catchWild(w, f.day, shiny, ball, perfect ? 'perfect' : 'worn') // the next one appears tomorrow morning
       }
       if (perfect) {
@@ -934,13 +1001,18 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       // ── what kind: the gym leader ──
       const leader = leaderOf(lg.index, lg.slot)
       if (leader && leagueOpen()) {
+        if (idle) { heal7 = Math.min(LEADER_RUST, LEADER_HP - lg.hp); lg.hp += heal7; lg.rust += heal7 }
         const weak = weakDomains(leader.type)
         const edge = beats(typesOf(partner), leader.type)
         // version 5: the team behind the partner. Each one whose type beats the leader's adds to every strike
         const backing = v5 ? 1 + TEAM_BONUS * teamNow().filter((m) => beats([rec(m.form).t, rec(m.form).t2], leader.type)).length : 1
+        // version 6: a close partner and a Mega both hit harder, and so does a domain that has been trained
+        const bond = v6 ? 1 + BOND_STEP * bondLevel((partner.together ?? 0) + (partner.fed ?? 0)) : 1
+        const megaM = v6 && partner.megas?.length ? MEGA_MULT : 1
         let strike = 0
         for (const h of f.habits) {
-          const d = h.worth * h.frac * (weak.includes(h.tag) ? WEAK_MULT : 1) * (edge ? ADVANTAGE_MULT : 1) * backing * (v6 ? heldMult(partner.held, h.tag) : 1)
+          const trained = v6 && isMarkTag(h.tag) ? 1 + MASTERY_STEP * mastery[h.tag] : 1
+          const d = h.worth * h.frac * (weak.includes(h.tag) ? WEAK_MULT : 1) * (edge ? ADVANTAGE_MULT : 1) * backing * (v6 ? heldMult(partner.held, h.tag) : 1) * bond * megaM * trained
           strike += d
           hitBy[h.tag] = (hitBy[h.tag] ?? 0) + d
         }
@@ -971,6 +1043,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
           } else give(MILESTONE_STONES[milestones++ % MILESTONE_STONES.length], f.day, 'league')
           lg.slot++
           lg.hp = LEADER_HP
+          lg.rust = 0
           hitBy = {}
           if (lg.slot >= lineup(l).length) {
             earn(0, GEMS.league)
@@ -987,6 +1060,8 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
           }
         }
       }
+
+      if (heal7 > 0 || hearts7 > 0) moments.push({ kind: 'rust', day: f.day, heal: heal7, hearts: hearts7 })
 
       // the eighth badge was already won when version 4 began: the Key Stone is waiting
       if (v4 && !v6 && !keyStone && (lg.index > 0 || lg.slot >= KEY_STONE_BADGES)) {
@@ -1109,7 +1184,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
 
   const last = days[days.length - 1]
   const v3Now = Boolean(last && last.day >= v3From)
-  const version = last ? rulesOn(last.day, v3From, v4From, v5From, v6From) : 6
+  const version = last ? rulesOn(last.day, v3From, v4From, v5From, v6From, v7From) : 6
   // the quests as they stand today
   const lastFacts = facts[facts.length - 1]
   const wkNow = last ? weekOf(last.day) : ''
@@ -1133,6 +1208,10 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     .map((h) => `${h.name ?? h.id} is a pillar with no domain, so it counts as a chore for the gym leaders, branching and natures. Set its domain in Life OS.`)
   // version 1 days: what a perfect day today would catch, shown with "habits left" as its HP
   let shown: Wild | null = caughtToday ?? wild
+  if (version >= 7 && last) {
+    const sw = shown as Wild | null
+    if (sw && !sw.caught) shown = { ...sw, leavesIn: Math.max(0, WILD_STAY[sw.rarity] + (sw.repel ?? 0) - 1 - dayGap(sw.from, last.day)) }
+  }
   if (!v3Now && last && last.total > 0) {
     const got = moments.find((m) => m.kind === 'catch' && m.day === last.day)
     if (got?.kind === 'catch') shown = { form: got.form, rarity: (rec(got.form).r ?? 'C') as Rarity, hp: 0, max: last.total, from: last.day, shiny: got.shiny, caught: true }
@@ -1191,6 +1270,7 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
       edge: leader ? beats(typesOf(partner), leader.type) : false,
       waiting: Boolean(leader) && !leagueOpen(),
       beaten: lg.beaten,
+      rust: lg.rust,
     },
     hall,
     bag,
@@ -1208,12 +1288,16 @@ export function foldGame(facts: DayFacts[], opts: FoldOptions = {}): Game {
     egg: egg ? { have: (egg as { have: number }).have, need: version >= 6 && inv['old-charm'] ? EGG_DAYS_OLD_CHARM : EGG_DAYS } : null,
     wish: { options: version >= 5 ? wishOptions() : [], chosen: wishFor },
     version,
+    fled: fledToday,
     plots: plots.slice(0, version >= 6 ? plotCount() : 0).map((p) => (p ? { crop: p.crop, grown: p.grown, days: CROPS[p.crop].days, ripe: p.grown >= CROPS[p.crop].days } : null)),
     sleep: (() => {
       const h = lastFacts?.habits.find((x) => x.id === SLEEP_HABIT && x.tag === 'sleep')
       return { band: facts.some((f) => f.habits.some((x) => x.measured)), state: h?.measured ? 'measured' as const : h?.selfReported ? 'self' as const : 'off' as const, score: typeof lastFacts?.body?.sleepScore === 'number' ? lastFacts.body.sleepScore : null, xp: h ? Math.round(h.worth * h.frac) : 0 }
     })(),
-    mart: { deals: last && version >= 6 ? martDeals(last.day, dealsFor(inv)) : [], bought: last ? [...sold].filter((k) => k.startsWith(last.day + ':')).map((k) => k.slice(11)) : [] },
+    mart: { deals: last && version >= 6 ? martDeals(last.day, dealsFor(inv)) : [], bought: last ? [...sold].filter((k) => k.startsWith(last.day + ':')).map((k) => k.slice(11)) : [], standing: version >= 7 ? [...STANDING, ...GUARDS] : version >= 6 ? STANDING : [] },
+    mastery: { ...mastery },
+    outfit,
+    bond: (() => { const level = bondLevel((partner.together ?? 0) + (partner.fed ?? 0)); return { level, mult: version >= 6 ? 1 + BOND_STEP * level : 1 } })(),
     runs: Object.fromEntries(Object.entries(runs).map(([k, r]) => [k, { cur: last && dayGap(r.last, last.day) <= 2 ? r.cur : 0, best: r.best }])),
     counters: cn,
     feats,

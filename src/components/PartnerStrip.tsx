@@ -91,7 +91,7 @@ export function PartnerStrip({ game, left }: { game: Game; left: number }) {
           {wild && (
             <>
               {' · '}
-              {wild.caught ? `${nameOf(wild.form)} caught` : `wild ${nameOf(wild.form)} ${wild.hp}/${wild.max} HP · ${BALL_NAME[today.ball]}`}
+              {wild.caught ? `${nameOf(wild.form)} caught` : `wild ${nameOf(wild.form)} ${wild.hp}/${wild.max} HP · ${BALL_NAME[today.ball]}${wild.leavesIn !== undefined && wild.leavesIn <= 3 ? (wild.leavesIn === 0 ? ' · leaves tomorrow' : ` · leaves in ${wild.leavesIn + 1} days`) : ''}`}
             </>
           )}
           {foe && !league.waiting && <>{' · '}{foe.name} {league.hp.toLocaleString('en-IN')} HP</>}

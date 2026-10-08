@@ -36,9 +36,17 @@ export const V5_START = '2026-10-08'
  * ECONOMY-V6.md. Like 4, it starts on the day 5 did, so 5 never ran alone.
  */
 export const V6_START = '2026-10-08'
+/**
+ * Rules version 7 applies from this day: stakes. A wild Pokemon that is not
+ * caught in time flees, a leader recovers when the work stops, and the hearts
+ * a berry gave drain on those days. Nothing already earned is taken back:
+ * badges, caught Pokemon, feats and items stay. It must start on or after the
+ * day both apps carry the code: move it if the deploy is later.
+ */
+export const V7_START = '2026-10-09'
 /** Which rules a day is played under. */
-export const rulesOn = (day: string, v3From: string = V3_START, v4From: string = V4_START, v5From: string = V5_START, v6From: string = V6_START): 1 | 3 | 4 | 5 | 6 =>
-  day >= v6From ? 6 : day >= v5From ? 5 : day >= v4From ? 4 : day >= v3From ? 3 : 1
+export const rulesOn = (day: string, v3From: string = V3_START, v4From: string = V4_START, v5From: string = V5_START, v6From: string = V6_START, v7From: string = V7_START): 1 | 3 | 4 | 5 | 6 | 7 =>
+  day >= v7From ? 7 : day >= v6From ? 6 : day >= v5From ? 5 : day >= v4From ? 4 : day >= v3From ? 3 : 1
 
 // ── XP ──────────────────────────────────────────────────────────────────────
 export type Tier = 'pillar' | 'core' | 'standard' | 'basic'
@@ -262,3 +270,17 @@ export const CHEST: { odds: number; coins?: number; item?: ShopItem; n?: number 
 ]
 /** A Rare Egg hatches after this many days with two pillars. One is kept warm at a time. */
 export const EGG_DAYS = 5
+
+// ── version 7: stakes ───────────────────────────────────────────────────────
+// Until now nothing could go wrong. These are the three things that can, each
+// small enough that a bad week costs something and a bad month is not the end.
+/** Days a wild Pokemon stays before it flees, by rarity. A fled one is seen, never caught, and the next appears at once. */
+export const WILD_STAY: Record<Rarity, number> = { C: 14, U: 14, R: 18, L: 28 }
+/** Max Repel adds this many days to the wild Pokemon's stay. One per Pokemon. */
+export const REPEL_DAYS = 7
+/** A day with no pillar done, straight after another one, is an idle day. The first miss is always free. */
+export const LEADER_RUST = 200
+/** Hearts that berries gave, lost on each idle day. Hearts from days together never drain. */
+export const HEART_DRAIN = 2
+/** A catch made by wearing the wild Pokemon down is shiny one time in this many (a perfect day stays at SHINY_ODDS). */
+export const SHINY_ODDS_WORN = 50
