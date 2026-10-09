@@ -12,9 +12,10 @@ import type { Ticks } from '../lib/store'
 import { PartnerStrip } from '../components/PartnerStrip'
 import type { Game } from '../game-core/fold.ts'
 import { SLEEP_HABIT, TAGS, tierXp, type Tag } from '../game-core/rules.ts'
-import { ArborHead, ArborSkills, GuitarHead, GuitarItems, SleepTile, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { ArborHead, ArborSkills, GuitarHead, GuitarItems, GuitarTile, SleepTile, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
 import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
+import { WOODSHED_URL } from '../lib/guitarLink'
 import { practicedOn } from '../arbor-core/model.ts'
 
 export interface HabitActions {
@@ -268,7 +269,8 @@ function ChecklistRow({
   const showSkills = link === 'arbor' && planned.length > 0 && (skillsOpen ?? !ticked)
   const session = linked.guitar.session
   const played = session.filter((id) => linked.guitar.shed.logs[id]?.[today]?.done).length
-  const showSession = link === 'woodshed' && session.length > 0 && (skillsOpen ?? !ticked)
+  // with a Woodshed URL the row just opens Woodshed; the inline session list is only the no-URL fallback
+  const showSession = link === 'woodshed' && !WOODSHED_URL && session.length > 0 && (skillsOpen ?? !ticked)
 
   return (
     <Reorder.Item
@@ -323,6 +325,8 @@ function ChecklistRow({
           />
         ) : link === 'vitals' ? (
           <SleepTile name={habit.name} state={linked.sleep.state} night={linked.sleep.night} ticked={ticked} selfXp={TIER_XP.core} onToggle={() => actions.onToggle(habit.id)} />
+        ) : link === 'woodshed' && WOODSHED_URL ? (
+          <GuitarTile name={habit.name} xp={xp} ticked={ticked} done={played} total={session.length} />
         ) : link === 'woodshed' ? (
           <GuitarHead
             name={habit.name}
@@ -624,7 +628,9 @@ export function HabitsScreen({
     if (soonest === Infinity) return
     const id = window.setTimeout(() => setNow(Date.now()), soonest - Date.now() + 20)
     return () => window.clearTimeout(id)
-  }, [todayRaw])
+    // `now` re-arms the timer for the next tick in line once one has expired;
+    // without it only the first tick ever disappeared.
+  }, [todayRaw, now])
   // a tick older than DONE_HIDE_MS (or one with no usable time) is done and out of the way
   const isHidden = (id: string): boolean => {
     const at = todayTicks[id]

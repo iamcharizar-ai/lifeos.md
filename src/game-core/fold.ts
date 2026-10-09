@@ -18,6 +18,7 @@ import {
   TEAM_BONUS, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WEEK_XP, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
+import { COMET_SHARD } from './economy.ts'
 import { SPECIES, type SpeciesRec } from './species.ts'
 import {
   AMULET_MULT, BALLS, BERRY_HEARTS, BOND_STEP, CHEST, DAILY_QUESTS, EGG_DAYS_OLD_CHARM, FEATS, FORGE_COST, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, MASTERY_MAX, MASTERY_STEP, ONCE, SELL,
@@ -95,6 +96,8 @@ export type Moment =
   | { kind: 'flee'; day: string; form: string; rarity: Rarity }
   /** a day with nothing ticked at all, and what it cost (told on the day it was settled, two days later) */
   | { kind: 'slip'; day: string; empty: string; leader: number; wild: number; xp: number }
+  /** a month-end review was done and paid a Comet Shard; `n` counts reviews for life */
+  | { kind: 'review'; day: string; n: number }
 
 export interface DayResult {
   day: string
@@ -725,6 +728,12 @@ export function foldGame(facts: DayFacts[]): Game {
     fledToday = null
     slipToday = null
     const stakes = f.day >= STAKES_FROM
+    // a month-end review pays a Comet Shard, one for each made today
+    for (let r = 0; r < (f.reviews ?? 0); r++) {
+      inv[COMET_SHARD] = (inv[COMET_SHARD] ?? 0) + 1
+      bump('reviews')
+      moments.push({ kind: 'review', day: f.day, n: cn.reviews })
+    }
 
     // ── stakes: what two days ago cost, settled now ──
     // A day can still be ticked until the end of the next day, so an empty day is only

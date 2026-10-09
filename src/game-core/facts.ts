@@ -2,7 +2,7 @@
 // one plain list of days. The game itself (fold.ts) only ever sees this list,
 // so Life OS and Pokedex cannot disagree about what happened on a day.
 import type { ListedHabit } from './events.ts'
-import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, isTag, tagOf, tierXp, type Tag } from './rules.ts'
+import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, REVIEW_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, isTag, tagOf, tierXp, type Tag } from './rules.ts'
 
 export interface HabitLite {
   id: string
@@ -102,6 +102,8 @@ export interface DayFacts {
   body?: BodyFacts
   uses?: ItemUse[]
   marks?: DayMarks
+  /** month-end reviews ticked on this day (by the day the tick was made, not the month it closes) */
+  reviews?: number
 }
 
 export function addDays(day: string, n: number): string {
@@ -121,6 +123,29 @@ export function inTime(at: string | undefined, day: string): boolean {
 
 const activeOn = (h: HabitLite, day: string): boolean =>
   h.spans.some((s) => day >= s.from && (s.to === null || day < s.to))
+
+const localDay = (t: number): string => {
+  const d = new Date(t)
+  const p = (x: number) => String(x).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+const reviewDays = new WeakMap<TickMap, Record<string, number>>()
+/** Month-end reviews made on `day`. A review of month M sits under `M-01`, so it is found by the time of the tick. */
+function reviewsOn(ticks: TickMap, day: string): number {
+  let by = reviewDays.get(ticks)
+  if (!by) {
+    by = {}
+    for (const [filed, habits] of Object.entries(ticks)) {
+      const at = habits[REVIEW_HABIT]
+      if (!at) continue
+      const t = Date.parse(at)
+      const made = Number.isNaN(t) ? filed : localDay(t)
+      by[made] = (by[made] ?? 0) + 1
+    }
+    reviewDays.set(ticks, by)
+  }
+  return by[day] ?? 0
+}
 
 /** The first day the band reported a sleep score: from then on Sleep is measured, never ticked. null = no band yet. */
 export function bandFrom(input: FactsInput): string | null {
@@ -164,7 +189,8 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
     habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: isTag(h.domain) ? h.domain : tagOf(h.id), worth: unread ? TIER_XP.core : tierXp(h.tier), pillar: unread ? false : h.tier === 'pillar', frac, done, ...(unread ? { selfReported: true as const } : {}) })
   }
   const marks = input.marks?.[day]
-  return { day, habits, ...(body ? { body } : {}), ...(uses?.length ? { uses } : {}), ...(marks ? { marks } : {}) }
+  const reviews = reviewsOn(input.ticks, day)
+  return { day, habits, ...(body ? { body } : {}), ...(uses?.length ? { uses } : {}), ...(marks ? { marks } : {}), ...(reviews ? { reviews } : {}) }
 }
 
 /** Every day of the game so far, oldest first. */

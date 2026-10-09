@@ -209,6 +209,32 @@ export function ArborSkills({ ctx, today }: { ctx: LinkedCtx; today: string }) {
   )
 }
 
+/**
+ * The Woodshed row when Woodshed has a URL: like Gym, it opens the app, and the
+ * habit ticks itself when the day's session is logged there. No panel here.
+ */
+export function GuitarTile({ name, xp, ticked, done, total }: { name: string; xp: number; ticked: boolean; done: number; total: number }) {
+  return (
+    <a
+      href={WOODSHED_URL}
+      target="_blank"
+      rel="noreferrer"
+      title={ticked ? 'Logged in Woodshed' : 'Practise in Woodshed and this ticks itself'}
+      className="flex min-w-0 flex-1 items-center gap-3 py-2 no-underline"
+    >
+      <span className="shed-frets" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="shed-title block truncate">{name}</span>
+        <span className="block truncate text-[11px] opacity-80">
+          {total === 0 ? 'Nothing in rotation' : ticked ? 'Session done' : `${done}/${total} practised`}{!ticked && ' ↗'}
+        </span>
+      </span>
+      <span className="shed-count num shrink-0">{done}/{total}</span>
+      <span className="num shrink-0 text-base font-bold">{ticked ? `+${xp}` : xp}</span>
+    </a>
+  )
+}
+
 /** Header of the Guitar row: tap to fold today's session in or out. */
 export function GuitarHead({ name, xp, ticked, done, total, open, onToggle }: { name: string; xp: number; ticked: boolean; done: number; total: number; open: boolean; onToggle: () => void }) {
   return (

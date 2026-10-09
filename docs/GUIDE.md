@@ -45,7 +45,7 @@ A day with **nothing ticked at all** is settled two days later (a late tick stil
 
 ### The rest
 
-Six trained Pokemon stand behind the partner, each whose type beats the leader's adding 5%. Three TMs can be carried (each counts as one of the partner's types); one item can be held. Berries are hearts (10, 30 and 60 hearts raise the bond: 5% a level). The Key Stone is a feat; three shards of the right colour forge a Mega Stone, registered to that Pokemon for good.
+Six trained Pokemon stand behind the partner, each whose type beats the leader's adding 5%. Three TMs can be carried (each counts as one of the partner's types); one item can be held. Berries are hearts (10, 30 and 60 hearts raise the bond: 5% a level). The Key Stone is a feat; three shards of the right colour forge a Mega Stone, registered to that Pokemon for good. Every month-end review ticked in Life OS also pays a **Comet Shard**, a fifth shard that fits any Mega (it is tried last, after the colour that matches).
 
 ### A day's list can grow but not shrink
 

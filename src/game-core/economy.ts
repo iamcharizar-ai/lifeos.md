@@ -39,6 +39,8 @@ export const MARKS: Record<MarkTag, MarkDef> = {
   sleep: { name: 'Bells', icon: 'lunar-wing' },
 }
 export const SHARDS = ['red-shard', 'blue-shard', 'yellow-shard', 'green-shard'] as const
+/** Paid once per month-end review. It stands in for any colour when a Mega Stone is forged, and only a review gives it. */
+export const COMET_SHARD = 'comet-shard'
 export const SHARD_DOMAIN: Record<string, MarkTag> = { 'red-shard': 'fitness', 'blue-shard': 'code', 'yellow-shard': 'guitar', 'green-shard': 'arbor' }
 /** Marks a unit-day pays, and the extras for a record and for a song part owned. */
 export const MARK_RECORD = 2
@@ -153,6 +155,7 @@ export const ITEMS: Record<string, ItemDef> = {
   'blue-shard': { name: 'Blue Shard', kind: 'shard', text: 'Code. Three forge a Mega Y.' },
   'yellow-shard': { name: 'Yellow Shard', kind: 'shard', text: 'Guitar. Three forge a Mega Y.' },
   'green-shard': { name: 'Green Shard', kind: 'shard', text: 'Arbor. Three forge a Mega with only one form.' },
+  'comet-shard': { name: 'Comet Shard', kind: 'shard', text: 'A month reviewed. Fits any Mega: three forge one.' },
   'odd-incense': { name: 'Odd Incense', kind: 'lure', text: 'Burn it: the next wild Pokemon is a code type (Psychic, Electric, Ghost).' },
   'rock-incense': { name: 'Rock Incense', kind: 'lure', text: 'Burn it: the next wild Pokemon is a gym type (Fighting, Rock, Ground, Steel, Fire, Dragon).' },
   'pure-incense': { name: 'Pure Incense', kind: 'lure', text: 'Burn it: the next wild Pokemon is a guitar type (Fairy, Normal, Flying).' },
@@ -265,7 +268,7 @@ export const FORGE_COST = 3
 export function forgeShard(count: number, index: number, own: Tag | undefined, inv: Record<string, number>): string | null {
   const has = (s: string) => (inv[s] ?? 0) >= FORGE_COST
   const order: string[] = count > 1 ? (index === 0 ? ['red-shard'] : ['blue-shard', 'yellow-shard']) : [...(own && isMarkTag(own) && MARKS[own].shard ? [MARKS[own].shard!] : []), ...SHARDS]
-  return order.find(has) ?? null
+  return order.find(has) ?? (has(COMET_SHARD) ? COMET_SHARD : null)
 }
 
 // ── quests, the season and chests ───────────────────────────────────────────

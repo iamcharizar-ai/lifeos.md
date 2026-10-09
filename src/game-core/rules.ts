@@ -43,6 +43,8 @@ export const SLEEP_DEEP = 90
 /** Habits that open into a block of items and pay for the share that was done. */
 export const ARBOR_HABIT = 'arbor-morning'
 export const GUITAR_HABIT = 'woodshed-guitar'
+/** The month-end review is a tick of this id, filed under the first day of the month it closes. Each one pays a Comet Shard. */
+export const REVIEW_HABIT = 'month-review'
 
 /** A tick counts if it was made by the end of the day after the one it belongs to. */
 export const GRACE_DAYS = 1
