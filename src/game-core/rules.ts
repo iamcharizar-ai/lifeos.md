@@ -104,8 +104,8 @@ export const LEADER_HP = 2000
 export const WEAK_MULT = 1.5
 /** If the partner's type is super effective against the leader's, everything hits this much harder. */
 export const ADVANTAGE_MULT = 1.2
-/** Up to this many fully trained Pokemon stand behind the partner. Each whose type beats the leader's adds TEAM_BONUS to every strike. */
-export const TEAM_SIZE = 6
+/** A party of six: the partner and up to this many fully trained Pokemon standing behind it. Each whose type beats the leader's adds TEAM_BONUS to every strike. */
+export const TEAM_SIZE = 5
 export const TEAM_BONUS = 0.05
 /** A partner with a Mega registered strikes this much harder. */
 export const MEGA_MULT = 1.1
