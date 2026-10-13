@@ -1,0 +1,468 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@import './ui-kit/motion-tokens.css';
+
+@theme {
+  --color-neo-bg: #f4f4f0;
+  --color-neo-black: #111111;
+  --color-neo-white: #ffffff;
+  
+  --color-neo-yellow: #FFD800;
+  --color-neo-pink: #FF90E8;
+  --color-neo-blue: #3B82F6;
+  --color-neo-green: #34D399;
+  --color-neo-orange: #FF7B00;
+  --color-neo-red: #FF3A3A;
+  
+  --color-neo-gray: #d1d5db;
+  --color-neo-gray-dark: #6b7280;
+
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  overflow-x: clip;
+  background: var(--color-neo-bg);
+  background-image: 
+    radial-gradient(circle, #000000 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0;
+  background-attachment: fixed;
+  color: var(--color-neo-black);
+  font-family: 'Outfit', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Neo-Brutalist Layout ── */
+.neo-card {
+  background: var(--color-neo-white);
+  border: 3px solid var(--color-neo-black);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0px 0px var(--color-neo-black);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.neo-button {
+  background: var(--color-neo-white);
+  border: 3px solid var(--color-neo-black);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0px 0px var(--color-neo-black);
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.neo-button:active,
+.neo-button:hover {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0px 0px var(--color-neo-black);
+}
+
+.neo-card-yellow { background: var(--color-neo-yellow); }
+.neo-card-pink { background: var(--color-neo-pink); }
+.neo-card-blue { background: var(--color-neo-blue); color: white; }
+.neo-card-green { background: var(--color-neo-green); }
+/* Unlayered like .neo-button, so it can actually override its white background —
+   a Tailwind bg-* utility can't, which left white text on a white button. */
+.neo-card-red { background: var(--color-neo-red); color: white; }
+
+
+
+/* ── HUD label — transformed to Neo-Brutalist heading ── */
+.hud-label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-neo-black);
+  border-bottom: 3px solid var(--color-neo-black);
+  display: inline-block;
+  padding-bottom: 2px;
+}
+
+/* ── Coin slot — Neo-brutalist inset ── */
+.coin-slot {
+  background: var(--color-neo-white);
+  border: 3px solid var(--color-neo-black);
+  border-radius: 4px;
+  box-shadow: inset 3px 3px 0px 0px rgba(0, 0, 0, 0.1);
+}
+.coin-slot-hot {
+  background: var(--color-neo-yellow);
+  border-color: var(--color-neo-black);
+  box-shadow: inset 3px 3px 0px 0px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Motion & state ── */
+@keyframes ember-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 92, 56, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 12px 2px rgba(255, 92, 56, 0.22);
+  }
+}
+.pulse-ember {
+  animation: ember-pulse 1.8s ease-in-out infinite;
+}
+
+/* available = quiet invitation: static ring, no ambient motion (battery + restraint) */
+.pulse-available {
+  outline: 1px solid rgba(232, 236, 244, 0.35);
+  outline-offset: 2px;
+}
+
+@keyframes edge-flow {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ember,
+  .pulse-available {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Full-bleed breakout ───────────────────────────────────────────
+   Escapes the centered max-w column to the true viewport edges — the
+   negative margin exactly cancels the column offset AND the safe-x
+   padding, on any screen width. Sections that need the whole monitor
+   (Train plates, Body constellation) wear this. */
+.bleed {
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+/* edge padding for bleed content that still needs a finger's breathing room */
+.bleed-pad {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+
+/* numerals read as instruments everywhere */
+.num {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Safe areas ────────────────────────────────────────────────────
+   viewport-fit=cover draws the PWA edge-to-edge (under Android's gesture
+   bar / display cutouts); every fixed-edge surface must compensate or
+   content clips at the screen edges — worst when zoomed. */
+.safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+.safe-top {
+  padding-top: max(1.5rem, env(safe-area-inset-top));
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── Linked tiles: habits fed by Strong and Arbor wear those apps' looks ── */
+
+/* Strong: yellow slab, moving hazard stripe down the left edge until it's done */
+.tile-strong {
+  background: #ffd23f;
+  color: #111;
+  position: relative;
+  overflow: hidden;
+}
+.tile-strong::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 7px;
+  background: repeating-linear-gradient(-45deg, #111 0 6px, #ffd23f 6px 12px);
+  background-size: 17px 17px;
+  animation: strong-stripe 1.1s linear infinite;
+}
+.tile-strong.is-done { background: var(--color-neo-green); }
+.tile-strong.is-done::before { animation: none; background: #111; }
+.tile-strong a { color: inherit; }
+@keyframes strong-stripe { to { background-position: 0 17px; } }
+
+/* Arbor: dark pixel panel, stepped gold frame that pulses until all skills are done */
+.tile-arbor {
+  background: #171425;
+  color: #f2efe6;
+  border-color: #111;
+  border-radius: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #f2c14e;
+  animation: arbor-frame 1.6s steps(2, end) infinite;
+}
+.tile-arbor.is-done { animation: none; box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #a6e35a; }
+.tile-arbor:active, .tile-arbor:hover { box-shadow: 1px 1px 0 0 #111, inset 0 0 0 3px #f2c14e; }
+.tile-arbor > button:first-child span, .tile-arbor > button:last-child { color: #8d87a6; }
+@keyframes arbor-frame {
+  50% { box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #b8862b; }
+}
+.arbor-title { font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: #f2c14e; }
+.tile-arbor.is-done .arbor-title { color: #a6e35a; text-decoration: line-through; }
+.arbor-count { font-family: 'Silkscreen', monospace; font-size: 12px; padding: 2px 6px; border: 2px solid #4b4663; color: #f2efe6; }
+/* a 9px pixel sprout, drawn with box-shadows so it needs no asset */
+.arbor-sprout {
+  width: 3px; height: 3px; margin: 0 14px 0 12px; flex: none; background: #a6e35a;
+  box-shadow: 0 3px #a6e35a, 0 6px #7fb63f, 0 9px #7fb63f, -3px -3px #a6e35a, -6px -6px #a6e35a, -6px -3px #7fb63f, 3px 0 #a6e35a, 6px -3px #a6e35a, 9px -3px #7fb63f, 6px 0 #7fb63f;
+  transform: translateY(-3px);
+}
+.arbor-panel {
+  background: #0f0d17;
+  border: 3px solid #111;
+  border-top: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+.arbor-skill { display: flex; align-items: center; gap: 10px; padding: 6px 8px; background: #171425; border: 2px solid #3a3457; color: #f2efe6; }
+.arbor-skill.is-done { border-color: #a6e35a; background: #1a2412; }
+.arbor-fig { image-rendering: pixelated; flex: none; background: #221e36; border: 2px solid #3a3457; }
+.arbor-skill.is-done .arbor-fig { background: #111a0c; border-color: #4b6a2a; }
+.arbor-skill-name { font-family: 'Silkscreen', monospace; font-size: 12px; letter-spacing: 0.02em; }
+.arbor-skill.is-done .arbor-skill-name { color: #d3f79a; }
+.arbor-skill-target { font-size: 11px; line-height: 1.3; color: #a8a2bd; }
+.arbor-input { width: 54px; height: 36px; text-align: center; font-size: 15px; font-weight: 700; background: #0f0d17; color: #f2efe6; border: 2px solid #4b4663; outline: 0; }
+.arbor-input:focus { border-color: #f2c14e; }
+.arbor-input::placeholder { color: #6f6a88; font-weight: 400; font-size: 11px; }
+.arbor-tick { width: 36px; height: 36px; flex: none; display: grid; place-items: center; background: #0f0d17; border: 2px solid #4b4663; color: #4b4663; }
+.arbor-skill.is-done .arbor-tick { background: #a6e35a; border-color: #a6e35a; color: #0f1a08; }
+.arbor-link { align-self: flex-end; font-size: 11px; color: #8d87a6; text-decoration: none; padding: 2px 4px; }
+.arbor-link:hover { color: #f2c14e; }
+
+/* Woodshed: a painted guitar body, with a cream three-ply plate for each item of today's session */
+.tile-woodshed {
+  background: radial-gradient(140% 160% at 10% -30%, #2b7186 0%, #1c5263 45%, #123a47 100%);
+  color: #f2e9d2;
+  border-color: #111;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #f2e9d2;
+}
+.tile-woodshed.is-done { box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #c2932a; }
+.tile-woodshed:active, .tile-woodshed:hover { box-shadow: 1px 1px 0 0 #111, inset 0 0 0 3px #f2e9d2; }
+.tile-woodshed > button:first-child span, .tile-woodshed > button:last-child { color: #b9beb8; }
+.shed-title { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 900; font-size: 20px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
+.tile-woodshed.is-done .shed-title { text-decoration: line-through; opacity: 0.85; }
+.shed-count { font-size: 12px; padding: 2px 7px; border: 1.5px solid #f2e9d2; border-radius: 999px; }
+/* three frets and four strings, drawn with gradients so it needs no asset */
+.shed-frets {
+  width: 22px; height: 22px; margin: 0 6px 0 8px; flex: none; border-radius: 3px;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 3px, #f2e9d2 3px 4.5px, transparent 4.5px 5.5px),
+    repeating-linear-gradient(to right, #3a2620 0 6px, #b9beb8 6px 7.5px);
+}
+.shed-panel {
+  background: #123a47;
+  border: 3px solid #111;
+  border-top: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.shed-item {
+  display: grid; grid-template-columns: 1fr; gap: 8px; padding: 9px 11px; background: #f2e9d2; color: #17140f; border-radius: 10px;
+  box-shadow: 0 0 0 1.5px #ece6d3, 0 0 0 3px #17140f, 0 0 0 4.5px #ece6d3;
+  margin: 4.5px;
+}
+.shed-item.is-done { background: #e6dbbd; }
+.shed-item-name { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 700; font-size: 17px; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.02em; }
+.shed-item-target { font-size: 11px; line-height: 1.35; color: #5b5547; margin-top: 2px; }
+.shed-feels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.shed-feels button { padding: 8px 4px; border: 1.5px solid #17140f; border-radius: 7px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; background: transparent; color: #17140f; }
+.shed-feels button.on { background: #17140f; color: #f2e9d2; }
+.shed-link { align-self: flex-end; font-size: 11px; color: #b9beb8; text-decoration: none; padding: 2px 4px; }
+.shed-link:hover { color: #f2e9d2; }
+@media (min-width: 640px) {
+  .shed-item { grid-template-columns: 1fr 250px; align-items: center; }
+}
+
+/* Partner: the game's one card. A dark field so the sprite reads, a cream plate for the numbers */
+.pillar-mark { display: inline-grid; place-items: center; flex: none; width: 26px; height: 30px; margin-right: 2px; background: #ffd800; color: #111; border: 2px solid #111; border-radius: 3px; box-shadow: 2px 2px 0 0 #111; }
+.partner-card {
+  display: flex; align-items: center; gap: 14px; padding: 12px;
+  background: #1d2433; color: #f4f1e6;
+  border: 3px solid var(--color-neo-black); border-radius: 8px;
+  box-shadow: 4px 4px 0 0 var(--color-neo-black);
+}
+.partner-card.aura-mega { box-shadow: 4px 4px 0 0 var(--color-neo-black), inset 0 0 0 3px #7ad7ff; }
+.partner-card.aura-gmax { box-shadow: 4px 4px 0 0 var(--color-neo-black), inset 0 0 0 3px #ff5d8f; }
+.partner-frame {
+  position: relative; flex: none; display: grid; place-items: center; width: 96px; height: 96px;
+  background: radial-gradient(circle at 50% 78%, #3d4a66 0 34%, #2a3349 35% 100%);
+  border: 3px solid var(--color-neo-black); border-radius: 6px;
+}
+.partner-sprite { image-rendering: pixelated; object-fit: contain; }
+.partner-sprite.is-asleep { filter: grayscale(1) brightness(0.7); }
+.partner-blank { display: grid; place-items: center; background: #3d4a66; color: #9aa6c2; font-family: 'Silkscreen', monospace; border-radius: 4px; }
+.partner-zzz { position: absolute; top: 4px; right: 6px; font-family: 'Silkscreen', monospace; font-size: 10px; color: #9aa6c2; }
+.partner-name { font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase; color: #ffd800; }
+.partner-lv { font-family: 'Silkscreen', monospace; font-size: 13px; color: #f4f1e6; }
+.partner-tag { font-family: 'Silkscreen', monospace; font-size: 10px; padding: 1px 5px; border: 2px solid #ffd800; color: #ffd800; text-transform: uppercase; }
+.partner-bar { display: flex; height: 12px; margin: 7px 0 6px; background: #0f1420; border: 2px solid var(--color-neo-black); overflow: hidden; }
+.partner-bar i { display: block; height: 100%; flex: none; }
+.partner-bar .bar-base { background: #34d399; }
+/* today's XP: a different hue and a stripe, so it reads without relying on colour alone */
+.partner-bar .bar-today { background: #ffd800 repeating-linear-gradient(135deg, transparent 0 4px, rgba(0,0,0,0.28) 4px 6px); }
+.partner-line { font-size: 12px; line-height: 1.45; color: #b9c2d6; }
+.partner-line b { color: #f4f1e6; font-variant-numeric: tabular-nums; }
+.partner-line b.partner-today { color: #ffd800; }
+
+/* Moments: one line, said once, above the tab bar */
+.moment-wrap { position: fixed; left: 0; right: 0; bottom: 88px; z-index: 60; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
+.moment {
+  pointer-events: auto; display: flex; align-items: center; gap: 12px; max-width: 420px; width: 100%; padding: 10px 14px;
+  background: #1d2433; color: #f4f1e6; border: 3px solid var(--color-neo-black); border-radius: 8px;
+  box-shadow: 4px 4px 0 0 var(--color-neo-black);
+}
+.moment-evolve, .moment-catch, .moment-graduate, .moment-form { box-shadow: 4px 4px 0 0 var(--color-neo-black), inset 0 0 0 3px #ffd800; }
+.moment-title { display: block; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #ffd800; }
+.moment-text { display: block; font-size: 13px; line-height: 1.35; }
+
+/* Sunday reset: a lavender sticker sheet with a dashed cut-line, its title stamped on at a slant */
+.sunday-panel {
+  background-color: #e4d8ff;
+  background-image: radial-gradient(circle, rgba(17, 17, 17, 0.14) 1.2px, transparent 1.2px);
+  background-size: 14px 14px;
+  border: 3px solid var(--color-neo-black);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 0 var(--color-neo-black);
+  outline: 3px dashed var(--color-neo-black);
+  outline-offset: -11px;
+  padding: 18px;
+}
+.sunday-stamp {
+  display: inline-block;
+  background: var(--color-neo-black);
+  color: var(--color-neo-yellow);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  transform: rotate(-1.5deg);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-strong::before, .tile-arbor { animation: none; }
+}
+
+/* The partner strip and its toasts, in the Pokedex look: a pale frame around a dark quilted body,
+   one heavy outlined face, a bar that is an object. Only the game's part of this app is styled this way. */
+.partner-card {
+  gap: 14px; padding: 12px 14px; color: #fff; border: 3px solid #141a33; border-radius: 16px;
+  background-color: #26315e;
+  background-image: linear-gradient(45deg, rgba(255,255,255,0.035) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.035) 75%), linear-gradient(-45deg, rgba(0,0,0,0.07) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.07) 75%);
+  background-size: 44px 44px;
+  box-shadow: 0 0 0 5px #f8f5ea, 0 0 0 8px #141a33, 0 13px 0 0 #141a33;
+  margin: 8px 8px 16px;
+}
+.partner-card.aura-mega { box-shadow: 0 0 0 5px #7fe3ff, 0 0 0 8px #141a33, 0 13px 0 0 #141a33; }
+.partner-card.aura-gmax { box-shadow: 0 0 0 5px #e0559a, 0 0 0 8px #141a33, 0 13px 0 0 #141a33; }
+/* no frame: the sprite stands on a soft shadow */
+.partner-frame { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; margin: 0 4px; width: 90px; height: 90px; }
+.partner-frame::after { content: ''; position: absolute; left: 16%; right: 16%; bottom: 4px; height: 10px; border-radius: 50%; background: rgba(0, 0, 0, 0.32); }
+.partner-frame .partner-sprite { position: relative; z-index: 1; }
+.partner-name { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-weight: 400; font-size: 24px; letter-spacing: 0.02em; text-transform: none; color: #fff; -webkit-text-stroke: 4px #141a33; paint-order: stroke fill; text-shadow: 0 2px 0 #141a33; }
+.partner-lv { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-size: 17px; color: #ffd84a; -webkit-text-stroke: 3px #141a33; paint-order: stroke fill; }
+.partner-tag { font-family: 'Lilita One', sans-serif; font-size: 12px; text-transform: none; color: #141a33; background: #f5b800; border: 2px solid #141a33; border-radius: 6px; padding: 0 6px 2px; }
+.partner-bar { height: 20px; margin: 6px 0 7px; background: #0c1126; border: 2px solid #141a33; border-radius: 8px; box-shadow: inset 0 3px 0 rgba(0,0,0,0.5); }
+.partner-bar i { box-shadow: inset 0 5px 0 rgba(255,255,255,0.38), inset 0 -4px 0 rgba(0,0,0,0.2); }
+.partner-bar .bar-base { background: #2f7fd0; }
+.partner-bar .bar-today { background: #f5b800 repeating-linear-gradient(135deg, transparent 0 4px, rgba(0,0,0,0.28) 4px 6px); }
+.partner-line { color: #aab6e6; }
+.partner-line b { color: #fff; } .partner-line b.partner-today { color: #ffd84a; }
+.partner-zzz, .partner-blank { font-family: 'Lilita One', sans-serif; }
+.moment { color: #fff; background: #26315e; border: 3px solid #141a33; border-radius: 16px; box-shadow: 0 0 0 4px #f8f5ea, 0 0 0 7px #141a33, 0 12px 0 0 #141a33; }
+.moment-evolve, .moment-catch, .moment-graduate, .moment-form, .moment-gym, .moment-league, .moment-key, .moment-mega { box-shadow: 0 0 0 4px #f5b800, 0 0 0 7px #141a33, 0 12px 0 0 #141a33; }
+.moment-title { font-family: 'Lilita One', 'Silkscreen', sans-serif; font-weight: 400; font-size: 18px; text-transform: none; letter-spacing: 0.02em; color: #fff; -webkit-text-stroke: 3px #141a33; paint-order: stroke fill; }
+.moment-text { color: #dfe6ff; }
+
+/* version 5: the wallet on the strip */
+.partner-wallet { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-family: 'Lilita One', sans-serif; font-size: 16px; color: #fff; }
+.partner-wallet i { display: inline-block; width: 16px; height: 16px; border: 2px solid #141a33; }
+.partner-wallet .coin { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd84a 0 45%, #f5b800 46%); }
+.partner-wallet .gem { margin-left: 8px; background: #3fd07a; clip-path: polygon(25% 0, 75% 0, 100% 40%, 50% 100%, 0 40%); border: 0; width: 17px; }
+.moment-quest { box-shadow: 0 0 0 4px #2fae66, 0 0 0 7px #141a33, 0 12px 0 0 #141a33; }
+
+/* The moments worth stopping for (a catch, an evolution, a badge, a hatch...) are staged where you ticked:
+   in the middle of the screen, the sprite large with rays turning behind it. A tap sends it away; it leaves by itself too. */
+.moment-wrap.is-big { top: 0; bottom: 0; align-items: center; background: rgba(10, 14, 30, 0.55); pointer-events: auto; }
+.moment.moment-big { flex-direction: column; text-align: center; gap: 6px; max-width: 340px; padding: 18px 18px 16px; overflow: hidden; }
+.moment-big .text-left { text-align: center; }
+.moment-art { position: relative; display: grid; place-items: center; }
+.moment-big .moment-art { width: 150px; height: 130px; }
+.moment-big .moment-art::before { content: ''; position: absolute; width: 320px; height: 320px; border-radius: 50%; background: repeating-conic-gradient(rgba(255, 216, 74, 0.3) 0 10deg, transparent 10deg 20deg); mask-image: radial-gradient(circle, #000 0 28%, transparent 66%); animation: moment-spin 12s linear infinite; }
+.moment-big .moment-art > * { position: relative; animation: moment-pop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both; filter: drop-shadow(0 5px 0 rgba(0, 0, 0, 0.35)); }
+.moment-big .moment-title { font-size: 26px; -webkit-text-stroke-width: 4px; }
+.moment-big .moment-text { font-size: 15px; }
+@keyframes moment-spin { to { transform: rotate(360deg); } }
+@keyframes moment-pop { 0% { transform: scale(0.2) rotate(-14deg); opacity: 0; } 60% { transform: scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .moment-big .moment-art::before, .moment-big .moment-art > * { animation: none; } }
+
+/* Sleep once the band is in use: a night sky, with the score lit like a small moon */
+.tile-vitals {
+  background: radial-gradient(1.5px 1.5px at 18% 30%, #fff8 99%, transparent), radial-gradient(1px 1px at 62% 22%, #fff9 99%, transparent), radial-gradient(1.5px 1.5px at 84% 62%, #fff7 99%, transparent), linear-gradient(160deg, #1b2150 0%, #2b2866 55%, #3a2d78 100%);
+  color: #e9e6ff;
+  border-color: #111;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #8f86ff;
+}
+.tile-vitals.is-done { box-shadow: 4px 4px 0 0 #111, inset 0 0 0 3px #f2c14e; }
+.tile-vitals:active, .tile-vitals:hover { box-shadow: 1px 1px 0 0 #111, inset 0 0 0 3px #e9e6ff; }
+.tile-vitals > button:last-child { color: #b9b6dd; }
+.vit-title { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 900; font-size: 20px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
+.vit-score { display: grid; place-items: center; min-width: 34px; height: 34px; padding: 0 6px; font-size: 16px; font-weight: 800; color: #1b2150; background: #f2e9b8; border: 2px solid #111; border-radius: 50%; }
+
+/* ── rewards flying into the bar they are kept in (lib/flyReward.ts) ── */
+.fly-reward { position: fixed; left: 0; top: 0; translate: -50% -50%; z-index: 80; pointer-events: none; padding: 2px 8px; font: 800 14px/1 var(--font-display, inherit); color: #1a1200; background: #ffd800; border: 2px solid #000; border-radius: 999px; box-shadow: 2px 2px 0 #000; white-space: nowrap; will-change: transform, opacity; }
+.reward-pulse { animation: reward-pulse 0.4s ease-out; }
+@keyframes reward-pulse { 0% { filter: brightness(1); transform: scaleY(1); } 35% { filter: brightness(1.6); transform: scaleY(1.35); } 100% { filter: brightness(1); transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .reward-pulse { animation: none; } }
+
+/* ── motion from the animation study: the claim button's breathing, and a pop for a finished list ── */
+.breathe { animation: breathe var(--t-breathe, 1.134s) infinite; }
+@keyframes breathe { 0% { transform: scale(1); animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0.3); } 54% { transform: scale(1.025); animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1); } 100% { transform: scale(1); } }
+.sunday-clear { padding: 1px 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; background: #ffd800; border: 2px solid #000; animation: clear-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes clear-pop { 0% { transform: scale(0.2); opacity: 0; } 60% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .breathe, .sunday-clear { animation: none; } }
+
+/* ── the month review: the shard floats on its own, gently, until the month is closed ── */
+.review-shard { flex: none; display: grid; place-items: center; width: 56px; height: 56px; animation: shard-float 2.4s ease-in-out infinite; }
+.review-shard img { filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.35)) drop-shadow(0 0 8px rgba(160, 120, 255, 0.55)); }
+.review-shard.is-done { animation: none; opacity: 0.45; filter: grayscale(0.6); }
+@keyframes shard-float { 50% { transform: translateY(-5px) rotate(-4deg); } }
+
+/* ── momentum as a flame: bigger and hotter as the week fills ── */
+.flame { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; }
+.flame i { width: 11px; height: 14px; background: linear-gradient(#ffd800 0 35%, #ff7b00 35% 70%, #ff3a3a 70%); clip-path: polygon(50% 0, 70% 28%, 92% 50%, 82% 88%, 50% 100%, 18% 88%, 8% 50%, 30% 28%); animation: flicker 0.9s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+.flame.t2 i { width: 13px; height: 17px; }
+.flame.t3 i { width: 15px; height: 20px; animation-duration: 0.6s; }
+@keyframes flicker { from { transform: scale(1, 1) rotate(-3deg); } to { transform: scale(0.92, 1.1) rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { .review-shard, .flame i { animation: none; } }
