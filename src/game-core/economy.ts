@@ -698,7 +698,7 @@ export function researchReward(rank: number): { coins?: number; gems?: number; i
 
 // ── version 15: a level milestone is a choice of two ──
 /** One side of a choice: what it pays, and a name for it on the button. */
-export interface Option { name: string; coins: number; gems: number; items: [string, number][] }
+export interface Option { name: string; coins: number; gems: number; items: [string, number][]; /** version 16: a Trainer star ranks up this perk */ perk?: string }
 /**
  * The two rewards a partner's level milestone offers, drawn from five that pull
  * different ways: balls (catching), a shard in the colour you hold least of (the

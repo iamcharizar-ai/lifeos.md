@@ -7,7 +7,8 @@
 // Pokemon's bond level as partner, half that in the party; one family's
 // strengths add up to SIG_CAP. Pure data and small functions: fold.ts applies them.
 import type { HabitFact } from './facts.ts'
-import { HEART_LEVELS, type Tag } from './rules.ts'
+import { BOND_PERKS, HEART_LEVELS, type BondPerk, type Tag } from './rules.ts'
+import { rng, type Option } from './economy.ts'
 import { SPECIES } from './species.ts'
 import { TYPE_DOMAIN } from './types.ts'
 
@@ -86,3 +87,31 @@ export function didWork(tag: Tag, habits: HabitFact[]): boolean {
 
 /** Hearts a bond level needs, for the next step from `hearts` (null at the last). */
 export const nextHearts = (hearts: number): number | null => HEART_LEVELS.find((n) => hearts < n) ?? null
+
+// ── past the last trainer level: Trainer stars ──
+/** After the last trainer level, every this many hearts more is a Trainer star: a choice of two perks to rank up. */
+export const STAR_EVERY = 150
+/** No perk goes past this rank. */
+export const STAR_MAX = 5
+/** What a rank adds, perk by perk. Endure comes back a day sooner a rank, down to STAR_ENDURE_MIN days. */
+export const STAR_PICKUP = 0.05
+export const STAR_FOCUS = 0.03
+export const STAR_FRIENDS = 0.03
+export const STAR_SHARE = 0.03
+export const STAR_ENDURE_MIN = 3
+export const PERK_NAME: Record<BondPerk, string> = { pickup: 'Pickup', endure: 'Endure', focus: 'Focus', friends: 'Best friends', share: 'Exp. Share' }
+/** How many stars these hearts have earned. */
+export const starsFor = (hearts: number): number => Math.max(0, Math.floor((hearts - TRAINER_LEVELS[TRAINER_LEVELS.length - 1]) / STAR_EVERY))
+/** The hearts the next star takes. */
+export const nextStarAt = (hearts: number): number => TRAINER_LEVELS[TRAINER_LEVELS.length - 1] + (starsFor(hearts) + 1) * STAR_EVERY
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI']
+/** "Focus III": a perk at a rank. Rank 0 is the perk as it unlocked. */
+export const rankName = (perk: BondPerk, rank: number): string => `${PERK_NAME[perk]}${rank > 0 ? ` ${ROMAN[rank + 1] ?? rank + 1}` : ''}`
+/** The two perks star `n` offers, from those not yet at STAR_MAX, seeded so every device offers the same. With every perk full, gems. */
+export function starOptions(n: number, ranks: Record<BondPerk, number>): [Option, Option] {
+  const open = BOND_PERKS.filter((p) => ranks[p] < STAR_MAX)
+  const r = rng(`trainer-star:${n}`)
+  const pick = [...open].sort(() => r() - 0.5).slice(0, 2)
+  const opt = (p: BondPerk | undefined): Option => (p ? { name: rankName(p, ranks[p] + 1), coins: 0, gems: 0, items: [], perk: p } : { name: '25 gems', coins: 0, gems: 25, items: [] })
+  return [opt(pick[0]), opt(pick[1])]
+}
