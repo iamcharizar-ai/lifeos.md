@@ -9,14 +9,15 @@
 //   how MANY habits you ticked → the wild Pokemon's HP (catching), and the ball it is thrown with
 //   what KIND of work     → the gym leader's HP (the league)
 // and a day with nothing ticked at all costs something small (see SLIP).
-import type { DayFacts } from './facts.ts'
+import type { DayFacts, HabitFact } from './facts.ts'
+import { BERRY_DOMAIN_MULT, SIG_CAP, SIG_CHARM, SIG_FLOW, SIG_FORAGE, SIG_INSIGHT, SIG_POWER, TRAINER_LEVELS, didWork, dreamHearts, sigStrength, signatureOf, trainerLevel } from './bond.ts'
 import { addDays } from './facts.ts'
 import { LEAGUES, lineup, type Leader } from './gyms.ts'
 import {
   ADVANTAGE_MULT, BALL_MULT, CATCH_WEIGHTS, DAILY_PAY, EGG_STEPS, GEMS, LEADER_HP, LEGENDARY_EVERY_WILD, MEGA_BONUS, MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS,
   CLAIM_AUTO, KIT_IRON, KIT_SHARD_EVERY, PAY_STREAK, PILLARS_FOR_A_DAY, REPEL_DAYS, SEASON_STEP, SHINY_ODDS, SHINY_ODDS_WORN, SLEEP_AFTER, SLEEP_DEEP, DEEP_SLEEP_MIN, DEEP_SLEEP_FROM, REVIEW_GEMS, SLEEP_HABIT, SLIP, STAKES_FROM, START_SPECIES, STAT_DAYS, STEPS_GOAL, TAGS,
   TEAM_BONUS, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
-  V13_START, V14_START, V15_START, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
+  V13_START, V14_START, V15_START, V16_START, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
@@ -114,6 +115,9 @@ export type Moment =
   // version 13
   /** the partner found something on the day's walk (bond level 1) */
   | { kind: 'pickup'; day: string; item: string; form: string }
+  /** version 16: a Forage signature found a berry; a Dream signature gave `n` of the party a heart */
+  | { kind: 'forage'; day: string; item: string }
+  | { kind: 'dream'; day: string; n: number }
   /** an empty day that cost nothing: the bond held (Endure), the Focus Sash, or a Guard Spec */
   | { kind: 'endure'; day: string; empty: string; how: 'endure' | 'sash' | 'guard' }
   /** a Battle Frontier symbol */
@@ -240,7 +244,7 @@ export interface Power {
   /** version 13: the partner's level */
   level: number
   /** on each kind of work only: its held item, its mastery level, the team members whose nature raised it, and the partner's vitamins */
-  domain: Record<Tag, { held: number; mastery: number; nature: number; vitamin: number }>
+  domain: Record<Tag, { held: number; mastery: number; nature: number; vitamin: number; /** version 16: the Power signatures, on gym work */ sig: number }>
 }
 
 /** One Battle Frontier facility's run, as the screens show it. */
@@ -386,6 +390,15 @@ export interface Game {
   v14: boolean
   /** version 14: the Professor's research: its rank, the points toward the next, who is on the desk and what they add a day, and what it takes off wild Pokemon */
   research: { rank: number; points: number; need: number; desk: Mon[]; chosen: boolean; perDay: number; today: number; cut: number }
+  /** version 16 is in force on the last day */
+  v16: boolean
+  /** version 16: the trainer's bond (every heart across every Pokemon owned, never going down), its level, and the hearts the next level takes */
+  trainer: { hearts: number; level: number; next: number | null }
+  /** version 16: each kind of work's signature strength today (partner in full, party at half, at most SIG_CAP), and what the signatures did today */
+  sigs: Record<Tag, number>
+  sigToday: { insight: number; charm: number; forage: string | null; dream: number }
+  /** version 16: which kinds of work today did (a berry pays double to a Pokemon whose kind it is) */
+  worked: Record<Tag, boolean>
 }
 
 const FIRST_STAGES = Object.entries(SPECIES).filter(([, r]) => r.s === 1 && !r.f)
@@ -439,6 +452,12 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const v13On = (day: string): boolean => day >= V13_START
   const v14On = (day: string): boolean => day >= V14_START
   const v15On = (day: string): boolean => day >= V15_START
+  const v16On = (day: string): boolean => day >= V16_START
+  /** version 16: the trainer's bond: every heart across every Pokemon owned, kept at its highest */
+  let trainerHearts = 0
+  /** version 16: the day being folded's habits (a berry pays double on a day its Pokemon's kind of work was done), and what the signatures did today */
+  let dayHabits: HabitFact[] = []
+  let sigToday: Game['sigToday'] = { insight: 0, charm: 0, forage: null, dream: 0 }
   const heartsOf = (m: Mon): number => (m.together ?? 0) + (m.fed ?? 0)
   const bpEarn = (n: number) => { wallet.bp += n; wallet.bpToday += n }
   const inv: Record<string, number> = {}
@@ -519,6 +538,18 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     const picked = (teamPick ? teamPick.flatMap((u) => owned.filter((m) => m.uid === u)) : graduates.slice(-TEAM_SIZE).reverse()).slice(0, TEAM_SIZE)
     const taken = new Set(picked.map((m) => m.uid))
     return [...picked, ...queue.filter((m) => !taken.has(m.uid)).slice(0, TEAM_SIZE - picked.length)]
+  }
+  /** version 16: the trainer's hearts can only rise: a Pokemon sent away does not take its share back */
+  const noteHearts = () => { trainerHearts = Math.max(trainerHearts, [partner, ...queue, ...graduates].reduce((n, m) => n + heartsOf(m), 0)) }
+  /** the level the five perks are read at: the partner's bond, and from version 16 the trainer's */
+  const perkLevel = (day: string): number => (v16On(day) ? trainerLevel(trainerHearts) : bondLevel(heartsOf(partner)))
+  /** version 16: each kind of work's signature strength: the partner's in full, the party's at SIG_PARTY, at most SIG_CAP */
+  const sigsNow = (): Record<Tag, number> => {
+    const out = Object.fromEntries(TAGS.map((t) => [t, 0])) as Record<Tag, number>
+    out[signatureOf(partner.form).tag] += sigStrength(bondLevel(heartsOf(partner)), true)
+    for (const m of teamNow()) if (m.uid !== partner.uid) out[signatureOf(m.form).tag] += sigStrength(bondLevel(heartsOf(m)), false)
+    for (const t of TAGS) out[t] = Math.min(SIG_CAP, out[t])
+    return out
   }
   /** the fully trained among the team: the only ones that count towards the boss's party of six */
   const trainedTeam = (): Mon[] => teamNow().filter((m) => m.graduated)
@@ -822,7 +853,10 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         const m = v14On(day) && u.uid ? [partner, ...queue, ...graduates].find((x) => x.uid === u.uid) : partner
         if (!m || (v14On(day) && heartsOf(m) >= HEART_CAP)) return
         inv[item]--
-        m.fed = (m.fed ?? 0) + hearts
+        // version 16: twice the hearts on a day its own kind of work was done
+        const gain = hearts * (v16On(day) && didWork(signatureOf(m.form).tag, dayHabits) ? BERRY_DOMAIN_MULT : 1)
+        m.fed = (m.fed ?? 0) + (v16On(day) ? Math.min(gain, HEART_CAP - heartsOf(m)) : gain)
+        noteHearts()
         return
       }
       case 'train': {
@@ -1079,13 +1113,15 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   }
 
   /** What the strike is raised by right now. */
-  const powerOf = (v13 = false, v14 = false): Power => {
+  const powerOf = (v13 = false, v14 = false, v16 = false): Power => {
     const members = teamNow()
     const domain = {} as Power['domain']
-    for (const t of TAGS) domain[t] = { held: heldBonus(partner.held, t), mastery: isMarkTag(t) ? MASTERY_STEP * mastery[t] : 0, nature: TEAM_NATURE * members.filter((m) => m.nature?.up === t).length, vitamin: v13 && isMarkTag(t) ? VITAMIN_STEP * ((partner.vits?.[t] ?? 0) + (v14 ? PARTY_VITAMIN * members.reduce((n, m) => n + (m.vits?.[t] ?? 0), 0) : 0)) : 0 }
+    for (const t of TAGS) domain[t] = { held: heldBonus(partner.held, t), mastery: isMarkTag(t) ? MASTERY_STEP * mastery[t] : 0, nature: TEAM_NATURE * members.filter((m) => m.nature?.up === t).length, vitamin: v13 && isMarkTag(t) ? VITAMIN_STEP * ((partner.vits?.[t] ?? 0) + (v14 ? PARTY_VITAMIN * members.reduce((n, m) => n + (m.vits?.[t] ?? 0), 0) : 0)) : 0, sig: 0 }
+    if (v16) domain.fitness.sig = SIG_POWER * sigsNow().fitness
     const bond = bondLevel(heartsOf(partner))
     return {
-      team: members.reduce((sum, m) => sum + TEAM_BONUS + BOND_PARTY * bondLevel(heartsOf(m)) + (v13 ? TEAM_LEVEL * levelOf(m.xp) : 0), 0),
+      // version 16: a party member's bond works through its signature instead
+      team: members.reduce((sum, m) => sum + TEAM_BONUS + (v16 ? 0 : BOND_PARTY * bondLevel(heartsOf(m))) + (v13 ? TEAM_LEVEL * levelOf(m.xp) : 0), 0),
       bond: BOND_STEP * bond,
       // version 13: a forged stone is worth more the closer the two of you are
       mega: partner.megas?.length ? MEGA_BONUS + (v13 ? MEGA_BOND * bond : 0) : 0,
@@ -1109,6 +1145,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     caughtToday = null
     fledToday = null
     slipToday = null
+    dayHabits = f.habits
+    sigToday = { insight: 0, charm: 0, forage: null, dream: 0 }
     const stakes = f.day >= STAKES_FROM
     for (const h of [...held.values()]) if (dayGap(h.day, f.day) >= CLAIM_AUTO) release(h.key, f.day)
     // a month-end review pays a Comet Shard, one for each made today
@@ -1125,7 +1163,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     // version 13: the bond's Endure (one empty day a week), the Focus Sash, or a Guard Spec standing guard: the day costs nothing
     const shield = !(stakes && gone && gone.day >= STAKES_FROM && dayGap(gone.day, f.day) === 2 && emptyDay(gone)) || !v13 ? null
       : partner.held === 'focus-sash' ? 'sash' as const
-        : hasPerk(bondLevel(heartsOf(partner)), 'endure') && (!lastEndure || dayGap(lastEndure, f.day) >= ENDURE_DAYS) ? 'endure' as const
+        : hasPerk(perkLevel(f.day), 'endure') && (!lastEndure || dayGap(lastEndure, f.day) >= ENDURE_DAYS) ? 'endure' as const
           : guard ? 'guard' as const : null
     if (shield && gone) {
       if (shield === 'endure') lastEndure = f.day
@@ -1170,12 +1208,18 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     if (pillars > 0) partner.together = (partner.together ?? 0) + 1
     // version 13: a heart for every pillar done as partner, not one a day (the days together are still counted on their own), and one more with a Shell Bell
     if (v13 && pillars > 0) partner.fed = (partner.fed ?? 0) + (pillars - 1) + (partner.held === 'shell-bell' ? 1 : 0)
+    // version 16: a party member grows closer on a day that counts and did its own kind of work
+    if (v16On(f.day) && pillars > 0) for (const m of teamNow()) if (m.uid !== partner.uid && heartsOf(m) < HEART_CAP && didWork(signatureOf(m.form).tag, f.habits)) m.fed = (m.fed ?? 0) + 1
+    noteHearts()
     asleep = dry && pillars === 0
 
-    const base = f.habits.reduce((s, h) => s + h.worth * h.frac, 0)
+    // version 16: the signatures as they stand today; Flow pays routine habits more
+    const sigs = v16On(f.day) ? sigsNow() : null
+    const flow = sigs ? SIG_FLOW * sigs.routine : 0
+    const base = f.habits.reduce((s, h) => s + h.worth * h.frac * (h.tag === 'routine' ? 1 + flow : 1), 0)
     const full = f.habits.reduce((s, h) => s + h.worth, 0)
-    // version 13: best friends (bond level 4) earn a tenth more
-    const bondNow = bondLevel(heartsOf(partner))
+    // version 13: best friends (bond level 4) earn a tenth more. From version 16 the five perks are the trainer's
+    const bondNow = perkLevel(f.day)
     const xp = Math.round(base * mult * (v13 && hasPerk(bondNow, 'friends') ? FRIENDS_XP : 1))
     let mine = raised.get(partner.uid)
     if (!mine) raised.set(partner.uid, (mine = emptyShare()))
@@ -1268,6 +1312,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       // version 15: the party studies too, at a share of a desk place, so research runs before there is anyone to spare for the desk
       const onDesk = new Set(deskNow().map((m) => m.uid))
       research.today = studyOf(deskNow()) + (v15On(f.day) ? Math.round(RESEARCH_PARTY * studyOf(teamNow().filter((m) => !onDesk.has(m.uid) && m.uid !== partner.uid))) : 0)
+      // version 16: Insight studies on a code day
+      if (sigs && didWork('code', f.habits)) { sigToday.insight = Math.round(SIG_INSIGHT * sigs.code); research.today += sigToday.insight }
       research.points += research.today
       while (research.points >= researchCost(research.rank)) {
         research.points -= researchCost(research.rank)
@@ -1300,7 +1346,10 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       moments.push({ kind: 'appear', day: f.day, form, rarity })
     }
     const w: Wild = wild
-    result.hit = perfect ? w.hp : Math.min(w.hp, Math.round(wildHit(ticked, BALL_MULT[ball]) * (v13 && partner.held === 'quick-claw' ? 1.25 : 1)))
+    // version 16: Charm takes more off on a guitar day
+    const charm = sigs && didWork('guitar', f.habits) ? Math.round(SIG_CHARM * sigs.guitar) : 0
+    result.hit = perfect ? w.hp : Math.min(w.hp, Math.round(wildHit(ticked, BALL_MULT[ball]) * (v13 && partner.held === 'quick-claw' ? 1.25 : 1)) + charm)
+    if (!perfect && charm > 0) sigToday.charm = Math.min(charm, result.hit)
     w.hp -= result.hit
     if (w.hp <= 0) {
       const shiny = perfect ? rng(`shiny:${f.day}`)() < 1 / SHINY_ODDS : rng(`shiny-worn:${f.day}`)() < 1 / (inv['lucky-egg'] ? SHINY_ODDS_WORN / 2 : SHINY_ODDS_WORN)
@@ -1334,13 +1383,13 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       const weak = weakDomains(leader.type)
       const edge = beats(typesOf(partner), leader.type)
       // the team, the bond, a Mega, the held item, mastery and natures are all added, then applied once (see Power)
-      const pw = powerOf(v13, v14On(f.day))
+      const pw = powerOf(v13, v14On(f.day), v16On(f.day))
       // version 13: the partner's level, a Mega for the day, and an Expert Belt against a leader its type beats
       const common = pw.team + pw.bond + pw.mega + pw.item + pw.level + (v13 && megaDay ? MEGA_DAY : 0) + (v13 && edge && partner.held === 'expert-belt' ? 0.2 : 0) + (partner.held && PLATES[partner.held]?.type === leader.type ? PLATE_BONUS : 0)
       let strike = 0
       for (const h of f.habits) {
         const d = pw.domain[h.tag]
-        strike += h.worth * h.frac * (weak.includes(h.tag) ? WEAK_MULT : 1) * (edge ? ADVANTAGE_MULT : 1) * (1 + common + d.held + d.mastery + d.nature + d.vitamin + (boost[h.tag] ?? 0))
+        strike += h.worth * h.frac * (weak.includes(h.tag) ? WEAK_MULT : 1) * (edge ? ADVANTAGE_MULT : 1) * (1 + common + d.held + d.mastery + d.nature + d.vitamin + d.sig + (boost[h.tag] ?? 0))
       }
       if (v13 && strike > 0) {
         // a critical hit: the bond's Focus (level 3), the Scope Lens, and today's Dire Hit
@@ -1488,6 +1537,21 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         bump('pickups')
         moments.push({ kind: 'pickup', day: f.day, item: found, form: partner.form })
       }
+    }
+    // version 16: Forage finds a berry on an Arbor morning; Dream gives the party hearts after a good night
+    if (sigs) {
+      if (sigs.arbor > 0 && didWork('arbor', f.habits) && rng(`forage:${f.day}`)() < Math.min(0.9, SIG_FORAGE * sigs.arbor)) {
+        const berry = rng(`forage-berry:${f.day}`)() < 0.7 ? 'oran-berry' : 'sitrus-berry'
+        inv[berry] = (inv[berry] ?? 0) + 1
+        sigToday.forage = berry
+        moments.push({ kind: 'forage', day: f.day, item: berry })
+      }
+      if (sigs.sleep > 0 && didWork('sleep', f.habits)) {
+        const who = [partner, ...teamNow().filter((m) => m.uid !== partner.uid)].filter((m) => heartsOf(m) < HEART_CAP).slice(0, dreamHearts(sigs.sleep))
+        for (const m of who) m.fed = (m.fed ?? 0) + 1
+        if (who.length) { sigToday.dream = who.length; moments.push({ kind: 'dream', day: f.day, n: who.length }) }
+      }
+      noteHearts()
     }
     if (v13) {
       const won: Record<string, boolean> = { tower: counts, code: unit.code, fitness: unit.fitness, guitar: unit.guitar, arbor: unit.arbor, sleep: unit.sleep, perfect }
@@ -1666,7 +1730,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     inv,
     theme,
     team,
-    power: powerOf(Boolean(last && v13On(last.day)), Boolean(last && v14On(last.day))),
+    power: powerOf(Boolean(last && v13On(last.day)), Boolean(last && v14On(last.day)), Boolean(last && v16On(last.day))),
     quests: last ? { weekly: WEEKLY_QUESTS.map(quest(wkNow)) } : { weekly: [] },
     season: (() => {
       const ym = last ? last.day.slice(0, 7) : ''
@@ -1708,6 +1772,11 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     v13: Boolean(last && v13On(last.day)),
     v14: Boolean(last && v14On(last.day)),
     research: { rank: research.rank, points: research.points, need: researchCost(research.rank), desk: deskNow(), chosen: deskPick !== null, perDay: studyOf(deskNow()), today: research.today, cut: researchCut(research.rank) },
+    v16: Boolean(last && v16On(last.day)),
+    trainer: { hearts: trainerHearts, level: trainerLevel(trainerHearts), next: TRAINER_LEVELS.find((n) => trainerHearts < n) ?? null },
+    sigs: sigsNow(),
+    sigToday,
+    worked: Object.fromEntries(TAGS.map((t) => [t, didWork(t, lastFacts?.habits ?? [])])) as Record<Tag, boolean>,
   }
 }
 

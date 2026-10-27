@@ -3,7 +3,7 @@
 //
 // An item's id is the name of its sprite file (public/sprites/items/<id>.png),
 // so a new item is one line here and one picture.
-import { REPEL_DAYS, STEPS_GOAL, V13_START, V14_START, type Tag } from './rules.ts'
+import { REPEL_DAYS, STEPS_GOAL, V13_START, V14_START, V16_START, type Tag } from './rules.ts'
 import { TYPE_DOMAIN } from './types.ts'
 
 /** seeded randomness: the same seed always gives the same run of numbers */
@@ -265,7 +265,7 @@ export const DOMAIN_SHOPS: Record<MarkTag, DomainShop> = {
 /** Where an item can be bought, searched in this order when the shop is not named. */
 export function offerFor(shop: ShopId | undefined, item: string, day: string, deals: number): { shop: ShopId; offer: Offer } | null {
   const find = (s: ShopId): Offer | undefined =>
-    s === 'mart' ? [...martDeals(day, deals), ...STANDING, ...(day >= V13_START ? BATTLE_SHELF : [])].find((o) => o.item === item)
+    s === 'mart' ? [...martDeals(day, deals), ...STANDING, ...battleShelf(day)].find((o) => o.item === item)
       : s === 'rare' ? [...RARE_SHELF, ...(day >= V13_START ? RARE_SHELF_V13 : [])].find((o) => o.item === item)
         : s === 'bp' ? (day >= V13_START ? BP_SHELF.find((o) => o.item === item) : undefined)
           : [...DOMAIN_SHOPS[s].stock, ...(day >= V13_START ? DOMAIN_V13[s] : [])].find((o) => o.item === item)
@@ -566,6 +566,10 @@ export const BATTLE_SHELF: Offer[] = [
   { item: 'dire-hit', coins: 150 }, { item: 'dire-hit-2', coins: 280 }, { item: 'dire-hit-3', coins: 420 }, { item: 'guard-spec', coins: 250 },
   { item: 'honey', coins: 300 }, { item: 'tamato-berry', coins: 250 },
 ]
+/** Version 16: one of each. The three strengths cost the same per point, so there was nothing to choose between them; the strongest stays. */
+export const BATTLE_SHELF_V16: Offer[] = BATTLE_SHELF.filter((o) => !/(^x-|^dire-hit)/.test(o.item) || o.item.endsWith('-3'))
+/** The battle shelf on a day. */
+export const battleShelf = (day: string): Offer[] => (day >= V16_START ? BATTLE_SHELF_V16 : day >= V13_START ? BATTLE_SHELF : [])
 /** More on the rare shelf (gems). */
 export const RARE_SHELF_V13: Offer[] = [{ item: 'rare-candy', gems: 25 }, { item: 'sweet-heart', gems: 10 }, { item: 'moon-stone', gems: 40 }, { item: 'sun-stone', gems: 40 }]
 /** Each domain shop adds its vitamin, its friendship berry and one evolution stone. */
