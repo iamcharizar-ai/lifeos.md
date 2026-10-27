@@ -264,18 +264,22 @@ export default function App() {
   const sleepCheck = useHealthCheck(sleepState(link, today) === 'waiting')
   const game = useGame(habits, ticks, arbor, shed, link, today)
 
-  // Record today's habit list, with each habit's tier and domain, so editing
-  // or deleting a habit cannot change what a day was. From rules version 4 the
-  // first list of a day stands and a later one can only add habits, so it is
-  // written again only when it would add one (a reorder, a removal or a tier
-  // change would not count, and waits for tomorrow's list).
+  // Record today's habit list, with each habit's tier and domain. From rules
+  // version 17 the latest list of a day stands, so adding, removing or changing
+  // a habit here is what the game counts at once; before it, the first list
+  // stood and a later one could only add habits. It is written again only when
+  // it differs from the one standing, and never the same list twice from this
+  // device: two devices with different libraries would otherwise overwrite each
+  // other's list for ever.
   useEffect(() => {
     if (!settled || habits.length === 0) return
     const list = habits.filter((h) => isActiveOn(h, today)).map((h) => ({ id: h.id, tier: h.tier, tag: domainOf(h) }))
     if (list.length === 0) return
     const stands = link.lists[today]
-    if (!listAdds(stands, list)) return
+    if (!listAdds(stands, list, today)) return
     const payload = { habits: JSON.stringify(list) }
+    const sentKey = `lifeos.listsent.${today}`
+    try { if (localStorage.getItem(sentKey) === payload.habits) return; localStorage.setItem(sentKey, payload.habits) } catch { /* private mode: it may be sent once more */ }
     applyGameEvents([{ type: 'day_list', day: today, at: new Date().toISOString(), payload }])
     cloud.emit('day_list', payload, today)
   }, [settled, link.lists, habits, today, cloud])

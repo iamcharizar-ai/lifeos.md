@@ -2,7 +2,7 @@
 // facts.ts takes. Pokedex and Life OS both call these, so the two apps cannot
 // read the same event differently.
 import type { BodyFacts, ItemUse } from './facts.ts'
-import { isTag, type Tag } from './rules.ts'
+import { V17_START, isTag, type Tag } from './rules.ts'
 
 export interface GameEvent {
   type: string
@@ -114,7 +114,8 @@ export function listsOf(events: GameEvent[]): Record<string, ListedHabit[]> {
     const list = parseList(ev.payload?.habits)
     if (!list) continue
     const cur = out[ev.day]
-    if (!cur || ev.payload?.fix === true) out[ev.day] = list
+    // version 17: the latest list written for a day stands, so a habit taken off in Life OS is off the game's day at once
+    if (!cur || ev.payload?.fix === true || ev.day >= V17_START) out[ev.day] = list
     else {
       const have = new Set(cur.map((h) => h.id))
       for (const h of list) if (!have.has(h.id)) cur.push(h)
@@ -124,8 +125,13 @@ export function listsOf(events: GameEvent[]): Record<string, ListedHabit[]> {
 }
 
 /** Would writing `list` for a day change what stands for it? Life OS asks before it writes, so an edit that cannot count is not sent over and over. */
-export function listAdds(stands: ListedHabit[] | undefined, list: ListedHabit[]): boolean {
+export function listAdds(stands: ListedHabit[] | undefined, list: ListedHabit[], day = ''): boolean {
   if (!stands) return true
+  // version 17: any difference counts (a habit taken off, or a tier or domain changed), not only one added
+  if (day >= V17_START) {
+    const key = (l: ListedHabit[]) => l.map((h) => `${h.id}|${h.tier}|${h.tag ?? ''}`).sort().join(',')
+    return key(stands) !== key(list)
+  }
   const have = new Set(stands.map((h) => h.id))
   return list.some((h) => !have.has(h.id))
 }

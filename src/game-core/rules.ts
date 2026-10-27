@@ -261,3 +261,12 @@ export const MILESTONE_EVERY = 5
 // ── version 16: bonds that travel (RULES-V16.md; the numbers are in bond.ts) ──
 /** The first day of version 16. Earlier days fold as they always did. */
 export const V16_START = '2026-10-27'
+
+// ── version 17: the day's list is the live list ──
+/**
+ * The first day of version 17. Before it a day's habit list was frozen at its first writing (a later one could only add habits, so a
+ * missed habit could not be edited out of today). From it the latest list written for a day stands: what Life OS shows is what the
+ * game counts, at once. Earlier days fold as they always did.
+ */
+export const V17_START = '2026-10-27'
+
