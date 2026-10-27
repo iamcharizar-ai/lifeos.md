@@ -263,6 +263,23 @@ export const DOMAIN_SHOPS: Record<MarkTag, DomainShop> = {
   },
 }
 /** Where an item can be bought, searched in this order when the shop is not named. */
+/**
+ * Prices before berries were priced by hearts (22 Oct 2026, mid-day). That change was not dated, so purchases
+ * made earlier that day stopped adding up when the game was refolded, and were lost. A purchase replays at the
+ * price it was made at: before PRICED_BY_HEARTS the old prices hold.
+ */
+export const PRICED_BY_HEARTS = '2026-10-23'
+const PRICE_BEFORE: Record<string, Partial<Offer>> = {
+  'sitrus-berry': { coins: 130 }, 'tamato-berry': { coins: 160 },
+  'pomeg-berry': { marks: 2 }, 'kelpsy-berry': { marks: 2 }, 'qualot-berry': { marks: 2 }, 'hondew-berry': { marks: 2 }, 'grepa-berry': { marks: 2 },
+}
+const priceOn = (o: Offer, day: string): Offer => {
+  const old = day < PRICED_BY_HEARTS ? PRICE_BEFORE[o.item] : undefined
+  // the same currency only: a Sitrus Berry at the Garden was always paid in marks
+  if (old?.coins !== undefined && o.coins !== undefined) return { ...o, coins: old.coins }
+  if (old?.marks !== undefined && o.marks !== undefined) return { ...o, marks: old.marks }
+  return o
+}
 export function offerFor(shop: ShopId | undefined, item: string, day: string, deals: number): { shop: ShopId; offer: Offer } | null {
   const find = (s: ShopId): Offer | undefined =>
     s === 'mart' ? [...martDeals(day, deals), ...STANDING, ...battleShelf(day)].find((o) => o.item === item)
@@ -270,7 +287,7 @@ export function offerFor(shop: ShopId | undefined, item: string, day: string, de
         : s === 'bp' ? (day >= V13_START ? BP_SHELF.find((o) => o.item === item) : undefined)
           : [...DOMAIN_SHOPS[s].stock, ...(day >= V13_START ? DOMAIN_V13[s] : [])].find((o) => o.item === item)
   const order: ShopId[] = shop ? [shop] : ['mart', 'rare', ...MARK_TAGS, 'bp']
-  for (const s of order) { const offer = find(s); if (offer) return { shop: s, offer } }
+  for (const s of order) { const offer = find(s); if (offer) return { shop: s, offer: priceOn(offer, day) } }
   return null
 }
 

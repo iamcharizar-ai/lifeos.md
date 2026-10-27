@@ -134,6 +134,10 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     // version 13 (pokedex/RULES-V13.md)
     case 'pickup':
       return { title: 'Pickup!', line: `${nameOf(m.form)} found ${itemName(m.item)} on the day's walk.`, form: m.form }
+    case 'forage':
+      return { title: 'Forage', line: `A ${itemName(m.item)} found on the Arbor morning.` }
+    case 'dream':
+      return { title: 'Dream', line: `After a good night, ${m.n} of your party ${m.n === 1 ? 'is' : 'are'} a heart closer.` }
     case 'endure':
       return { title: 'Endured', line: `The empty day ${m.empty} cost nothing (${m.how === 'endure' ? 'your bond held' : m.how === 'sash' ? 'the Focus Sash' : 'the Guard Spec'}).` }
     case 'symbol':
