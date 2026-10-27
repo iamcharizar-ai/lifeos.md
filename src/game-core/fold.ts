@@ -16,7 +16,7 @@ import {
   ADVANTAGE_MULT, BALL_MULT, CATCH_WEIGHTS, DAILY_PAY, EGG_STEPS, GEMS, LEADER_HP, LEGENDARY_EVERY_WILD, MEGA_BONUS, MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS,
   CLAIM_AUTO, KIT_IRON, KIT_SHARD_EVERY, PAY_STREAK, PILLARS_FOR_A_DAY, REPEL_DAYS, SEASON_STEP, SHINY_ODDS, SHINY_ODDS_WORN, SLEEP_AFTER, SLEEP_DEEP, DEEP_SLEEP_MIN, DEEP_SLEEP_FROM, REVIEW_GEMS, SLEEP_HABIT, SLIP, STAKES_FROM, START_SPECIES, STAT_DAYS, STEPS_GOAL, TAGS,
   TEAM_BONUS, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
-  V13_START, V14_START, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
+  V13_START, V14_START, V15_START, RESEARCH_PARTY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, pickupFind, researchReward } from './economy.ts'
@@ -438,6 +438,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const fr: Record<string, { cur: number; best: number; wins: number; last: string; silver: string | null; gold: string | null }> = Object.fromEntries(FACILITIES.map((x) => [x.id, { cur: 0, best: 0, wins: 0, last: '', silver: null, gold: null }]))
   const v13On = (day: string): boolean => day >= V13_START
   const v14On = (day: string): boolean => day >= V14_START
+  const v15On = (day: string): boolean => day >= V15_START
   const heartsOf = (m: Mon): number => (m.together ?? 0) + (m.fed ?? 0)
   const bpEarn = (n: number) => { wallet.bp += n; wallet.bpToday += n }
   const inv: Record<string, number> = {}
@@ -1133,7 +1134,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     dayStart = { uid: partner.uid, xp: partner.xp }
 
     const pillarTotal = f.habits.filter((h) => h.pillar).length
-    const pillars = f.habits.filter((h) => h.pillar && (h.frac >= 1 || h.done)).length
+    const doneAll = f.habits.filter((h) => h.pillar && (h.frac >= 1 || h.done))
+    // version 15: Sleep alone does not make a day. With no other pillar done, the day has none (a night's rest still pays its XP)
+    const pillars = v15On(f.day) && !doneAll.some((h) => h.tag !== 'sleep') ? 0 : doneAll.length
     const needed = Math.min(PILLARS_FOR_A_DAY, pillarTotal)
     const counts = needed > 0 && pillars >= needed
     // a perfect day is everything you can still do today: last night's measured sleep pays XP, but cannot spoil it
@@ -1249,7 +1252,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     // version 14: on a day with a pillar the Professor studies whoever is on the desk; each rank takes HP off every wild Pokemon to come, and pays
     research.today = 0
     if (v14On(f.day) && pillars > 0) {
-      research.today = studyOf(deskNow())
+      // version 15: the party studies too, at a share of a desk place, so research runs before there is anyone to spare for the desk
+      const onDesk = new Set(deskNow().map((m) => m.uid))
+      research.today = studyOf(deskNow()) + (v15On(f.day) ? Math.round(RESEARCH_PARTY * studyOf(teamNow().filter((m) => !onDesk.has(m.uid) && m.uid !== partner.uid))) : 0)
       research.points += research.today
       while (research.points >= researchCost(research.rank)) {
         research.points -= researchCost(research.rank)

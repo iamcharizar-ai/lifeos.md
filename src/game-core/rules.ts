@@ -249,3 +249,9 @@ export const researchCost = (rank: number): number => 500 * (rank + 1)
 export const RESEARCH_WILD = 0.03
 export const RESEARCH_WILD_MAX = 0.45
 export const researchCut = (rank: number): number => Math.min(RESEARCH_WILD_MAX, RESEARCH_WILD * rank)
+
+// ── version 15: the first weeks of play, read back (AUDIT-2026-10-27.md) ───
+/** The first day of version 15. Earlier days fold as they always did. */
+export const V15_START = '2026-10-28'
+/** From version 15, the party studies too, at this share of a desk place, so research starts with a small collection. */
+export const RESEARCH_PARTY = 0.5

@@ -10,7 +10,7 @@
 // to know what a workout or a guitar log is.
 import { BALLS } from './economy.ts'
 import type { GameEvent } from './events.ts'
-import type { Rarity, Tag } from './rules.ts'
+import { V15_START, type Rarity, type Tag } from './rules.ts'
 
 export const CARD_EVENT = 'boss_card'
 export const BOSS_DAY_EVENT = 'boss_day'
@@ -18,6 +18,10 @@ export const BOSS_DAY_EVENT = 'boss_day'
 // ── the numbers (every one is a first pass, tuned by tools/boss-sim.mjs) ────
 /** The party has to be full (the partner and five trained) before a boss will come. */
 export const BOSS_PARTY = 6
+/** From version 15 (V15_START) a boss comes once the party is this many; a smaller party just hits it softer (strikeOf is worked out against six). */
+export const BOSS_MIN_PARTY = 3
+/** How many in the party a boss needs on `day`. */
+export const bossNeed = (day: string): number => (day >= V15_START ? BOSS_MIN_PARTY : BOSS_PARTY)
 /** Boss level from the party: 13 + 0.18 × the six levels added. */
 export const bossLevel = (levelSum: number): number => Math.round(13 + 0.18 * levelSum)
 /** How much a line's rarity is worth in a fight. */
