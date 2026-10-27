@@ -16,10 +16,10 @@ import {
   ADVANTAGE_MULT, BALL_MULT, CATCH_WEIGHTS, DAILY_PAY, EGG_STEPS, GEMS, LEADER_HP, LEGENDARY_EVERY_WILD, MEGA_BONUS, MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS,
   CLAIM_AUTO, KIT_IRON, KIT_SHARD_EVERY, PAY_STREAK, PILLARS_FOR_A_DAY, REPEL_DAYS, SEASON_STEP, SHINY_ODDS, SHINY_ODDS_WORN, SLEEP_AFTER, SLEEP_DEEP, DEEP_SLEEP_MIN, DEEP_SLEEP_FROM, REVIEW_GEMS, SLEEP_HABIT, SLIP, STAKES_FROM, START_SPECIES, STAT_DAYS, STEPS_GOAL, TAGS,
   TEAM_BONUS, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
-  V13_START, V14_START, V15_START, RESEARCH_PARTY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
+  V13_START, V14_START, V15_START, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
-import { BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, pickupFind, researchReward } from './economy.ts'
+import { BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
 import { FACILITIES, GOLD_BP, GOLD_GEMS, REMATCH_BP, SILVER_BP, SILVER_GEMS, bpFor } from './frontier.ts'
 import {
   BOSS_CATCH_GEMS, BOSS_HEAL, BOSS_HP_PER_LEVEL, BOSS_KILL_GEMS, BOSS_MILESTONES, BOSS_SHINY, BOSS_TAG, BOSS_TASK_COINS, BOSS_TASK_MARKS, KILL_CAP, THROWS, THROW_AT, TYPE_EDGE,
@@ -266,7 +266,7 @@ export interface Notes {
 }
 
 /** A reward earned and waiting to be collected. Counted in the wallet only once claimed (or after CLAIM_AUTO days). */
-export interface Held { key: string; day: string; title: string; coins: number; gems: number; items: [string, number][] }
+export interface Held { key: string; day: string; title: string; coins: number; gems: number; items: [string, number][]; /** version 15: a choice of two; claimed with the one chosen, else the first pays itself */ choice?: [Option, Option] }
 
 /** This week's boss, as the screens show it. */
 export interface BossView {
@@ -488,11 +488,17 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       if (id === 'key-stone' && !keyStone) { keyStone = day; moments.push({ kind: 'key', day }) }
     }
   }
-  const release = (key: string, day: string) => {
+  const release = (key: string, day: string, pick = 0) => {
     const h = held.get(key)
     if (!h) return
     held.delete(key)
-    credit(h, day)
+    credit(h.choice ? { ...h, ...h.choice[pick === 1 ? 1 : 0] } : h, day)
+  }
+  /** version 15: a reward that is a choice of two waits like any other; unchosen, the first pays itself after CLAIM_AUTO days */
+  const holdChoice = (key: string, day: string, title: string, choice: [Option, Option]) => {
+    const h: Held = { key, day, title, coins: 0, gems: 0, items: [], choice }
+    if (opts.instant || claimedEarly.delete(key)) credit({ ...h, ...choice[0] }, day)
+    else held.set(key, h)
   }
   /** earned now, collected later: today's tally rises at once, the wallet when it is claimed */
   const hold = (key: string, day: string, title: string, coins: number, gems: number, items: [string, number][] = []) => {
@@ -695,8 +701,15 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       }
       break
     }
-    if (partner.uid === who && levelOf(partner.xp) > before)
+    if (partner.uid === who && levelOf(partner.xp) > before) {
       moments.push({ kind: 'level', day, uid: partner.uid, form: partner.form, level: levelOf(partner.xp) })
+      // version 15: every MILESTONE_EVERY levels, a choice of two rewards
+      if (v15On(day)) for (let lv = before + 1; lv <= levelOf(partner.xp); lv++) {
+        if (lv % MILESTONE_EVERY !== 0) continue
+        const key = `level:${partner.uid}:${lv}`
+        holdChoice(key, day, `${nameOf(partner.form)} reached Lv ${lv}`, milestoneOptions(key, lv, inv))
+      }
+    }
   }
 
   /** The wild Pokemon is caught: into the Box, and the next one appears tomorrow. */
@@ -879,7 +892,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       case 'claim': {
         // a reward collected by hand; one that is not waiting (or was never earned) is ignored
         if (!u.to) return
-        if (held.has(u.to)) release(u.to, day)
+        if (held.has(u.to)) release(u.to, day, u.item === '1' ? 1 : 0)
         else claimedEarly.add(u.to)
         return
       }

@@ -674,3 +674,27 @@ export function researchReward(rank: number): { coins?: number; gems?: number; i
   const stone = RESEARCH_STONES[Math.floor(rng(`research:${rank}`)() * RESEARCH_STONES.length)]
   return { ...r, items: [...(r.items ?? []), ...(rank % 2 === 0 ? [[stone, 1] as [string, number]] : [])] }
 }
+
+// ── version 15: a level milestone is a choice of two ──
+/** One side of a choice: what it pays, and a name for it on the button. */
+export interface Option { name: string; coins: number; gems: number; items: [string, number][] }
+/**
+ * The two rewards a partner's level milestone offers, drawn from five that pull
+ * different ways: balls (catching), a shard in the colour you hold least of (the
+ * Forge), a Rare Candy (raising the Box), coins, or gems. Seeded by the
+ * milestone's key, so every device offers the same two.
+ */
+export function milestoneOptions(key: string, level: number, inv: Record<string, number>): [Option, Option] {
+  const lacking = [...SHARDS].sort((a, b) => (inv[a] ?? 0) - (inv[b] ?? 0))[0]
+  const pool: Option[] = [
+    level >= 40 ? { name: '2 Ultra Balls', coins: 0, gems: 0, items: [['ultra-ball', 2]] } : { name: '3 Great Balls', coins: 0, gems: 0, items: [['great-ball', 3]] },
+    { name: `A ${ITEMS[lacking]?.name ?? 'shard'}`, coins: 0, gems: 0, items: [[lacking, 1]] },
+    { name: 'A Rare Candy', coins: 0, gems: 0, items: [['rare-candy', 1]] },
+    { name: `${100 + level * 4} coins`, coins: 100 + level * 4, gems: 0, items: [] },
+    { name: '15 gems', coins: 0, gems: 15, items: [] },
+  ]
+  const r = rng(`milestone:${key}`)
+  const a = Math.floor(r() * pool.length)
+  const b = (a + 1 + Math.floor(r() * (pool.length - 1))) % pool.length
+  return [pool[a], pool[b]]
+}

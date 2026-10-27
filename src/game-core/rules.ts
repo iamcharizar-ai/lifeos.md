@@ -255,3 +255,5 @@ export const researchCut = (rank: number): number => Math.min(RESEARCH_WILD_MAX,
 export const V15_START = '2026-10-28'
 /** From version 15, the party studies too, at this share of a desk place, so research starts with a small collection. */
 export const RESEARCH_PARTY = 0.5
+/** From version 15, every this many levels the partner reaches is a milestone: a choice of two rewards waits in Collect. */
+export const MILESTONE_EVERY = 5
