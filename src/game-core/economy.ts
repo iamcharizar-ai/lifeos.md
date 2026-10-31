@@ -1,7 +1,7 @@
 // GAME CORE: items, the Mart, the five domain shops, feats. Rules version 9.
 // Pure data and small functions, no DOM. See ECONOMY-V6.md and RULES-V9.md for why each thing is here.
 //
-// An item's id is the name of its sprite file (public/sprites/items/<id>.png),
+// An item's id is the name of its sprite file (sprites/items/<id>.png),
 // so a new item is one line here and one picture.
 import { REPEL_DAYS, STEPS_GOAL, V13_START, V14_START, V16_START, type Tag } from './rules.ts'
 import { TYPE_DOMAIN } from './types.ts'

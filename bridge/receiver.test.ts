@@ -17,7 +17,7 @@ const sign = (body: string) => {
 }
 
 function setup(over: Partial<Deps> = {}) {
-  const synced: { from: string; to: string }[] = []
+  const synced: { from: string; to: string; kinds?: string[] }[] = []
   const pending: Promise<unknown>[] = []
   const lines: string[] = []
   const deps: Deps = {
@@ -41,12 +41,12 @@ test('setup: the secret gets a 200, no secret gets a 401', async () => {
   assert.equal(synced.length, 0)
 })
 
-test('a signed notification with the secret is answered 204 and the days it touched are read', async () => {
+test('a signed notification with the secret is answered 204 and only the days and kinds it touched are read', async () => {
   const { post, synced } = setup()
   const raw = JSON.stringify(steps)
   const res = await post(raw, { authorization: SECRET, 'google-health-api-signature': sign(raw) })
   assert.equal(res.status, 204)
-  assert.deepEqual(synced, [{ from: '2026-10-13', to: '2026-10-13' }])
+  assert.deepEqual(synced, [{ from: '2026-10-13', to: '2026-10-13', kinds: ['steps'] }])
 })
 
 test('an array of notifications is one sync; ones the game does not use sync nothing', async () => {

@@ -5,6 +5,10 @@
 // own state; this module only moves events. Inserts that fail wait in an
 // outbox. Reads are paged (PostgREST caps a request at 1000 rows) and then
 // kept fresh by a cursor on the server's insert time.
+//
+// With `cache: true` the rows read are also kept on the device (IndexedDB), so
+// a reload starts from that copy and asks the server only for what is newer,
+// instead of the whole history every time the app opens.
 import type { LedgerEvent } from './model.ts'
 
 export type LedgerStatus = 'off' | 'connecting' | 'live' | 'error'
@@ -19,6 +23,12 @@ export interface LedgerOptions {
   types: string[]
   onEvents: (events: LedgerEvent[], boot: boolean) => void
   onStatus?: (s: LedgerStatus, pending: number) => void
+  /**
+   * Boot from the rows kept on this device, then read only what is newer. The boot batch can then be
+   * a little behind the server (the newer rows follow as an ordinary batch a moment later), and the
+   * status stays 'connecting' until the server has answered, so only opt in where that is fine.
+   */
+  cache?: boolean
 }
 
 export interface Ledger {
@@ -60,6 +70,43 @@ const eventKey = (e: LedgerEvent) => {
 }
 const newId = (): string | undefined => globalThis.crypto?.randomUUID?.()
 
+// ── the copy kept on this device ─────────────────────────────────────────────
+// One record per app and set of types. The ledger is append-only, so the copy plus "everything
+// inserted after its cursor" is the whole history. Once a week the whole history is read again
+// anyway, which bounds anything the overlap window could have missed.
+const CACHE_DB = 'ledger-cache', CACHE_STORE = 'rows', CACHE_VERSION = 1
+const CACHE_FULL_MS = 7 * 86_400_000
+const CACHE_SAVE_MS = 2_000
+interface Cached { v: number; cursor: string; full: number; rows: LedgerEvent[] }
+
+let cacheDb: Promise<IDBDatabase> | null = null
+function openCache(): Promise<IDBDatabase> {
+  cacheDb ??= new Promise((resolve, reject) => {
+    const r = indexedDB.open(CACHE_DB, 1)
+    r.onupgradeneeded = () => r.result.createObjectStore(CACHE_STORE)
+    r.onsuccess = () => resolve(r.result)
+    r.onerror = () => reject(r.error)
+  })
+  return cacheDb
+}
+async function cacheGet(key: string): Promise<Cached | undefined> {
+  const db = await openCache()
+  return new Promise((resolve, reject) => {
+    const q = db.transaction(CACHE_STORE).objectStore(CACHE_STORE).get(key)
+    q.onsuccess = () => resolve(q.result as Cached | undefined)
+    q.onerror = () => reject(q.error)
+  })
+}
+async function cachePut(key: string, value: Cached): Promise<void> {
+  const db = await openCache()
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(CACHE_STORE, 'readwrite')
+    t.objectStore(CACHE_STORE).put(value, key)
+    t.oncomplete = () => resolve()
+    t.onerror = () => reject(t.error)
+  })
+}
+
 const today = () => {
   const d = new Date(), p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
@@ -79,10 +126,39 @@ export function createLedger(o: LedgerOptions): Ledger {
   let status: LedgerStatus = enabled ? 'connecting' : 'off'
   let cursor = ''
   const seen = new Map<string, string>() // eventKey → inserted_at, for rows inside the overlap window
-  let booted = false
+  let booted = false // the server has answered at least once
+  let fromCache = false // the boot batch came from this device's copy
   let busy = false
   let again = false // something was emitted mid-sync: go round once more
   let timer: ReturnType<typeof setInterval> | undefined
+
+  const CACHE_KEY = `${o.app}:${[...o.types].sort().join(',')}`
+  let kept: Cached | null = null
+  let saveTimer: ReturnType<typeof setTimeout> | undefined
+  const keep = (rows: LedgerEvent[], full: boolean) => {
+    if (!o.cache) return
+    kept = { v: CACHE_VERSION, cursor, full: full ? Date.now() : kept?.full ?? 0, rows: full ? rows : [...(kept?.rows ?? []), ...rows] }
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => { if (kept) cachePut(CACHE_KEY, kept).catch(() => {}) }, CACHE_SAVE_MS)
+  }
+
+  /** Hand the device's copy to the caller as the boot batch. False when there is none worth using. */
+  async function bootFromCache(): Promise<boolean> {
+    if (!o.cache || typeof indexedDB === 'undefined') return false
+    try {
+      const c = await cacheGet(CACHE_KEY)
+      if (!c || c.v !== CACHE_VERSION || !c.cursor || Date.now() - c.full > CACHE_FULL_MS || booted) return false
+      o.onEvents(c.rows, true)
+      kept = c
+      cursor = c.cursor
+      const floor = new Date(Date.parse(cursor) - OVERLAP_MS).toISOString()
+      for (const e of c.rows) if ((e.inserted_at ?? '') >= floor) seen.set(eventKey(e), e.inserted_at ?? '')
+      fromCache = true
+      return true
+    } catch {
+      return false // no IndexedDB (private mode) or a broken copy: read everything as before
+    }
+  }
 
   const outbox = (): LedgerEvent[] => {
     try { return JSON.parse(localStorage.getItem(OUTBOX_KEY) ?? '[]') as LedgerEvent[] } catch { return [] }
@@ -162,6 +238,7 @@ export function createLedger(o: LedgerOptions): Ledger {
     for (const e of fetched) if (e.inserted_at && e.inserted_at > cursor) cursor = e.inserted_at
     const floor = cursor ? new Date(Date.parse(cursor) - OVERLAP_MS).toISOString() : ''
     for (const [k, at] of seen) if (at < floor) seen.delete(k)
+    if (boot || all.length) keep(all, boot)
   }
 
   async function sync(): Promise<void> {
@@ -172,7 +249,7 @@ export function createLedger(o: LedgerOptions): Ledger {
       // A failed flush must not stop us reading other devices' events: the outbox keeps the
       // unsent ones and the pending count (via report) tells the caller they are still waiting.
       try { await flush() } catch { /* retried next sync */ }
-      await pull(!booted)
+      await pull(!booted && !fromCache)
       booted = true
       report('live')
     } catch {
@@ -200,7 +277,10 @@ export function createLedger(o: LedgerOptions): Ledger {
     start() {
       if (!enabled) { report('off'); return }
       report('connecting')
-      void sync()
+      // the copy is handed over first, so the server is only asked for what came after it
+      // (busy holds back a focus or poll sync meanwhile, which would read the whole history again)
+      busy = true
+      void bootFromCache().finally(() => { busy = false; again = false; void sync() })
       window.addEventListener('online', onWake)
       window.addEventListener('focus', onWake)
       document.addEventListener('visibilitychange', onWake)

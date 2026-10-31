@@ -14,6 +14,7 @@
 //   - notifications can repeat and arrive in arrays of up to 99
 import { createPublicKey, timingSafeEqual, verify } from 'node:crypto'
 import { addDays } from './health.ts'
+import type { Kind } from './map.ts'
 
 // ── who is calling ──────────────────────────────────────────────────────────
 
@@ -115,6 +116,28 @@ export function parseNotifications(body: unknown): Touch[] {
 
 /** The kinds of data the game reads. A notification about anything else (a workout, a heart-rate sample) is acknowledged and ignored. */
 export const WATCHED = new Set(['steps', 'distance', 'sleep', 'weight', 'floors', 'altitude', 'active-minutes', 'total-calories', 'active-zone-minutes'])
+
+/**
+ * Which kinds to read for these notifications: the ones named, not all twelve. Sleep brings the overnight
+ * dailies with it (they are worked out from the same night), and the activity types the bridge does not
+ * read itself (floors, altitude, active minutes) stand for the day's activity totals.
+ */
+const KINDS_FOR: Record<string, Kind[]> = {
+  steps: ['steps'],
+  distance: ['distance'],
+  'total-calories': ['calories'],
+  'active-zone-minutes': ['zoneMinutes'],
+  weight: ['weight'],
+  sleep: ['sleep', 'restingHr', 'hrv', 'spo2', 'respRate', 'tempDev', 'vo2max'],
+  floors: ['steps', 'distance', 'calories', 'zoneMinutes'],
+  altitude: ['steps', 'distance', 'calories', 'zoneMinutes'],
+  'active-minutes': ['steps', 'distance', 'calories', 'zoneMinutes'],
+}
+export function kindsFor(touches: Touch[]): Kind[] {
+  const out = new Set<Kind>()
+  for (const t of touches) for (const k of KINDS_FOR[t.dataType] ?? []) out.add(k)
+  return [...out]
+}
 
 /** Days to read again: from the oldest day touched (never more than a week back) through today. Null when nothing we use changed. */
 export function windowFor(touches: Touch[], today: string, maxBack = 6): { from: string; to: string } | null {

@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 @import './ui-kit/motion-tokens.css';
 
@@ -17,8 +16,8 @@
   --color-neo-gray: #d1d5db;
   --color-neo-gray-dark: #6b7280;
 
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-display: 'Space Grotesk Variable', system-ui, sans-serif;
+  --font-sans: 'Outfit Variable', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
@@ -41,7 +40,7 @@ body {
   background-position: 0 0;
   background-attachment: fixed;
   color: var(--color-neo-black);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: 'Outfit Variable', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -81,7 +80,7 @@ body {
 
 /* ── HUD label — transformed to Neo-Brutalist heading ── */
 .hud-label {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Space Grotesk Variable', sans-serif;
   font-weight: 800;
   font-size: 13px;
   letter-spacing: 0.05em;
@@ -334,7 +333,7 @@ body {
   display: inline-block;
   background: var(--color-neo-black);
   color: var(--color-neo-yellow);
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Space Grotesk Variable', sans-serif;
   font-weight: 800;
   font-size: 13px;
   letter-spacing: 0.08em;
@@ -506,7 +505,7 @@ body {
 .tile-pillar.is-done .text-black\/50 { color: rgba(0, 0, 0, 0.5); }
 .pillar-key { flex: none; display: grid; place-items: center; width: 38px; height: 38px; margin-left: 4px; font-size: 20px; line-height: 1; font-weight: 900; color: #111; background: var(--c); border: 2px solid #111; border-radius: 8px; box-shadow: 0 3px 0 0 rgba(0, 0, 0, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.45); }
 .tile-pillar.is-done .pillar-key { background: #111; color: var(--c); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.15); }
-.pillar-title { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 18px; line-height: 1.1; letter-spacing: 0.03em; text-transform: uppercase; }
+.pillar-title { font-family: 'Space Grotesk Variable', sans-serif; font-weight: 800; font-size: 18px; line-height: 1.1; letter-spacing: 0.03em; text-transform: uppercase; }
 .tile-pillar.is-done .pillar-title { text-decoration: line-through; text-decoration-thickness: 3px; }
 .pillar-line { margin-top: 2px; font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--c) 70%, #fff); }
 .tile-pillar.is-done .pillar-line { color: rgba(0, 0, 0, 0.7); }
@@ -517,7 +516,7 @@ body {
 
 /* ── Today: a heading and a bar with one cell per habit, pillars in their colour ── */
 .today-head { display: grid; gap: 8px; }
-.today-title { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 22px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
+.today-title { font-family: 'Space Grotesk Variable', sans-serif; font-weight: 800; font-size: 22px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
 .day-track { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 3px; height: 26px; padding: 3px; background: #fff; border: 3px solid #111; border-radius: 6px; box-shadow: 3px 3px 0 0 #111; }
 .day-track i { display: block; border-radius: 2px; background: rgba(0, 0, 0, 0.08); transition: background 0.25s linear; }
 .day-track i.is-pillar { background: rgba(0, 0, 0, 0.06); box-shadow: inset 0 -4px 0 var(--c, #111); }
@@ -555,9 +554,9 @@ body {
 
 /* ── the header: one line on a phone. The name as a stamp, the day, and whether sync is live ── */
 .app-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 4px solid #111; }
-.app-logo { flex: none; padding: 3px 10px 4px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 20px; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-neo-yellow); background: #111; border-radius: 4px; box-shadow: 3px 3px 0 0 var(--color-neo-blue); transform: rotate(-1.5deg); }
+.app-logo { flex: none; padding: 3px 10px 4px; font-family: 'Space Grotesk Variable', sans-serif; font-weight: 800; font-size: 20px; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-neo-yellow); background: #111; border-radius: 4px; box-shadow: 3px 3px 0 0 var(--color-neo-blue); transform: rotate(-1.5deg); }
 .app-date { margin-left: auto; text-align: right; line-height: 1.1; }
-.app-date b { display: block; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+.app-date b { display: block; font-family: 'Space Grotesk Variable', sans-serif; font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
 .app-date span { display: block; font-size: 12px; font-weight: 700; color: var(--color-neo-gray-dark); }
 .sync-dot { flex: none; width: 14px; height: 14px; border: 2.5px solid #111; border-radius: 50%; background: var(--color-neo-gray); }
 .sync-dot.is-live { background: var(--color-neo-green); }
@@ -567,7 +566,7 @@ body {
 
 /* ── the tab bar: a floating brutalist dock; the open tab is a raised yellow key ── */
 .dock { position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 40; translate: -50% 0; width: min(420px, calc(100% - 24px)); display: flex; gap: 6px; padding: 6px; background: #fff; border: 3px solid #111; border-radius: 16px; box-shadow: 5px 5px 0 0 #111; }
-.dock button { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 10px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neo-gray-dark); }
+.dock button { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 10px; font-family: 'Space Grotesk Variable', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neo-gray-dark); }
 .dock button .dock-ic { font-size: 18px; filter: grayscale(1); opacity: 0.5; }
 .dock button[aria-current='page'] { color: #111; }
 .dock button[aria-current='page'] .dock-ic { filter: drop-shadow(1px 1px 0 #111); opacity: 1; }

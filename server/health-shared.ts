@@ -8,9 +8,9 @@
 //                         the Desktop OAuth client and the owner's sign-in (read-only health scopes)
 //   SUPABASE_URL, SUPABASE_ANON_KEY   the ledger
 //   HEALTH_TZ             the owner's time zone, default Asia/Kolkata
-import { DEVICE, LOOK_BACK, planWrites } from '../bridge/plan.ts'
+import { DEVICE, LOOK_BACK, WRITE_PATH, WRITE_PREFER, planWrites } from '../bridge/plan.ts'
 import { readHealth, addDays } from '../bridge/health.ts'
-import { toVitals } from '../bridge/map.ts'
+import { toVitals, type Kind } from '../bridge/map.ts'
 import type { LedgerEvent } from '../bridge/model.ts'
 
 const E = process.env
@@ -71,14 +71,16 @@ export interface SyncResult {
   failed: string[]
 }
 
-/** Read these days from Google and write what is new to the ledger. */
-export async function sync(win: { from: string; to: string }): Promise<SyncResult> {
-  const token = await accessToken()
-  const read = await readHealth(token, win.from, win.to, (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(15_000) }))
-  const known = await knownVitals(addDays(win.from, -LOOK_BACK))
+/** Read these days (and kinds, all by default) from Google and write what is new to the ledger. */
+export async function sync(win: { from: string; to: string; kinds?: Kind[] }): Promise<SyncResult> {
+  // the ledger read does not depend on Google: run it beside the sign-in and the Google reads, not after them
+  const [read, known] = await Promise.all([
+    accessToken().then((token) => readHealth(token, win.from, win.to, (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(15_000) }), undefined, win.kinds)),
+    knownVitals(addDays(win.from, -LOOK_BACK)),
+  ])
   const events = planWrites(read.data, known, new Date().toISOString())
   if (events.length) {
-    const res = await sb('events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(events) })
+    const res = await sb(WRITE_PATH, { method: 'POST', headers: { Prefer: WRITE_PREFER }, body: JSON.stringify(events) })
     if (!res.ok) throw new Error(`ledger write ${res.status}`)
   }
   const failed = Object.keys(read.failed)

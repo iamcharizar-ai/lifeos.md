@@ -17,7 +17,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { queries } from './map.ts'
-import { LOOK_BACK, planWrites } from './plan.ts'
+import { LOOK_BACK, WRITE_PATH, WRITE_PREFER, planWrites } from './plan.ts'
 import { addDays } from './model.ts'
 
 const run = promisify(execFile)
@@ -91,8 +91,8 @@ if (url && key) {
   process.exit(1)
 }
 
-const read = {}
-for (const [name, argv] of Object.entries(queries(from, today))) read[name] = await ask(name, argv)
+// the twelve CLI calls are independent: run them together, not one after another
+const read = Object.fromEntries(await Promise.all(Object.entries(queries(from, today)).map(async ([name, argv]) => [name, await ask(name, argv)])))
 const events = planWrites(read, known, new Date().toISOString())
 
 if (events.length === 0) {
@@ -108,7 +108,7 @@ if (DRY) {
 
 let r
 try {
-  r = await call('events', { method: 'POST', headers: { ...headers, Prefer: 'return=minimal' }, body: JSON.stringify(events) })
+  r = await call(WRITE_PATH, { method: 'POST', headers: { ...headers, Prefer: WRITE_PREFER }, body: JSON.stringify(events) })
 } catch (err) {
   console.error(`could not reach the ledger (${err.message}). Nothing was confirmed written; run it again (days already in the ledger are skipped).`)
   process.exit(1)

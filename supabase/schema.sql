@@ -14,6 +14,10 @@ create table if not exists public.events (
 
 create index if not exists events_at_idx on public.events (at);
 create index if not exists events_day_idx on public.events (day);
+-- how the apps read it (also in 2026-10-31-indexes.sql, for a ledger made before that date)
+create index if not exists events_inserted_idx on public.events (inserted_at, id);
+create index if not exists events_type_at_idx on public.events (type, at, id);
+create index if not exists events_type_day_idx on public.events (type, day);
 
 -- Single-user system: the anon key is the credential (don't publish the URL+key pair).
 -- RLS on, select+insert only — no update/delete policies, so the ledger is

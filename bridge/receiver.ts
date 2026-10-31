@@ -1,7 +1,8 @@
 // The webhook endpoint's decisions, with everything outside it passed in: the
 // secret, the signing keys, the clock, and what "sync these days" means. That
 // keeps the whole conversation with Google testable without Google.
-import { type Keyset, authOk, isVerification, parseNotifications, verifySignature, windowFor } from './webhook.ts'
+import { type Keyset, authOk, isVerification, kindsFor, parseNotifications, verifySignature, windowFor } from './webhook.ts'
+import type { Kind } from './map.ts'
 
 export interface Deps {
   /** the shared secret Google sends in `Authorization` */
@@ -9,7 +10,7 @@ export interface Deps {
   /** Google's current signing keys (null when they could not be fetched) */
   keyset: () => Promise<Keyset | null>
   /** read these days from Google and write what is new to the ledger */
-  sync: (window: { from: string; to: string }) => Promise<unknown>
+  sync: (window: { from: string; to: string; kinds?: Kind[] }) => Promise<unknown>
   /** keep working after the answer has gone out (Vercel's waitUntil) */
   after: (work: Promise<unknown>) => void
   today: () => string
@@ -40,8 +41,10 @@ export async function receive(req: Request, d: Deps): Promise<Response> {
   }
 
   const touches = parseNotifications(body)
-  const win = windowFor(touches, d.today())
-  d.log(`notified: ${touches.map((t) => `${t.operation} ${t.dataType}`).join(', ') || 'nothing readable'}${win ? `; reading ${win.from}..${win.to}` : '; nothing we use'}`)
+  const found = windowFor(touches, d.today())
+  // only what the notification is about: a steps update reads steps, not all twelve kinds
+  const win = found && { ...found, kinds: kindsFor(touches) }
+  d.log(`notified: ${touches.map((t) => `${t.operation} ${t.dataType}`).join(', ') || 'nothing readable'}${win ? `; reading ${win.kinds.join(', ')} for ${win.from}..${win.to}` : '; nothing we use'}`)
   if (win) d.after(d.sync(win).catch((err) => d.log(`sync failed: ${err instanceof Error ? err.message : String(err)}`)))
   return reply(204)
 }

@@ -14,8 +14,22 @@
     {
       "name": "pokedex",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-NoProfile", "-Command", "Set-Location ../pokedex; npx vite --port 5190 --strictPort"],
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "Set-Location ../pokedex; npx vite --port 5190 --strictPort"
+      ],
       "port": 5190
+    },
+    {
+      "name": "pokedex-nosync",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "Set-Location ../pokedex; $env:VITE_SUPABASE_DISABLE='1'; npx vite --port 5191 --strictPort"
+      ],
+      "port": 5191
     }
   ]
 }

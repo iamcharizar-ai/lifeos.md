@@ -4,11 +4,14 @@
 //    scripts/styles cannot be cached the install fails and the previous worker keeps serving:
 //    a half-cached shell would be worse than the old one.
 //  • hashed build assets (/assets/*) never change → cache-first, instant loads
-//  • navigations → network-first (fresh deploys win), cached shell when the network fails
+//  • navigations → network-first (fresh deploys win), but the cached shell is served if the network has not
+//    answered within PAGE_TIMEOUT_MS: a weak signal must not mean a blank screen. The slow answer still
+//    refreshes the cache for next time.
 //  • anything else is left to the network
 // Only good responses are cached: ok, HTML for the shell, nothing marked no-store.
 // Bump CACHE when this file's strategy changes; old caches are dropped on activate.
-const CACHE = 'lifeos-shell-v4'
+const CACHE = 'lifeos-shell-v5'
+const PAGE_TIMEOUT_MS = 2500
 
 const cacheable = (res, shell) =>
   res.ok &&
@@ -89,17 +92,17 @@ self.addEventListener('fetch', (e) => {
   }
 
   if (req.mode !== 'navigate') return
+  // the cache write is separate from the response: a storage failure or a bad page
+  // (404/500, non-HTML, no-store) must not cost a good navigation or replace the shell
+  let write = Promise.resolve()
+  const network = fetch(req).then((res) => {
+    if (cacheable(res, true)) write = put('/', res.clone())
+    return res
+  })
+  // keep the worker alive until the slow answer is cached, without making the page wait for it
+  e.waitUntil(network.then(() => write, () => {}))
   e.respondWith(
-    (async () => {
-      try {
-        const res = await fetch(req)
-        // the cache write is separate from the response: a storage failure or a bad page
-        // (404/500, non-HTML, no-store) must not cost a good navigation or replace the shell
-        if (cacheable(res, true)) e.waitUntil(put('/', res.clone()))
-        return res
-      } catch {
-        return (await caches.match('/')) || offline()
-      }
-    })(),
+    Promise.race([network, new Promise((_, reject) => setTimeout(reject, PAGE_TIMEOUT_MS))])
+      .catch(async () => (await caches.match('/')) || network.catch(offline)),
   )
 })

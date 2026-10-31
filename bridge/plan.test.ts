@@ -30,3 +30,20 @@ test('running it again with nothing new writes nothing; a changed reading writes
   const again = planWrites(later, first as LedgerEvent[], '2026-10-13T18:00:00.000Z')
   assert.deepEqual(again.map((e) => [e.day, e.payload.steps]), [['2026-10-13', 9100]])
 })
+
+test('two syncs that plan the same rows at once make the same ids, so the ledger keeps one copy', () => {
+  const read = { steps: { dataPoints: [{ date: '2026-10-13', countSum: '8200' }] } }
+  const a = planWrites(read, [], '2026-10-13T06:00:00.000Z')
+  const b = planWrites(read, [], '2026-10-13T06:00:02.000Z')
+  assert.match(a[0].id!, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  assert.equal(a[0].id, b[0].id)
+})
+
+test('the same numbers written again after a change in between get a new id, so they still land', () => {
+  const day = '2026-10-13'
+  const first = planWrites({ weight: { dataPoints: [{ time: `${day}T07:00:00`, weightGrams: '70000' }] } }, [], '2026-10-13T07:00:00.000Z')
+  const changed = { device: 'health-sync', at: '2026-10-13T08:00:00.000Z', day, type: 'vitals', payload: { weightKg: 71 } }
+  const back = planWrites({ weight: { dataPoints: [{ time: `${day}T07:00:00`, weightGrams: '70000' }] } }, [...first as LedgerEvent[], changed], '2026-10-13T09:00:00.000Z')
+  assert.equal(back.length, 1)
+  assert.notEqual(back[0].id, first[0].id)
+})

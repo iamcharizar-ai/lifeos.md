@@ -68,3 +68,10 @@ test('the days to read again run from the oldest day touched to today, never mor
   assert.equal(windowFor(parseNotifications(note('heart-rate', '2026-10-13T10:00:00')), today), null, 'a heart-rate sample is not used')
   assert.equal(windowFor([], today), null)
 })
+
+test('each notification reads only its own kinds; sleep brings the overnight dailies', async () => {
+  const { kindsFor } = await import('./webhook.ts')
+  assert.deepEqual(kindsFor([{ dataType: 'steps', operation: 'UPSERT', days: [] }]), ['steps'])
+  assert.ok(kindsFor([{ dataType: 'sleep', operation: 'UPSERT', days: [] }]).includes('restingHr'))
+  assert.deepEqual(kindsFor([{ dataType: 'heart-rate', operation: 'UPSERT', days: [] }]), [])
+})

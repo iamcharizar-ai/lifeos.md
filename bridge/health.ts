@@ -143,10 +143,10 @@ export interface ReadResult {
   counts: Partial<Record<Kind, number>>
 }
 
-/** Read every kind for a range of days. One kind failing does not sink the rest. */
-export async function readHealth(token: string, from: string, to: string, fetcher: FetchLike, base = HEALTH_BASE): Promise<ReadResult> {
+/** Read these kinds (all of them by default) for a range of days. One kind failing does not sink the rest. */
+export async function readHealth(token: string, from: string, to: string, fetcher: FetchLike, base = HEALTH_BASE, kinds: readonly Kind[] = KINDS): Promise<ReadResult> {
   const out: ReadResult = { data: {}, failed: {}, counts: {} }
-  await Promise.all(KINDS.map(async (kind) => {
+  await Promise.all(kinds.map(async (kind) => {
     try {
       const all: unknown[] = []
       let page: string | undefined

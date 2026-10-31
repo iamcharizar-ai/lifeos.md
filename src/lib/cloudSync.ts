@@ -5,6 +5,8 @@
 //
 // Boot sequence: fetch all events → fold into local state → re-apply the offline
 // outbox → flush outbox → subscribe realtime (own-device events are skipped).
+// The rows read are kept on the device (rowCache.ts): later opens fold that copy at
+// once and fetch only the rows inserted since, instead of the whole ledger again.
 // First boot against an empty table seeds it from existing localStorage history.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
@@ -21,6 +23,7 @@ import { applyGameEvents } from './gameLink'
 import { currentDay } from './day'
 import { inOrder } from '../game-core/order.ts'
 import { SEED_AT, applySundayList, getSundayList, type SundayTask } from './sundayTasks'
+import { loadRows, saveRows } from './rowCache'
 
 /** The sleep habit Vitals can tick, and how early "on time" is (the habit says 10; half an hour of grace). */
 const SLEEP_HABIT = 'sleep-before-10'
@@ -84,7 +87,10 @@ export interface CloudSnapshot {
 // that, and a plain select then dropped the *newest* events — ticks made on the
 // phone never reached a freshly opened desktop. Always page.
 const PAGE = 1000
-const COLS = 'device, at, day, type, payload, inserted_at'
+const COLS = 'id, device, at, day, type, payload, inserted_at'
+// A row can take an earlier inserted_at than a neighbour yet commit later, so each catch-up re-reads this
+// much before the cursor; `seen` keeps the rows already applied from being applied twice.
+const OVERLAP_MS = 60_000
 
 async function fetchEvents(
   sb: NonNullable<typeof supabase>,
@@ -109,6 +115,8 @@ async function fetchEvents(
 
 /** Event types whose whole history is folded in one pass at boot (by the shared cores). */
 const FOLDED_IN_BULK = new Set<EventType>(['skill', 'plan', 'guitar', 'guitar_plan'])
+/** Event types applyEvent passes to the game link (gameLink.ts). */
+const GAME_TYPES = new Set<EventType>(['day_list', 'item_use', 'boss_card', 'boss_day', 'day_start', 'vitals'])
 
 const DEVICE_KEY = 'lifeos.device.v1'
 const OUTBOX_KEY = 'lifeos.outbox.v1'
@@ -348,6 +356,11 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
   /** newest server-side insert time folded so far */
   const cursor = useRef<string>('')
   const booted = useRef(false)
+  /** ids of rows applied within OVERLAP_MS of the cursor (the window a catch-up reads again) */
+  const seen = useRef(new Map<string, string>())
+  /** every row folded, and when the whole ledger was last read: the copy kept on this device */
+  const rows = useRef<LifeEvent[]>([])
+  const fullAt = useRef(0)
 
   // One flush at a time: online + catchUp + boot often fire together, and each would otherwise
   // read the same outbox and insert the same rows. A call that arrives mid-flight asks for one
@@ -370,6 +383,9 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
         const sent = new Set<string>()
         const { error } = await insertOnce(box)
         if (!error) box.forEach((e) => sent.add(outboxKey(e)))
+        // offline, a timeout, a 5xx or an auth error is about the connection, not a row: going one by one would
+        // only turn one failed request into one per queued event, all failing the same way. Wait for the next try.
+        else if (!isPermanent(error)) return
         else
           // One refused row must not hold the rest back (a stuck un-tick leaves its tick standing
           // on every other device): send them one by one, and drop only what the server rejects outright.
@@ -430,7 +446,49 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
     const sb = supabase
     let cancelled = false
 
+    /** Note rows as folded: move the cursor, remember their ids for the overlap, keep them on the device. */
+    const took = (fresh: LifeEvent[], full = false) => {
+      for (const ev of fresh) {
+        if (ev.inserted_at && ev.inserted_at > cursor.current) cursor.current = ev.inserted_at
+        if (ev.id) seen.current.set(ev.id, ev.inserted_at ?? '')
+      }
+      const floor = cursor.current ? new Date(Date.parse(cursor.current) - OVERLAP_MS).toISOString() : ''
+      for (const [id, at] of seen.current) if (at < floor) seen.current.delete(id)
+      rows.current = full ? fresh : [...rows.current, ...fresh]
+      if (full) fullAt.current = Date.now()
+      if (cursor.current) saveRows({ cursor: cursor.current, full: fullAt.current, rows: rows.current })
+    }
+
+    /** Fold a whole history into local state (from the server, or from the copy kept on this device). */
+    const foldAll = (data: LifeEvent[]) => {
+      applyArborEvents(data.filter((e) => e.type === 'skill' || e.type === 'plan'))
+      applyShedEvents(data.filter((e) => e.type === 'guitar' || e.type === 'guitar_plan'))
+      const ordered = inOrder(data)
+      // the game's rows in one batch: applyEvent hands them over one at a time, and each hand-over re-derives the
+      // whole game and rewrites its copy. Taken once here, those later calls find nothing new and return at once.
+      applyGameEvents(ordered.filter((e) => GAME_TYPES.has(e.type)))
+      for (const ev of ordered) if (!FOLDED_IN_BULK.has(ev.type)) applyEvent(ev, settersRef.current)
+      // Offline edits made on this device win over folded history
+      for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
+    }
+
     const boot = async () => {
+      // A copy from an earlier visit: fold it now, then fetch only what was inserted after it (catchUp).
+      const kept = await loadRows()
+      if (cancelled) return
+      if (kept) {
+        cursor.current = kept.cursor
+        fullAt.current = kept.full
+        rows.current = kept.rows
+        const floor = new Date(Date.parse(kept.cursor) - OVERLAP_MS).toISOString()
+        for (const ev of kept.rows) if (ev.id && (ev.inserted_at ?? '') >= floor) seen.current.set(ev.id, ev.inserted_at ?? '')
+        foldAll(kept.rows)
+        booted.current = true
+        const caught = await catchUp()
+        await flush()
+        if (!cancelled && caught !== 'skipped') setStatus(caught === 'ok' ? 'live' : 'error')
+        return
+      }
       // The rows that decide which day it is come first, in one small read: the band's nights and any "Start my day" since
       // yesterday. The day turns over now, not after the whole ledger has come down.
       const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10)
@@ -448,7 +506,6 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
         setStatus('error')
         return
       }
-      for (const ev of data) if (ev.inserted_at && ev.inserted_at > cursor.current) cursor.current = ev.inserted_at
       if (data.length === 0) {
         // Empty ledger + existing local history → seed it (chunked inserts)
         // each seed carries an id, so a retry is ignored where it already landed; what a failure leaves
@@ -463,36 +520,37 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
           }
         }
       } else {
-        applyArborEvents(data.filter((e) => e.type === 'skill' || e.type === 'plan'))
-        applyShedEvents(data.filter((e) => e.type === 'guitar' || e.type === 'guitar_plan'))
-        for (const ev of inOrder(data)) if (!FOLDED_IN_BULK.has(ev.type)) applyEvent(ev, settersRef.current)
-        // Offline edits made on this device win over folded history
-        for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
+        foldAll(data)
+        took(data, true)
       }
       await flush()
       booted.current = true
       if (!cancelled) setStatus('live')
     }
-    void boot()
 
     // Pull anything other devices wrote while this tab was asleep, offline or
-    // between realtime reconnects. Cheap: only rows newer than the cursor.
+    // between realtime reconnects. Cheap: only rows newer than the cursor (less the overlap).
     let catching = false
-    const catchUp = async () => {
-      if (!booted.current || catching || document.visibilityState === 'hidden') return
+    const catchUp = async (): Promise<'ok' | 'failed' | 'skipped'> => {
+      if (!booted.current || catching || document.visibilityState === 'hidden') return 'skipped'
       catching = true
       try {
-        const fresh = await fetchEvents(sb, cursor.current || undefined)
-        if (cancelled || !fresh) return
-        for (const ev of fresh) if (ev.inserted_at && ev.inserted_at > cursor.current) cursor.current = ev.inserted_at
+        const since = cursor.current ? new Date(Date.parse(cursor.current) - OVERLAP_MS).toISOString() : undefined
+        const got = await fetchEvents(sb, since)
+        if (cancelled) return 'skipped'
+        if (!got) return 'failed'
+        const fresh = got.filter((e) => !e.id || !seen.current.has(e.id))
         for (const ev of inOrder(fresh.filter((e) => e.device !== device.current)))
           applyEvent(ev, settersRef.current)
         for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
+        if (fresh.length) took(fresh)
         void flush() // an outbox that could not go earlier gets another try every poll
+        return 'ok'
       } finally {
         catching = false
       }
     }
+    void boot()
 
     const channel = sb
       .channel('events-feed')
@@ -501,8 +559,10 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
         { event: 'INSERT', schema: 'public', table: 'events' },
         (msg) => {
           const ev = msg.new as LifeEvent
-          if (ev.inserted_at && ev.inserted_at > cursor.current) cursor.current = ev.inserted_at
+          if (ev.id && seen.current.has(ev.id)) return
           if (ev.device !== device.current) applyEvent(ev, settersRef.current)
+          // before boot has folded, the row is left unmarked: the boot read (or its catch-up) brings it again in order
+          if (booted.current) took([ev])
         },
       )
       .subscribe((s) => {

@@ -6,6 +6,8 @@
 // nothing; a band that was worn on a lazy day sends a real 0.)
 
 export interface LedgerEvent {
+  /** the table's primary key; the bridge sets it so a repeated write is kept once (plan.ts) */
+  id?: string
   device: string
   at: string // ISO, writer's clock
   day: string // YYYY-MM-DD the readings belong to

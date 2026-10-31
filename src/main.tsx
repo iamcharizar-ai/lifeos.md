@@ -5,6 +5,10 @@ import '@fontsource/silkscreen/latin-700.css'
 import '@fontsource/lilita-one/latin-400.css'
 import '@fontsource/big-shoulders-display/latin-700'
 import '@fontsource/big-shoulders-display/latin-900'
+// self-hosted, not Google Fonts: no render-blocking hop to two more origins, and the service worker can keep them for offline starts
+import '@fontsource-variable/outfit/index.css'
+import '@fontsource-variable/space-grotesk/index.css'
+import '@fontsource/ibm-plex-mono/latin-400.css'
 import './index.css'
 import App from './App.tsx'
 
