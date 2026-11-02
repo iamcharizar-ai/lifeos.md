@@ -399,7 +399,16 @@ export interface Game {
   sigToday: { insight: number; charm: number; forage: string | null; dream: number }
   /** version 16: which kinds of work today did (a berry pays double to a Pokemon whose kind it is) */
   worked: Record<Tag, boolean>
+  /**
+   * version 18: the kinds of work with no habit on the Life OS list today (the Woodshed habit archived, say). The screens hide their shop,
+   * unfinished feats and Frontier facility, and the boss leaves their task off its card. Nothing is deleted: the habit back on the list brings it all back.
+   * Empty before version 18, and while the list is empty (nothing loaded yet).
+   */
+  shelved: MarkTag[]
 }
+
+/** Is this kind of work shelved (version 18): no habit for it on the Life OS list today? Its shop, unfinished feats, Frontier facility and boss task are hidden while it is. */
+export const isShelved = (game: Pick<Game, 'shelved'>, tag: string): boolean => (game.shelved as string[]).includes(tag)
 
 const FIRST_STAGES = Object.entries(SPECIES).filter(([, r]) => r.s === 1 && !r.f)
 const rec = (id: string): SpeciesRec => SPECIES[id]
@@ -1794,6 +1803,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     sigs: sigsNow(),
     sigToday,
     worked: Object.fromEntries(TAGS.map((t) => [t, didWork(t, lastFacts?.habits ?? [])])) as Record<Tag, boolean>,
+    shelved: lastFacts?.live ? MARK_TAGS.filter((t) => !lastFacts.live!.includes(t)) : [],
   }
 }
 

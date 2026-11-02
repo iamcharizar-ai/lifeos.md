@@ -44,6 +44,14 @@ export const BOSS_HEAL = 0.03
 export const BOSS_HP_PER_LEVEL = 100
 /** Every Nth boss is a legendary. */
 export const LEGENDARY_EVERY_BOSS = 8
+/**
+ * Version 18: the pool a boss is drawn from. With only Kanto open it held one rare line (Dratini), so the same boss came every week.
+ * Fewer than this many rares open tops the pool up with uncommon lines, and a boss never repeats one of the last BOSS_NO_REPEAT.
+ */
+export const BOSS_POOL_MIN = 6
+export const BOSS_NO_REPEAT = 3
+/** The card planner's revision. A card of a higher revision replaces an older one for the same week (the old planner is revision 1, written without one). */
+export const BOSS_CARD_REV = 2
 
 /** Balls may be thrown once this share of its HP or less is left, and this many times. */
 export const THROW_AT = 0.4
@@ -101,6 +109,8 @@ export interface BossTask {
 export interface BossCard {
   /** the Monday of its week */
   week: string
+  /** which planner drew it; absent = revision 1 */
+  rev?: number
   /** the first stage of its line: what is caught */
   species: string
   /** the form it is shown and fought as (its last stage, or a Mega) */
@@ -120,7 +130,7 @@ function parseCard(week: string, raw: unknown): BossCard | null {
       .filter((t) => isKind(t?.kind) && typeof t.target === 'number' && typeof t.share === 'number' && typeof t.text === 'string')
       .map((t) => ({ kind: t.kind, template: String(t.template ?? ''), target: t.target, share: t.share, text: t.text, ...(Array.isArray(t.items) ? { items: t.items.map(String) } : {}) }))
     if (!tasks.length) return null
-    return { week, species: c.species, form: c.form, rarity: c.rarity === 'L' ? 'L' : 'R', mega: c.mega === true, level: Math.max(1, Math.round(c.level)), tasks }
+    return { week, ...(typeof c.rev === 'number' ? { rev: c.rev } : {}), species: c.species, form: c.form, rarity: c.rarity === 'L' ? 'L' : 'R', mega: c.mega === true, level: Math.max(1, Math.round(c.level)), tasks }
   } catch {
     return null // a malformed card is no card: that week has no boss
   }
@@ -138,9 +148,9 @@ export function bossOf(events: GameEvent[]): BossInput {
   const out: BossInput = { cards: {}, days: {} }
   for (const ev of events) {
     if (ev.type === CARD_EVENT) {
-      if (out.cards[ev.day]) continue // the first card of a week stands: a second device cannot redraw it
       const card = parseCard(ev.day, ev.payload?.card)
-      if (card) out.cards[ev.day] = card
+      // the first card of a week stands: a second device cannot redraw it. Only a newer planner's card (a higher revision) replaces it
+      if (card && (!out.cards[ev.day] || (card.rev ?? 1) > (out.cards[ev.day].rev ?? 1))) out.cards[ev.day] = card
     } else if (ev.type === BOSS_DAY_EVENT) {
       try {
         const p = JSON.parse(String(ev.payload?.p)) as unknown[]
@@ -149,6 +159,19 @@ export function bossOf(events: GameEvent[]): BossInput {
     }
   }
   return out
+}
+
+/**
+ * Version 18: a card without the tasks of a kind of work that is shelved (nothing on the Life OS list stands for it), the remaining shares
+ * scaled back up to a whole boss, and the progress cut to match. `live` null = unknown, so nothing is cut. The Life task is never cut.
+ */
+export function liveCard(card: BossCard, p: number[], live: Set<Tag> | null): { card: BossCard; p: number[] } {
+  if (!live) return { card, p }
+  const keep = card.tasks.map((t) => t.kind === 'life' || live.has(BOSS_TAG[t.kind]))
+  const kept = card.tasks.filter((_, i) => keep[i])
+  const total = kept.reduce((n, t) => n + t.share, 0)
+  if (!kept.length || total <= 0 || (kept.length === card.tasks.length && Math.abs(total - 1) < 1e-6)) return { card, p }
+  return { card: { ...card, tasks: kept.map((t) => ({ ...t, share: t.share / total })) }, p: p.filter((_, i) => keep[i]) }
 }
 
 /** Would writing these numbers for a day change what stands? Asked before writing, so the same progress is not sent over and over. */

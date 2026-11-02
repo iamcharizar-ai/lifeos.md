@@ -270,3 +270,11 @@ export const V16_START = '2026-10-27'
  */
 export const V17_START = '2026-10-27'
 
+// ── version 18: the game follows Life OS ──
+/**
+ * The first day of version 18. A kind of work with no habit on the Life OS list (the Woodshed habit archived, say) is shelved: the game
+ * hides its shop, feats and Frontier facility, and the boss leaves its task off the card. Put the habit back and it all returns, with
+ * nothing lost. Earlier days fold as they always did.
+ */
+export const V18_START = '2026-11-02'
+

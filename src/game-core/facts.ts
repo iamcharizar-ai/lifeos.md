@@ -1,9 +1,9 @@
 // Turns what the apps know (habits, ticks, the Arbor and Woodshed blocks) into
 // one plain list of days. The game itself (fold.ts) only ever sees this list,
 // so Life OS and Pokedex cannot disagree about what happened on a day.
-import type { BossCard, BossInput } from './boss.ts'
+import { liveCard, type BossCard, type BossInput } from './boss.ts'
 import type { ListedHabit } from './events.ts'
-import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, REVIEW_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V13_START, V14_START, isTag, tagOf, tierXp, type Tag } from './rules.ts'
+import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, REVIEW_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V13_START, V14_START, V18_START, isTag, tagOf, tierXp, type Tag } from './rules.ts'
 
 export interface HabitLite {
   id: string
@@ -111,8 +111,10 @@ export interface DayFacts {
   marks?: DayMarks
   /** month-end reviews ticked on this day (by the day the tick was made, not the month it closes) */
   reviews?: number
-  /** this week's boss card, and how far each of its tasks is by the end of this day */
+  /** this week's boss card, and how far each of its tasks is by the end of this day (from version 18 without the tasks of a shelved kind of work) */
   boss?: { card: BossCard; p: number[] }
+  /** version 18: the kinds of work with a habit on this day's list. Absent before version 18 and while the list is empty (nothing is shelved then). */
+  live?: Tag[]
 }
 
 /** The Monday of the week a day is in. */
@@ -169,17 +171,34 @@ export function bandFrom(input: FactsInput): string | null {
   return first
 }
 
+/** The habits on a day's list: its own frozen list when there is one (editing or deleting a habit later cannot change what that day was), else the library by spans. */
+function listedOn(input: FactsInput, day: string): HabitLite[] {
+  const frozen = input.lists?.[day]
+  const byId = new Map(input.habits.map((h) => [h.id, h]))
+  return frozen
+    ? frozen.map((f) => ({ ...(byId.get(f.id) ?? { id: f.id, spans: [] }), id: f.id, tier: f.tier, domain: f.tag }))
+    : input.habits.filter((h) => activeOn(h, day))
+}
+const tagOfListed = (h: HabitLite): Tag => (isTag(h.domain) ? h.domain : tagOf(h.id))
+
+/**
+ * Version 18: the kinds of work that have a habit on `day`'s list, or null when the list is empty (nothing loaded yet, so nothing can be
+ * said to be shelved). Sleep also counts once the band is in use: its reading is the pillar even with the hand habit retired.
+ */
+export function liveTags(input: FactsInput, day: string, band: string | null = bandFrom(input)): Set<Tag> | null {
+  const todays = listedOn(input, day)
+  if (!todays.length) return null
+  const out = new Set<Tag>(todays.map(tagOfListed))
+  if (band !== null && day >= band) out.add('sleep')
+  return out
+}
+
 export function factsFor(input: FactsInput, day: string, band: string | null = bandFrom(input)): DayFacts {
   const ticks = input.ticks[day] ?? {}
   const habits: HabitFact[] = []
   const body = input.body?.[day]
   const uses = input.uses?.filter((u) => u.day === day)
-  // the day's own frozen list when there is one: editing or deleting a habit later cannot change what this day was
-  const frozen = input.lists?.[day]
-  const byId = new Map(input.habits.map((h) => [h.id, h]))
-  const todays: HabitLite[] = frozen
-    ? frozen.map((f) => ({ ...(byId.get(f.id) ?? { id: f.id, spans: [] }), id: f.id, tier: f.tier, domain: f.tag }))
-    : input.habits.filter((h) => activeOn(h, day))
+  const todays = listedOn(input, day)
   for (const h of todays) {
     // version 2, with a band: Sleep is a pillar paid on last night's score, and a hand tick no longer counts
     // from version 6, no reading is not a miss: that morning's habit is a hand tick, paid as a core habit and not a pillar
@@ -216,12 +235,19 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
   // the boss: this week's card, with the newest progress written for this day or an earlier one of the week
   const card = input.boss?.cards[mondayOf(day)]
   let boss: DayFacts['boss']
+  // version 18: the kinds of work with a habit on the list, which also decide what stays on a boss's card
+  const live = day >= V18_START ? liveTags(input, day, band) : null
   if (card) {
     let p: number[] | undefined
     for (let d = day; d >= card.week && !p; d = addDays(d, -1)) p = input.boss?.days[d]
-    boss = { card, p: card.tasks.map((_, i) => p?.[i] ?? 0) }
+    const whole = card.tasks.map((_, i) => p?.[i] ?? 0)
+    // a task of a kind that is shelved is off the card for the whole week, judged on the week's last day so far (the week's last, once it is over):
+    // judged day by day, shelving a kind in mid-week would shift every share under the boss and heal it for work already done
+    const ref = input.today < addDays(card.week, 6) ? input.today : addDays(card.week, 6)
+    const kept = card.week >= V18_START ? liveCard(card, whole, ref === day ? live : liveTags(input, ref, band)) : { card, p: whole }
+    boss = kept
   }
-  return { day, habits, ...(body ? { body } : {}), ...(uses?.length ? { uses } : {}), ...(marks ? { marks } : {}), ...(reviews ? { reviews } : {}), ...(boss ? { boss } : {}) }
+  return { day, habits, ...(body ? { body } : {}), ...(uses?.length ? { uses } : {}), ...(marks ? { marks } : {}), ...(reviews ? { reviews } : {}), ...(boss ? { boss } : {}), ...(live ? { live: [...live] } : {}) }
 }
 
 /** Every day of the game so far, oldest first. */

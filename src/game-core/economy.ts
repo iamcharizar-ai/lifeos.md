@@ -398,6 +398,10 @@ export const FEATS: Feat[] = [
   { id: 'badge8', name: 'Eight badges', text: 'Win eight gym badges', group: 'league', key: 'badges', n: 8, reward: { gems: 40 } },
 ]
 export const featById = (id: string): Feat | undefined => FEATS.find((f) => f.id === id)
+/** Counters that belong to one kind of work, for the feats that carry no `tag` of their own (version 18 hides a shelved kind's unfinished feats). */
+const KEY_DOMAIN: Record<string, MarkTag> = { workouts: 'fitness', records: 'fitness', owned: 'guitar', deep: 'sleep' }
+/** The kind of work a feat is about, if it is about one. */
+export const featDomain = (f: Feat): MarkTag | undefined => f.tag ?? KEY_DOMAIN[f.key]
 
 // ══ version 13: Champion's Road (RULES-V13.md) ══════════════════════════════
 // Everything here is sold, found or used only from V13_START.
