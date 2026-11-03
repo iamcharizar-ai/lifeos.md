@@ -39,9 +39,6 @@ import { commitSundayTasks, isSunday, useSundayTasks, type SundayTask } from './
 import { ARBOR_HABIT, applyArborEvents, isLocked, planToday, useArbor } from './lib/arborLink'
 import { practicedOn } from './arbor-core/model.ts'
 import { GUITAR_HABIT, applyShedEvents, sessionToday, useShed } from './lib/guitarLink'
-import { tempoFor } from './woodshed-core/coach.ts'
-import { ITEM_BY_ID } from './woodshed-core/course.ts'
-import { statsOf, type Feel } from './woodshed-core/model.ts'
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
 import { useGame } from './lib/game'
 import { applyGameEvents, sleepMeasured, sleepState, useGameLink } from './lib/gameLink'
@@ -250,15 +247,6 @@ export default function App() {
     else cloud.emit('untick', { habitId: GUITAR_HABIT })
   }, [settled, session, shed, ticks, today, cloud])
 
-  const onGuitar = (itemId: string, feel: Feel | null) => {
-    const item = ITEM_BY_ID.get(itemId)
-    if (!item) return
-    if (feel === null) return emitGuitar('guitar', { itemId, done: false })
-    // logged from here, it is taken to have been practised at today's tempo
-    const bpm = tempoFor(item, statsOf(item, shed))
-    emitGuitar('guitar', { itemId, done: true, feel, ...(bpm ? { bpm } : {}) })
-  }
-
   const link = useGameLink()
   // while Sleep waits for today's reading, ask whether Google has the night (and fetch it if it does)
   const sleepCheck = useHealthCheck(sleepState(link, today) === 'waiting')
@@ -437,7 +425,7 @@ export default function App() {
             today={today}
             game={game}
             actions={actions}
-            linked={{ workout: workouts[today], gymNext: nextGymDay(workouts, today).name, arbor, plan, onSkill, guitar: { shed, session, onLog: onGuitar }, sleep: { state: sleepState(link, today), night: link.nights[today], check: sleepCheck } }}
+            linked={{ workout: workouts[today], gymNext: nextGymDay(workouts, today).name, arbor, plan, onSkill, guitar: { shed, session }, sleep: { state: sleepState(link, today), night: link.nights[today], check: sleepCheck } }}
             weekly={weekly}
           />
         )}

@@ -14,10 +14,9 @@ import { dateISO, streakFor, type Ticks } from '../lib/store'
 import { PartnerStrip } from '../components/PartnerStrip'
 import { nameOf, type Game } from '../game-core/fold.ts'
 import { SLEEP_HABIT, TAGS, tierXp, type Tag } from '../game-core/rules.ts'
-import { ArborHead, ArborSkills, GuitarHead, GuitarItems, GuitarTile, PillarTile, SleepTile, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { ArborHead, ArborSkills, GuitarTile, PillarTile, SleepTile, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
 import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
-import { WOODSHED_URL } from '../lib/guitarLink'
 import { practicedOn } from '../arbor-core/model.ts'
 
 export interface HabitActions {
@@ -276,11 +275,9 @@ function ChecklistRow({
   const planned = linked.plan.morning
   const practised = planned.filter((id) => practicedOn(linked.arbor, today, id)).length
   const [skillsOpen, setSkillsOpen] = useState<boolean | null>(null)
-  const showSkills = link === 'arbor' && planned.length > 0 && (skillsOpen ?? !ticked)
+  const showSkills = link === 'arbor' && planned.length > 0 && (skillsOpen ?? false)
   const session = linked.guitar.session
   const played = session.filter((id) => linked.guitar.shed.logs[id]?.[today]?.done).length
-  // with a Woodshed URL the row just opens Woodshed; the inline session list is only the no-URL fallback
-  const showSession = link === 'woodshed' && !WOODSHED_URL && session.length > 0 && (skillsOpen ?? !ticked)
 
   return (
     <Reorder.Item
@@ -339,18 +336,8 @@ function ChecklistRow({
           />
         ) : link === 'vitals' ? (
           <SleepTile name={habit.name} state={linked.sleep.state} night={linked.sleep.night} ticked={ticked} selfXp={TIER_XP.core} onToggle={() => actions.onToggle(habit.id)} check={linked.sleep.check} />
-        ) : link === 'woodshed' && WOODSHED_URL ? (
-          <GuitarTile name={habit.name} xp={xp} ticked={ticked} done={played} total={session.length} />
         ) : link === 'woodshed' ? (
-          <GuitarHead
-            name={habit.name}
-            xp={xp}
-            ticked={ticked}
-            done={played}
-            total={session.length}
-            open={showSession}
-            onToggle={() => (session.length > 0 ? setSkillsOpen(!showSession) : actions.onToggle(habit.id))}
-          />
+          <GuitarTile name={habit.name} xp={xp} ticked={ticked} done={played} total={session.length} />
         ) : pillar ? (
           <PillarTile name={habit.name} emoji={habit.emoji} xp={xp} ticked={ticked} run={run} onToggle={() => actions.onToggle(habit.id)} xpRef={xpEl} />
         ) : (
@@ -400,7 +387,6 @@ function ChecklistRow({
         </button>
       </div>
       {showSkills && <ArborSkills ctx={linked} today={today} />}
-      {showSession && <GuitarItems ctx={linked} today={today} />}
       {open && (
         <RowEditor
           habit={habit}
@@ -440,6 +426,11 @@ function ShelfRow({
   onPick: (id: string) => void
 }) {
   const controls = useDragControls()
+  // pillars keep their own look on the shelf, just greyed and still
+  const link = habit.id === SLEEP_HABIT ? ('vitals' as const) : linkOf(habit.id)
+  const pillar = !link && habit.tier === 'pillar'
+  const tile = link ? `tile-${link}` : pillar ? 'tile-pillar' : ''
+  const titleClass = link === 'woodshed' ? 'shed-title' : link === 'arbor' ? 'arbor-title' : pillar ? 'pillar-title' : 'text-sm font-bold'
   return (
     <Reorder.Item
       value={habit}
@@ -453,8 +444,9 @@ function ShelfRow({
       whileDrag={{ scale: 1.03, zIndex: 30 }}
     >
       <div
+        data-tag={pillar ? domainOf(habit) : undefined}
         className={`neo-button flex w-full items-center gap-1 py-1 pl-1 pr-3 ${
-          picked ? 'bg-neo-red/20 opacity-100' : 'bg-neo-white opacity-70'
+          tile ? `${tile} is-shelved grayscale ${picked ? 'opacity-100 ring-4 ring-neo-red' : 'opacity-70'}` : picked ? 'bg-neo-red/20 opacity-100' : 'bg-neo-white opacity-70'
         }`}
       >
         {picking ? (
@@ -483,8 +475,8 @@ function ShelfRow({
           className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left"
         >
           <span className="text-lg leading-none grayscale">{habit.emoji}</span>
-          <span className="flex-1 truncate text-sm font-bold text-neo-black">{habit.name}</span>
-          <span className="num shrink-0 text-[10px] font-bold text-neo-gray-dark">
+          <span className={`flex-1 truncate ${titleClass} ${tile ? '' : 'text-neo-black'}`}>{habit.name}</span>
+          <span className={`num shrink-0 text-[10px] font-bold ${tile ? 'opacity-80' : 'text-neo-gray-dark'}`}>
             {TIER_XP[habit.tier]} XP · {tickCount}✓
           </span>
           {!picking && (

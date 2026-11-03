@@ -200,6 +200,8 @@ body {
 .tile-strong.is-done { background: var(--color-neo-green); }
 .tile-strong.is-done::before { animation: none; background: #111; }
 .tile-strong a { color: inherit; }
+/* a shelved pillar keeps its look but stands still */
+.is-shelved, .is-shelved::before, .is-shelved::after { animation: none !important; }
 @keyframes strong-stripe { to { background-position: 0 17px; } }
 
 /* Arbor: dark pixel panel, stepped gold frame that pulses until all skills are done */
@@ -273,32 +275,6 @@ body {
     repeating-linear-gradient(to bottom, transparent 0 3px, #f2e9d2 3px 4.5px, transparent 4.5px 5.5px),
     repeating-linear-gradient(to right, #3a2620 0 6px, #b9beb8 6px 7.5px);
 }
-.shed-panel {
-  background: #123a47;
-  border: 3px solid #111;
-  border-top: 0;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-.shed-item {
-  display: grid; grid-template-columns: 1fr; gap: 8px; padding: 9px 11px; background: #f2e9d2; color: #17140f; border-radius: 10px;
-  box-shadow: 0 0 0 1.5px #ece6d3, 0 0 0 3px #17140f, 0 0 0 4.5px #ece6d3;
-  margin: 4.5px;
-}
-.shed-item.is-done { background: #e6dbbd; }
-.shed-item-name { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 700; font-size: 17px; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.02em; }
-.shed-item-target { font-size: 11px; line-height: 1.35; color: #5b5547; margin-top: 2px; }
-.shed-feels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.shed-feels button { padding: 8px 4px; border: 1.5px solid #17140f; border-radius: 7px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; background: transparent; color: #17140f; }
-.shed-feels button.on { background: #17140f; color: #f2e9d2; }
-.shed-link { align-self: flex-end; font-size: 11px; color: #b9beb8; text-decoration: none; padding: 2px 4px; }
-.shed-link:hover { color: #f2e9d2; }
-@media (min-width: 640px) {
-  .shed-item { grid-template-columns: 1fr 250px; align-items: center; }
-}
-
 /* Sprites from the Pokedex site (the partner card, the foes, the toasts) */
 .partner-sprite { image-rendering: pixelated; object-fit: contain; }
 .partner-sprite.is-asleep { filter: grayscale(1) brightness(0.7); }
