@@ -66,7 +66,8 @@ async function ask(name, argv) {
 const { VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VITE_SUPABASE_ANON_KEY } = env()
 const key = SUPABASE_SERVICE_ROLE_KEY || VITE_SUPABASE_ANON_KEY
 const url = VITE_SUPABASE_URL?.replace(/\/$/, '')
-const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }
+// a legacy JWT key also goes in Authorization; a new sb_… key goes in apikey alone (server/health-shared.ts)
+const headers = { apikey: key, ...(key?.startsWith('eyJ') ? { Authorization: `Bearer ${key}` } : {}), 'Content-Type': 'application/json' }
 
 // A ledger that does not answer must not hang the daily task or crash it with a stack trace.
 const PAGE = 1000

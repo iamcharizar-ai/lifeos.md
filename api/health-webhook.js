@@ -1958,11 +1958,14 @@ async function accessToken() {
 	};
 	return access.token;
 }
+const authHeaders = (key) => key.startsWith("eyJ") ? {
+	apikey: key,
+	Authorization: `Bearer ${key}`
+} : { apikey: key };
 const sb = (path, init = {}) => fetch(`${cfg.supabaseUrl}/rest/v1/${path}`, {
 	...init,
 	headers: {
-		apikey: cfg.supabaseKey,
-		Authorization: `Bearer ${cfg.supabaseKey}`,
+		...authHeaders(cfg.supabaseKey),
 		"Content-Type": "application/json",
 		...init.headers
 	},

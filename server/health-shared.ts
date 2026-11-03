@@ -46,10 +46,14 @@ async function accessToken(): Promise<string> {
   return access.token
 }
 
+// A legacy key is a JWT and also goes in `Authorization`; the new kind (sb_secret_…, sb_publishable_…) is not a JWT
+// and goes in `apikey` alone, from which Supabase makes the token itself.
+const authHeaders = (key: string): Record<string, string> => (key.startsWith('eyJ') ? { apikey: key, Authorization: `Bearer ${key}` } : { apikey: key })
+
 export const sb = (path: string, init: RequestInit = {}): Promise<Response> =>
   fetch(`${cfg.supabaseUrl}/rest/v1/${path}`, {
     ...init,
-    headers: { apikey: cfg.supabaseKey, Authorization: `Bearer ${cfg.supabaseKey}`, 'Content-Type': 'application/json', ...(init.headers as Record<string, string> | undefined) },
+    headers: { ...authHeaders(cfg.supabaseKey), 'Content-Type': 'application/json', ...(init.headers as Record<string, string> | undefined) },
     signal: AbortSignal.timeout(15_000),
   })
 
