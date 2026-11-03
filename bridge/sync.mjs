@@ -11,7 +11,9 @@
 // the by-hand catch-up from the PC (bridge/README.md).
 //
 // Needs `ghealth` on PATH (or GHEALTH_BIN), already set up (`ghealth setup`), and
-// VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local (not for --dry-run).
+// VITE_SUPABASE_URL and, to write, SUPABASE_SERVICE_ROLE_KEY in .env.local (not for --dry-run). Once the
+// ledger only lets the server write `vitals` (supabase/2026-11-03-vitals-server-only.sql) the anon key
+// is refused; until then it is used when the service-role key is not set.
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -61,7 +63,8 @@ async function ask(name, argv) {
   }
 }
 
-const { VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY: key } = env()
+const { VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VITE_SUPABASE_ANON_KEY } = env()
+const key = SUPABASE_SERVICE_ROLE_KEY || VITE_SUPABASE_ANON_KEY
 const url = VITE_SUPABASE_URL?.replace(/\/$/, '')
 const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }
 

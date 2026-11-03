@@ -1588,6 +1588,7 @@ async function receive(req, d) {
 		kinds: kindsFor(touches)
 	};
 	d.log(`notified: ${touches.map((t) => `${t.operation} ${t.dataType}`).join(", ") || "nothing readable"}${win ? `; reading ${win.kinds.join(", ")} for ${win.from}..${win.to}` : "; nothing we use"}`);
+	if (d.pushed) d.after(d.pushed().catch(() => {}));
 	if (win) d.after(d.sync(win).catch((err) => d.log(`sync failed: ${err instanceof Error ? err.message : String(err)}`)));
 	return reply(204);
 }
@@ -1913,6 +1914,10 @@ function rowId(day, payload, newestKnown) {
 const WRITE_PATH = "events?on_conflict=id";
 const WRITE_PREFER = "resolution=ignore-duplicates,return=minimal";
 //#endregion
+//#region bridge/watch.ts
+/** Which code a failed read gets: Google's sign-in refusal says so in its message (server/health-shared.ts). */
+const errorCode = (err) => err instanceof Error && /refused the sign-in/.test(err.message) ? "auth" : "read";
+//#endregion
 //#region server/health-shared.ts
 const E = process.env;
 const cfg = {
@@ -1921,7 +1926,7 @@ const cfg = {
 	clientSecret: E.GOOGLE_CLIENT_SECRET ?? "",
 	refresh: E.GOOGLE_REFRESH_TOKEN ?? "",
 	supabaseUrl: (E.SUPABASE_URL ?? E.VITE_SUPABASE_URL ?? "").replace(/\/$/, ""),
-	supabaseKey: E.SUPABASE_ANON_KEY ?? E.VITE_SUPABASE_ANON_KEY ?? "",
+	supabaseKey: E.SUPABASE_SERVICE_ROLE_KEY ?? E.SUPABASE_ANON_KEY ?? E.VITE_SUPABASE_ANON_KEY ?? "",
 	tz: E.HEALTH_TZ ?? "Asia/Kolkata"
 };
 /** The owner's calendar date. */
@@ -1975,8 +1980,41 @@ async function knownVitals(since) {
 	}
 	return known;
 }
-/** Read these days (and kinds, all by default) from Google and write what is new to the ledger. */
+/** The watchdog's one row (supabase/2026-11-03-health-status-and-rls.sql). Never fails the caller: the table may not exist yet. */
+async function markStatus(patch) {
+	try {
+		await sb("health_status?on_conflict=id", {
+			method: "POST",
+			headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+			body: JSON.stringify({
+				id: "google",
+				...patch
+			})
+		});
+	} catch {}
+}
+let okNotedAt = 0;
+let wasFailing = false;
+/** Read these days (and kinds, all by default) from Google and write what is new to the ledger; the outcome is noted for the watchdog. */
 async function sync(win) {
+	try {
+		const r = await syncOnce(win);
+		if (wasFailing || Date.now() - okNotedAt > 6e5) {
+			okNotedAt = Date.now();
+			wasFailing = false;
+			await markStatus({ last_sync_at: (/* @__PURE__ */ new Date()).toISOString() });
+		}
+		return r;
+	} catch (err) {
+		wasFailing = true;
+		await markStatus({
+			last_error: errorCode(err),
+			last_error_at: (/* @__PURE__ */ new Date()).toISOString()
+		});
+		throw err;
+	}
+}
+async function syncOnce(win) {
 	const [read, known] = await Promise.all([accessToken().then((token) => readHealth(token, win.from, win.to, (url, init) => fetch(url, {
 		...init,
 		signal: AbortSignal.timeout(15e3)
@@ -2021,6 +2059,7 @@ const handle = (req) => receive(req, {
 	sync,
 	after: import_functions.waitUntil,
 	today,
+	pushed: () => markStatus({ last_push_at: (/* @__PURE__ */ new Date()).toISOString() }),
 	log: (l) => console.log(l)
 });
 const POST = handle;

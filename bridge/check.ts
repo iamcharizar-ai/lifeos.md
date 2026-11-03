@@ -23,6 +23,8 @@ export interface CheckAnswer {
   /** when Google was last read for this (ISO) */
   checkedAt?: string
   message: string
+  /** the pipe itself is unhealthy (bridge/watch.ts): the sign-in expired, or Google has gone quiet */
+  warning?: string
 }
 
 /** Google is read at most this often, whoever asks. */

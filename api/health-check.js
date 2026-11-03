@@ -282,6 +282,21 @@ async function check(d, memo) {
 		memo: m
 	};
 }
+const WARNINGS = {
+	auth: "Google sign-in has expired. Run ghealth auth login, then update GOOGLE_REFRESH_TOKEN in Vercel.",
+	read: "The last read of Google failed. It will try again; if this stays, check the Vercel logs.",
+	quiet: (hours) => `Google has not pushed anything for ${hours} h. Check the webhook subscriber (bridge/README.md).`
+};
+const ms = (iso) => iso ? Date.parse(iso) || 0 : 0;
+/** The warning to show, or undefined when the pipe looks healthy (or there is no status yet). */
+function warningFor(s, now) {
+	if (!s) return void 0;
+	if (s.last_error && ms(s.last_error_at) > ms(s.last_sync_at)) return s.last_error === "auth" ? WARNINGS.auth : WARNINGS.read;
+	const push = ms(s.last_push_at);
+	if (push && now - push > 1296e5) return WARNINGS.quiet(Math.floor((now - push) / 36e5));
+}
+/** Which code a failed read gets: Google's sign-in refusal says so in its message (server/health-shared.ts). */
+const errorCode = (err) => err instanceof Error && /refused the sign-in/.test(err.message) ? "auth" : "read";
 //#endregion
 //#region bridge/model.ts
 const NUMERIC = [
@@ -612,7 +627,7 @@ const cfg = {
 	clientSecret: E.GOOGLE_CLIENT_SECRET ?? "",
 	refresh: E.GOOGLE_REFRESH_TOKEN ?? "",
 	supabaseUrl: (E.SUPABASE_URL ?? E.VITE_SUPABASE_URL ?? "").replace(/\/$/, ""),
-	supabaseKey: E.SUPABASE_ANON_KEY ?? E.VITE_SUPABASE_ANON_KEY ?? "",
+	supabaseKey: E.SUPABASE_SERVICE_ROLE_KEY ?? E.SUPABASE_ANON_KEY ?? E.VITE_SUPABASE_ANON_KEY ?? "",
 	tz: E.HEALTH_TZ ?? "Asia/Kolkata"
 };
 /** The owner's calendar date. */
@@ -666,8 +681,50 @@ async function knownVitals(since) {
 	}
 	return known;
 }
-/** Read these days (and kinds, all by default) from Google and write what is new to the ledger. */
+/** The watchdog's one row (supabase/2026-11-03-health-status-and-rls.sql). Never fails the caller: the table may not exist yet. */
+async function markStatus(patch) {
+	try {
+		await sb("health_status?on_conflict=id", {
+			method: "POST",
+			headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+			body: JSON.stringify({
+				id: "google",
+				...patch
+			})
+		});
+	} catch {}
+}
+async function readStatus() {
+	try {
+		const res = await sb("health_status?select=last_push_at,last_sync_at,last_error,last_error_at&id=eq.google");
+		if (!res.ok) return null;
+		return (await res.json())[0] ?? null;
+	} catch {
+		return null;
+	}
+}
+let okNotedAt = 0;
+let wasFailing = false;
+/** Read these days (and kinds, all by default) from Google and write what is new to the ledger; the outcome is noted for the watchdog. */
 async function sync(win) {
+	try {
+		const r = await syncOnce(win);
+		if (wasFailing || Date.now() - okNotedAt > 6e5) {
+			okNotedAt = Date.now();
+			wasFailing = false;
+			await markStatus({ last_sync_at: (/* @__PURE__ */ new Date()).toISOString() });
+		}
+		return r;
+	} catch (err) {
+		wasFailing = true;
+		await markStatus({
+			last_error: errorCode(err),
+			last_error_at: (/* @__PURE__ */ new Date()).toISOString()
+		});
+		throw err;
+	}
+}
+async function syncOnce(win) {
 	const [read, known] = await Promise.all([accessToken().then((token) => readHealth(token, win.from, win.to, (url, init) => fetch(url, {
 		...init,
 		signal: AbortSignal.timeout(15e3)
@@ -719,7 +776,11 @@ async function GET() {
 			now: () => Date.now()
 		}, memo);
 		memo = r.memo;
-		return new Response(JSON.stringify(r.answer), {
+		const warning = r.answer.state === "measured" ? void 0 : warningFor(await readStatus(), Date.now());
+		return new Response(JSON.stringify(warning ? {
+			...r.answer,
+			warning
+		} : r.answer), {
 			status: 200,
 			headers: HEADERS
 		});

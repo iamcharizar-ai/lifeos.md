@@ -14,6 +14,8 @@ export interface Deps {
   /** keep working after the answer has gone out (Vercel's waitUntil) */
   after: (work: Promise<unknown>) => void
   today: () => string
+  /** note that Google pushed (the watchdog, bridge/watch.ts); kept running after the answer like the sync */
+  pushed?: () => Promise<unknown>
   log: (line: string) => void
 }
 
@@ -45,6 +47,7 @@ export async function receive(req: Request, d: Deps): Promise<Response> {
   // only what the notification is about: a steps update reads steps, not all twelve kinds
   const win = found && { ...found, kinds: kindsFor(touches) }
   d.log(`notified: ${touches.map((t) => `${t.operation} ${t.dataType}`).join(', ') || 'nothing readable'}${win ? `; reading ${win.kinds.join(', ')} for ${win.from}..${win.to}` : '; nothing we use'}`)
+  if (d.pushed) d.after(d.pushed().catch(() => {}))
   if (win) d.after(d.sync(win).catch((err) => d.log(`sync failed: ${err instanceof Error ? err.message : String(err)}`)))
   return reply(204)
 }

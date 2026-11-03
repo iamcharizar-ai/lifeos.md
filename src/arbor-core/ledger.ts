@@ -9,6 +9,11 @@
 // With `cache: true` the rows read are also kept on the device (IndexedDB), so
 // a reload starts from that copy and asks the server only for what is newer,
 // instead of the whole history every time the app opens.
+//
+// With `realtime: true` the app also holds a websocket to Supabase Realtime (no SDK, the bare Phoenix
+// protocol). It carries no rows: an insert of one of its types only prompts an ordinary sync, so the
+// outbox, cursor and overlap logic stay the single path rows take. While the socket is joined the
+// timed poll slows down to a safety net; when it drops the poll goes back to its usual pace.
 import type { LedgerEvent } from './model.ts'
 
 export type LedgerStatus = 'off' | 'connecting' | 'live' | 'error'
@@ -29,6 +34,8 @@ export interface LedgerOptions {
    * status stays 'connecting' until the server has answered, so only opt in where that is fine.
    */
   cache?: boolean
+  /** Be told of new rows by Supabase Realtime instead of waiting for the next poll. */
+  realtime?: boolean
 }
 
 export interface Ledger {
@@ -45,6 +52,9 @@ export interface Ledger {
 const PAGE = 1000
 const COLS = 'id,device,at,day,type,payload,inserted_at'
 const POLL_MS = 30_000
+const SLOW_POLL_MS = 5 * 60_000 // the poll's pace while the realtime socket is joined
+const HEARTBEAT_MS = 25_000
+const NUDGE_MS = 300 // a burst of inserts (the health webhook writes several) becomes one sync
 const REQUEST_MS = 15_000 // a stalled request must reject so the outbox/retry path runs
 // A row can take an earlier inserted_at than a neighbour yet commit later, so each pull re-reads
 // this much of the tail. The fold is idempotent; `seen` keeps the repeats from reaching callers.
@@ -131,6 +141,8 @@ export function createLedger(o: LedgerOptions): Ledger {
   let busy = false
   let again = false // something was emitted mid-sync: go round once more
   let timer: ReturnType<typeof setInterval> | undefined
+  let lastSync = 0 // when a sync last got an answer
+  let joined = false // the realtime socket is up and subscribed
 
   const CACHE_KEY = `${o.app}:${[...o.types].sort().join(',')}`
   let kept: Cached | null = null
@@ -251,6 +263,7 @@ export function createLedger(o: LedgerOptions): Ledger {
       try { await flush() } catch { /* retried next sync */ }
       await pull(!booted && !fromCache)
       booted = true
+      lastSync = Date.now()
       report('live')
     } catch {
       report(booted ? 'live' : 'error') // offline after boot is normal — the outbox holds
@@ -260,7 +273,82 @@ export function createLedger(o: LedgerOptions): Ledger {
     }
   }
 
-  const onWake = () => { if (document.visibilityState === 'visible') void sync() }
+  const onWake = () => {
+    if (document.visibilityState !== 'visible') return
+    openSocket() // a phone that slept has lost its socket: bring it back before anything else
+    void sync()
+  }
+  // the timed poll: a safety net only while the socket is joined
+  const onTick = () => {
+    if (joined && Date.now() - lastSync < SLOW_POLL_MS) return
+    onWake()
+  }
+
+  // ── realtime: a nudge to sync, nothing more ────────────────────────────────
+  const TOPIC = 'realtime:public:events'
+  let ws: WebSocket | null = null
+  let beat: ReturnType<typeof setInterval> | undefined
+  let beatSeen = true // something came back since the last heartbeat
+  let retry: ReturnType<typeof setTimeout> | undefined
+  let nudge: ReturnType<typeof setTimeout> | undefined
+  let retries = 0
+  let stopped = true
+  let n = 0
+  const send = (event: string, payload: object, topic = TOPIC) => ws?.send(JSON.stringify({ topic, event, payload, ref: String(++n), join_ref: '1' }))
+
+  function closeSocket() {
+    clearInterval(beat)
+    joined = false
+    const w = ws
+    ws = null
+    if (w) { w.onclose = null; w.onerror = null; w.onmessage = null; try { w.close() } catch { /* already closed */ } }
+  }
+
+  function openSocket() {
+    if (!o.realtime || !enabled || stopped || typeof WebSocket === 'undefined') return
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
+    clearTimeout(retry)
+    closeSocket()
+    try {
+      const host = (o.url ?? '').replace(/^http/, 'ws').replace(/\/$/, '')
+      ws = new WebSocket(`${host}/realtime/v1/websocket?apikey=${encodeURIComponent(o.key ?? '')}&vsn=1.0.0`)
+    } catch { return }
+    const mine = ws
+    mine.onopen = () => {
+      retries = 0
+      beatSeen = true
+      send('phx_join', { config: { postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'events' }] }, access_token: o.key })
+      beat = setInterval(() => {
+        if (!beatSeen) { lost(); return } // no answer for a whole beat: the socket is half-open
+        beatSeen = false
+        send('heartbeat', {}, 'phoenix')
+      }, HEARTBEAT_MS)
+    }
+    mine.onmessage = (m) => {
+      beatSeen = true
+      let msg: { topic?: string; event?: string; payload?: { status?: string; data?: { record?: { type?: string; device?: string } } } }
+      try { msg = JSON.parse(String(m.data)) } catch { return }
+      if (msg.topic === TOPIC && msg.event === 'phx_reply') {
+        if (msg.payload?.status === 'ok') { joined = true; void sync() } // covers the gap while it was down
+        else lost()
+      } else if (msg.event === 'postgres_changes') {
+        const r = msg.payload?.data?.record
+        if (!r || r.device === device || (r.type && !o.types.includes(r.type))) return
+        clearTimeout(nudge)
+        nudge = setTimeout(() => void sync(), NUDGE_MS)
+      } else if (msg.event === 'phx_error' || msg.event === 'phx_close') lost()
+    }
+    mine.onclose = () => { if (ws === mine) lost() }
+    mine.onerror = () => { if (ws === mine) lost() }
+  }
+
+  /** The socket is gone or useless: drop it, poll at the usual pace, and try again with a growing wait. */
+  function lost() {
+    closeSocket()
+    if (stopped) return
+    clearTimeout(retry)
+    retry = setTimeout(openSocket, Math.min(60_000, 1_000 * 2 ** retries++))
+  }
 
   return {
     device,
@@ -284,13 +372,19 @@ export function createLedger(o: LedgerOptions): Ledger {
       window.addEventListener('online', onWake)
       window.addEventListener('focus', onWake)
       document.addEventListener('visibilitychange', onWake)
-      timer = setInterval(onWake, POLL_MS)
+      timer = setInterval(onTick, POLL_MS)
+      stopped = false
+      openSocket()
     },
     stop() {
       window.removeEventListener('online', onWake)
       window.removeEventListener('focus', onWake)
       document.removeEventListener('visibilitychange', onWake)
       clearInterval(timer)
+      stopped = true
+      clearTimeout(retry)
+      clearTimeout(nudge)
+      closeSocket()
     },
   }
 }

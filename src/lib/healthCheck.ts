@@ -4,6 +4,7 @@
 // says what the hold-up is: Google not having the night yet means the phone has
 // not synced it, which only opening Google Health (or the band app) fixes.
 import { useEffect, useState } from 'react'
+import { CATCH_UP_EVENT } from './cloudSync'
 
 export type CheckState = 'measured' | 'scoring' | 'not-synced' | 'error'
 export interface CheckAnswer {
@@ -12,6 +13,8 @@ export interface CheckAnswer {
   score?: number
   checkedAt?: string
   message: string
+  /** the pipe itself is unhealthy (expired sign-in, Google gone quiet): shown instead of `message` */
+  warning?: string
 }
 
 /** How often to ask while the page is in view and the night is still missing. */
@@ -29,7 +32,10 @@ export function useHealthCheck(active: boolean): CheckAnswer | null {
         const res = await fetch('/api/health-check', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
         if (!res.ok) return
         const a = (await res.json()) as CheckAnswer
-        if (!gone && a && typeof a.state === 'string') setAnswer(a)
+        if (gone || !a || typeof a.state !== 'string') return
+        setAnswer(a)
+        // the server found (or just wrote) the night: pull the row now instead of waiting for the next poll
+        if (a.state === 'measured') window.dispatchEvent(new Event(CATCH_UP_EVENT))
       } catch {
         /* offline, or a dev server with no functions: say nothing */
       }

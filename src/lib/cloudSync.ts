@@ -91,6 +91,11 @@ const COLS = 'id, device, at, day, type, payload, inserted_at'
 // A row can take an earlier inserted_at than a neighbour yet commit later, so each catch-up re-reads this
 // much before the cursor; `seen` keeps the rows already applied from being applied twice.
 const OVERLAP_MS = 60_000
+// A read that never answers (a half-open connection after the phone slept) must not hold catch-up shut: every later
+// catch-up skips while one is running, so a hung one meant the night's sleep row never came in until a reload.
+const READ_MS = 15_000
+/** Window event that asks the sync for an immediate catch-up (sent by healthCheck.ts). */
+export const CATCH_UP_EVENT = 'lifeos:catch-up'
 
 async function fetchEvents(
   sb: NonNullable<typeof supabase>,
@@ -106,6 +111,7 @@ async function fetchEvents(
       .order(since ? 'inserted_at' : 'at', { ascending: true })
       .order('id', { ascending: true })
       .range(from, from + PAGE - 1)
+      .abortSignal(AbortSignal.timeout(READ_MS))
     if (error) return null
     out.push(...(data as LifeEvent[]))
     if (data.length < PAGE) break
@@ -538,8 +544,12 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
         const since = cursor.current ? new Date(Date.parse(cursor.current) - OVERLAP_MS).toISOString() : undefined
         const got = await fetchEvents(sb, since)
         if (cancelled) return 'skipped'
-        if (!got) return 'failed'
+        if (!got) {
+          console.info('[sync] catch-up failed or timed out')
+          return 'failed'
+        }
         const fresh = got.filter((e) => !e.id || !seen.current.has(e.id))
+        if (fresh.length) console.info(`[sync] catch-up brought ${fresh.length} row(s)`)
         for (const ev of inOrder(fresh.filter((e) => e.device !== device.current)))
           applyEvent(ev, settersRef.current)
         for (const ev of loadOutbox()) applyEvent(ev, settersRef.current)
@@ -552,31 +562,48 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
     }
     void boot()
 
-    const channel = sb
-      .channel('events-feed')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'events' },
-        (msg) => {
-          const ev = msg.new as LifeEvent
-          if (ev.id && seen.current.has(ev.id)) return
-          if (ev.device !== device.current) applyEvent(ev, settersRef.current)
-          // before boot has folded, the row is left unmarked: the boot read (or its catch-up) brings it again in order
-          if (booted.current) took([ev])
-        },
-      )
-      .subscribe((s) => {
-        if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') setStatus('error')
-        if (s === 'SUBSCRIBED') void catchUp() // covers the gap while the socket was down
-      })
+    const openChannel = () =>
+      sb
+        .channel('events-feed')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'events' },
+          (msg) => {
+            const ev = msg.new as LifeEvent
+            if (ev.id && seen.current.has(ev.id)) return
+            if (ev.device !== device.current) applyEvent(ev, settersRef.current)
+            // before boot has folded, the row is left unmarked: the boot read (or its catch-up) brings it again in order
+            if (booted.current) took([ev])
+          },
+        )
+        .subscribe((s) => {
+          console.info(`[sync] realtime ${s}`)
+          if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') setStatus('error')
+          if (s === 'SUBSCRIBED') void catchUp() // covers the gap while the socket was down
+        })
+    let channel = openChannel()
+
+    // A phone that slept has a dead socket the library may take minutes to notice: on waking, if the channel is not
+    // joined, drop it and open a fresh one instead of leaning on the poll.
+    const rejoin = () => {
+      if (cancelled || channel.state === 'joined' || channel.state === 'joining') return
+      void sb.removeChannel(channel)
+      channel = openChannel()
+    }
 
     const onOnline = () => {
       void flush()
+      rejoin()
       void catchUp()
     }
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void catchUp()
+      if (document.visibilityState !== 'visible') return
+      rejoin()
+      void catchUp()
     }
+    // the health check found last night's reading (healthCheck.ts): fetch the row it just wrote
+    const onKick = () => void catchUp()
+    window.addEventListener(CATCH_UP_EVENT, onKick)
     window.addEventListener('online', onOnline)
     window.addEventListener('focus', onVisible)
     document.addEventListener('visibilitychange', onVisible)
@@ -584,6 +611,7 @@ export function useCloudSync(snapshot: CloudSnapshot, setters: CloudSetters): Cl
     return () => {
       cancelled = true
       window.clearInterval(poll)
+      window.removeEventListener(CATCH_UP_EVENT, onKick)
       window.removeEventListener('online', onOnline)
       window.removeEventListener('focus', onVisible)
       document.removeEventListener('visibilitychange', onVisible)

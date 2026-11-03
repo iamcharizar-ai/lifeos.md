@@ -82,3 +82,14 @@ test('a sync that fails is logged, not thrown: Google was already answered', asy
   assert.equal((await post(raw, { authorization: SECRET, 'google-health-api-signature': sign(raw) })).status, 204)
   assert.ok(lines.some((l) => l.includes('ledger read 500')))
 })
+
+test('a push is noted only once the signature has checked out', async () => {
+  let noted = 0
+  const { post } = setup({ pushed: async () => { noted++ } })
+  const raw = JSON.stringify(steps)
+  await post(raw, { authorization: SECRET, 'google-health-api-signature': 'not-a-signature' })
+  await post({ type: 'verification' }, { authorization: SECRET })
+  assert.equal(noted, 0)
+  await post(raw, { authorization: SECRET, 'google-health-api-signature': sign(raw) })
+  assert.equal(noted, 1)
+})

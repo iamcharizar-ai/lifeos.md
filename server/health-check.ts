@@ -3,7 +3,8 @@
 // most once a minute, so a night never depends on the webhook alone.
 import { addDays } from '../bridge/health.ts'
 import { check, type CheckMemo } from '../bridge/check.ts'
-import { sb, sync, today } from './health-shared.ts'
+import { warningFor } from '../bridge/watch.ts'
+import { readStatus, sb, sync, today } from './health-shared.ts'
 
 let memo: CheckMemo | null = null
 
@@ -22,7 +23,9 @@ export async function GET(): Promise<Response> {
   try {
     const r = await check({ day, scoreIn: () => scoreIn(day), sync: () => sync({ from: addDays(day, -1), to: day }), now: () => Date.now() }, memo)
     memo = r.memo
-    return new Response(JSON.stringify(r.answer), { status: 200, headers: HEADERS })
+    // while the night is still missing, say if the pipe itself is the reason
+    const warning = r.answer.state === 'measured' ? undefined : warningFor(await readStatus(), Date.now())
+    return new Response(JSON.stringify(warning ? { ...r.answer, warning } : r.answer), { status: 200, headers: HEADERS })
   } catch (err) {
     console.log(`check failed: ${err instanceof Error ? err.message : String(err)}`)
     return new Response(JSON.stringify({ day, state: 'error', message: 'The ledger could not be read.' }), { status: 200, headers: HEADERS })

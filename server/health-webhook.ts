@@ -4,7 +4,7 @@
 import { waitUntil } from '@vercel/functions'
 import { receive } from '../bridge/receiver.ts'
 import type { Keyset } from '../bridge/webhook.ts'
-import { cfg, sync, today } from './health-shared.ts'
+import { cfg, markStatus, sync, today } from './health-shared.ts'
 
 const KEYSET_URL = 'https://www.gstatic.com/googlehealthapi/webhooks/webhooks_public_keyset.json'
 
@@ -22,7 +22,7 @@ async function keyset(): Promise<Keyset | null> {
 }
 
 const handle = (req: Request): Promise<Response> =>
-  receive(req, { secret: cfg.secret, keyset, sync, after: waitUntil, today, log: (l) => console.log(l) })
+  receive(req, { secret: cfg.secret, keyset, sync, after: waitUntil, today, pushed: () => markStatus({ last_push_at: new Date().toISOString() }), log: (l) => console.log(l) })
 
 export const POST = handle
 export const GET = handle

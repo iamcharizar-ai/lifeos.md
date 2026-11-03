@@ -287,7 +287,7 @@ export function SleepTile({ name, state, night, ticked, selfXp, onToggle, check 
   }
   const line = state !== 'waiting' ? 'Filled by your band\'s reading of the night'
     : ticked ? 'Reported by hand · the band\'s reading replaces it'
-      : check && check.state !== 'measured' ? check.message
+      : check && check.state !== 'measured' ? (check.warning ?? check.message)
         : 'Waiting for last night\'s reading · it fills when the band syncs'
   return (
     <div className="flex min-w-0 flex-1 items-center gap-3 py-2" title="Filled by your band's reading of the night. A night with no reading is never a miss; you can report it by hand for a core habit's XP.">
