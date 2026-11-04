@@ -116,6 +116,8 @@ export const ADVANTAGE_MULT = 1.2
  * +TEAM_NATURE more on the kind of work that member's nature raised. All the strike bonuses are added together, then applied once.
  */
 export const TEAM_SIZE = 5
+/** In a `team` event's list, this stands for a place left open on purpose: it is not filled from the lab by the fold (the app fills it after an hour). A list with no hole still fills its empty places as it always did. */
+export const TEAM_HOLE = '-'
 /**
  * From this day any Pokemon you own can stand on the team, not only a fully trained one, and a place nobody chose fills itself with the oldest in
  * My Pokemon. Only the fully trained ones count towards the boss's party of six (the rest still add to every strike). Earlier days fold as they always did.

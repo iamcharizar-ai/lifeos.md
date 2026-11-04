@@ -508,7 +508,7 @@ export const SPECIAL_HELD: Record<string, string> = {
   'shell-bell': 'Hold: a pillar day as partner gives two hearts, not one.',
   'wide-lens': 'Hold: thrown balls take 25% more HP off the wild Pokemon.',
   'zoom-lens': 'Hold: +5% to every ball thrown at a boss.',
-  'exp-share': 'Hold: the one next up in My Pokemon gets 20% of the partner’s daily XP.',
+  'exp-share': 'Hold: the oldest in My Pokemon gets 20% of the partner’s daily XP.',
   everstone: 'Hold: the partner keeps its form. It goes on levelling, and evolves the day you take it off.',
   'lucky-punch': 'Hold: Pickup finds twice as often.',
 }

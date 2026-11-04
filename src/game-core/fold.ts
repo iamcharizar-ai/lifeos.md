@@ -16,7 +16,7 @@ import { LEAGUES, lineup, type Leader } from './gyms.ts'
 import {
   ADVANTAGE_MULT, BALL_MULT, CATCH_WEIGHTS, DAILY_PAY, EGG_STEPS, GEMS, LEADER_HP, LEGENDARY_EVERY_WILD, MEGA_BONUS, MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS,
   CLAIM_AUTO, KIT_IRON, KIT_SHARD_EVERY, PAY_STREAK, PILLARS_FOR_A_DAY, REPEL_DAYS, SEASON_STEP, SHINY_ODDS, SHINY_ODDS_WORN, SLEEP_AFTER, SLEEP_DEEP, DEEP_SLEEP_MIN, DEEP_SLEEP_FROM, REVIEW_GEMS, SLEEP_HABIT, SLIP, STAKES_FROM, START_SPECIES, STAT_DAYS, STEPS_GOAL, TAGS,
-  TEAM_BONUS, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
+  TEAM_BONUS, TEAM_HOLE, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
   type BondPerk, V13_START, V14_START, V15_START, V16_START, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
@@ -349,6 +349,8 @@ export interface Game {
   theme: string
   /** up to TEAM_SIZE Pokemon standing behind the partner (fully trained ones, or from TEAM_OPEN_FROM any you own), and what the strike is raised by */
   team: Mon[]
+  /** the TEAM_SIZE places behind the partner in order, null for one left open on purpose (see TEAM_HOLE); `team` is the same without the gaps */
+  teamSlots: (Mon | null)[]
   power: Power
   /** this week's quests (the day's own reward is its pay) */
   quests: { weekly: Quest[] }
@@ -551,8 +553,19 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     if (teamDay < TEAM_OPEN_FROM) return (teamPick ? teamPick.flatMap((u) => graduates.filter((m) => m.uid === u)) : graduates.slice(-TEAM_SIZE).reverse()).slice(0, TEAM_SIZE)
     const owned = [...graduates, ...queue]
     const picked = (teamPick ? teamPick.flatMap((u) => owned.filter((m) => m.uid === u)) : graduates.slice(-TEAM_SIZE).reverse()).slice(0, TEAM_SIZE)
+    // a list with a hole in it was chosen place by place: nothing fills it here
+    if (teamPick?.includes(TEAM_HOLE)) return picked
     const taken = new Set(picked.map((m) => m.uid))
     return [...picked, ...queue.filter((m) => !taken.has(m.uid)).slice(0, TEAM_SIZE - picked.length)]
+  }
+  /** the places in order, with null for an open one */
+  const teamSlotsNow = (): (Mon | null)[] => {
+    let slots: (Mon | null)[]
+    if (teamDay >= TEAM_OPEN_FROM && teamPick?.includes(TEAM_HOLE)) {
+      const owned = [...graduates, ...queue]
+      slots = teamPick.flatMap((u): (Mon | null)[] => (u === TEAM_HOLE ? [null] : owned.filter((m) => m.uid === u)))
+    } else slots = teamNow()
+    return [...slots, ...Array<null>(Math.max(0, TEAM_SIZE - slots.length)).fill(null)].slice(0, TEAM_SIZE)
   }
   /** version 16: the trainer's hearts can only rise: a Pokemon sent away does not take its share back */
   const noteHearts = (day: string) => {
@@ -988,8 +1001,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         return
       }
       case 'team': {
-        const ids = (u.to ?? '').split(',').filter((id) => graduates.some((m) => m.uid === id) || (day >= TEAM_OPEN_FROM && queue.some((m) => m.uid === id)))
-        teamPick = [...new Set(ids)].slice(0, TEAM_SIZE)
+        const ids = (u.to ?? '').split(',').filter((id) => (id === TEAM_HOLE && day >= TEAM_OPEN_FROM) || graduates.some((m) => m.uid === id) || (day >= TEAM_OPEN_FROM && queue.some((m) => m.uid === id)))
+        teamPick = ids.filter((id, i) => id === TEAM_HOLE || ids.indexOf(id) === i).slice(0, TEAM_SIZE)
         return
       }
       case 'theme': {
@@ -1756,6 +1769,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     inv,
     theme,
     team,
+    teamSlots: teamSlotsNow(),
     power: powerOf(Boolean(last && v13On(last.day)), Boolean(last && v14On(last.day)), Boolean(last && v16On(last.day))),
     quests: last ? { weekly: WEEKLY_QUESTS.map(quest(wkNow)) } : { weekly: [] },
     season: (() => {
