@@ -280,3 +280,12 @@ export const V17_START = '2026-10-27'
  */
 export const V18_START = '2026-11-02'
 
+// ── version 19: eggs ──
+/**
+ * The first day of version 19 (RULES-V19.md). Eggs come in kinds, a Trail Egg is found by walking, and an egg's steps are no longer
+ * cut at STEPS_GOAL a day. An egg put in the Nursery before this day keeps the old size and the old cut; days before it fold as they did.
+ */
+export const V19_START = '2026-11-04'
+/** Walking finds a Trail Egg every this many steps (all the steps the band counts, from V19_START). */
+export const TRAIL_EGG_STEPS = 100000
+

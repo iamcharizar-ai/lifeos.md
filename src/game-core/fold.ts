@@ -14,7 +14,7 @@ import { STAR_ENDURE_MIN, STAR_FOCUS, STAR_FRIENDS, STAR_MAX, STAR_PICKUP, STAR_
 import { addDays } from './facts.ts'
 import { LEAGUES, lineup, type Leader } from './gyms.ts'
 import {
-  ADVANTAGE_MULT, BALL_MULT, CATCH_WEIGHTS, DAILY_PAY, EGG_STEPS, GEMS, LEADER_HP, LEGENDARY_EVERY_WILD, MEGA_BONUS, MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS,
+  ADVANTAGE_MULT, BALL_MULT, CATCH_WEIGHTS, DAILY_PAY, GEMS, TRAIL_EGG_STEPS, V19_START, LEADER_HP, LEGENDARY_EVERY_WILD, MEGA_BONUS, MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS,
   CLAIM_AUTO, KIT_IRON, KIT_SHARD_EVERY, PAY_STREAK, PILLARS_FOR_A_DAY, REPEL_DAYS, SEASON_STEP, SHINY_ODDS, SHINY_ODDS_WORN, SLEEP_AFTER, SLEEP_DEEP, DEEP_SLEEP_MIN, DEEP_SLEEP_FROM, REVIEW_GEMS, SLEEP_HABIT, SLIP, STAKES_FROM, START_SPECIES, STAT_DAYS, STEPS_GOAL, TAGS,
   TEAM_BONUS, TEAM_HOLE, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
   type BondPerk, V13_START, V14_START, V15_START, V16_START, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
@@ -28,7 +28,7 @@ import {
 } from './boss.ts'
 import { SPECIES, type SpeciesRec } from './species.ts'
 import {
-  AMULET_MULT, BALLS, BERRY_HEARTS, PARTY_VITAMIN, treasurePrice, MARKS, BOND_PARTY, BOND_STEP, CHEST, EGG_STEPS_OLD_CHARM, FEATS, FORGE_COST, GEAR, GEAR_ITEMS, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, MASTERY_MAX, MASTERY_STEP, ONCE, SELL,
+  AMULET_MULT, BALLS, BERRY_HEARTS, PARTY_VITAMIN, treasurePrice, MARKS, BOND_PARTY, BOND_STEP, CHEST, EGG_IDS, EGG_KINDS, WORK_EGG_RARE, eggNeed, isEgg, FEATS, FORGE_COST, GEAR, GEAR_ITEMS, HELD, LURES, MARK_OWNED, MARK_RECORD, MARK_TAGS, MASTERY_MAX, MASTERY_STEP, ONCE, SELL,
   STANDING, TM_SLOTS, WEEKLY_QUESTS, ballClass, dayGap, dealsFor, forgeShard, heldBonus, heldCommon, isMarkTag, lureTypes, martDeals, masteryCost, offerFor, rng, seasonReward, throwHp, tmType,
   type MarkTag, type Offer, type Reward, type ShopId,
 } from './economy.ts'
@@ -98,7 +98,7 @@ export type Moment =
   | { kind: 'feat'; day: string; id: string; name: string; coins: number; gems: number; items: string[] }
   | { kind: 'quest'; day: string; id: string; name: string; coins: number; gems: number }
   | { kind: 'season'; day: string; step: number; coins: number; gems: number; item: string }
-  | { kind: 'hatch'; day: string; uid: string; form: string }
+  | { kind: 'hatch'; day: string; uid: string; form: string; /** version 19: which egg it was (EGG_KINDS) */ egg?: string }
   /** `n` counts chests opened for life, so each one is told apart */
   | { kind: 'chest'; day: string; n: number; coins: number; item: string; count: number }
   /** a wild Pokemon stayed its days and got away */
@@ -357,7 +357,9 @@ export interface Game {
   /** this month's ladder: steps reached, XP into the next one, and what the next one hands over */
   season: { month: string; step: number; into: number; need: number; next: { coins?: number; gems?: number; item?: string } }
   /** the egg being kept warm, if there is one: its steps so far and the steps it needs */
-  egg: { have: number; need: number; /** the day it was put in the nursery: its steps count from the day after */ since: string; /** the steps it got on the last day */ today: number } | null
+  egg: { /** which egg (EGG_KINDS) */ kind: string; have: number; need: number; /** the day it was put in the nursery: its steps count from the day after */ since: string; /** the steps it got on the last day */ today: number; /** the band's average day lately, uncut (version 19), 0 with no reading */ pace: number } | null
+  /** version 19: the steps walked since it began, the steps for each Trail Egg, and how many the trail has left */
+  trail: { walked: number; every: number; found: number }
   /** for each incense (Full Incense and the domain ones), the three the next wild Pokemon can be chosen from, and the one chosen */
   wish: { options: Record<string, string[]>; chosen: string | null }
   /** last night. `state`: measured by the band, a hand tick because there is no reading yet ('self'), or no band in use ('off') */
@@ -489,7 +491,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const paid = new Set<string>()
   const monthXp: Record<string, number> = {}, monthStep: Record<string, number> = {}
   const weekXp: Record<string, number> = {}, weekDays: Record<string, number> = {}, weekCatch: Record<string, number> = {}
-  let egg: { have: number; since: string; today?: number } | null = null
+  let egg: { kind: string; have: number; since: string; today?: number } | null = null
+  let walked = 0, trailFound = 0
+  const stepLog: number[] = []
   let chests = 0
   let fledToday: string | null = null
   let slipToday: Game['slip'] = null
@@ -651,7 +655,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   }
 
   /** One first-stage species from the open regions. New lines first; repeats only when there is nothing new. */
-  const roll = (seed: string, want: 'any' | 'R' | 'L', lure: Tag | null = null): string => {
+  const roll = (seed: string, want: 'any' | 'U' | 'R' | 'L', lure: Tag | null = null): string => {
     const r = rng(seed)
     const open = regions
     let rarity: string = want
@@ -852,6 +856,13 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
           return
         }
         inv[item] = (inv[item] ?? 0) + 1
+        return
+      }
+      case 'warm': {
+        // version 19: with two kinds of egg waiting, the one to put in the Nursery is chosen; its steps count from the next day
+        if (day < V19_START || egg || !isEgg(item) || !(inv[item] > 0)) return
+        inv[item]--
+        egg = { kind: item, have: 0, since: day }
         return
       }
       case 'throw': {
@@ -1628,15 +1639,29 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       evalFeats(f.day)
     }
 
-    // an egg: one kept warm at a time, a day nearer on each day with two pillars
-    if (!egg && inv['rare-egg']) { inv['rare-egg']--; egg = { have: 0, since: f.day } }
-    else if (egg) { egg.today = Math.max(0, Math.min(STEPS_GOAL, f.body?.steps ?? 0)); egg.have += egg.today }
-    if (egg && egg.have >= (inv['old-charm'] ? EGG_STEPS_OLD_CHARM : EGG_STEPS)) {
+    // version 19: walking finds a Trail Egg for every TRAIL_EGG_STEPS steps, all of them (the egg's own count is not cut any more); it waits in Collect
+    const reading = typeof f.body?.steps === 'number' ? Math.max(0, f.body.steps) : null
+    if (reading !== null) stepLog.push(reading)
+    if (reading !== null && f.day >= V19_START) {
+      walked += reading
+      while (walked >= TRAIL_EGG_STEPS * (trailFound + 1)) { trailFound++; hold(`trail:${trailFound}`, f.day, 'The trail left an egg', 0, 0, [['trail-egg', 1]]) }
+    }
+    // an egg: one kept warm at a time. Before version 19 only the Mystery Egg existed and went in at once; now a lone kind goes in at once,
+    // and with two kinds waiting the player chooses (`warm`). An egg put in today does not count today's steps.
+    const v19day = f.day >= V19_START
+    const waiting = EGG_IDS.filter((k) => (inv[k] ?? 0) > 0)
+    const lone = v19day ? (waiting.length === 1 ? waiting[0] : null) : (inv['rare-egg'] ? 'rare-egg' : null)
+    if (!egg && lone) { inv[lone]--; egg = { kind: lone, have: 0, since: f.day } }
+    else if (egg && egg.since !== f.day) { egg.today = Math.max(0, v19day ? (f.body?.steps ?? 0) : Math.min(STEPS_GOAL, f.body?.steps ?? 0)); egg.have += egg.today }
+    if (egg && egg.have >= eggNeed(egg.kind, egg.since, Boolean(inv['old-charm']))) {
       bump('hatched')
-      const mon = make(roll(`rare-egg:${f.day}`, 'R'), 'egg', f.day)
+      const kind = EGG_KINDS[egg.kind] ?? EGG_KINDS['rare-egg']
+      const want = kind.want === 'mix' ? (rng(`${egg.kind}:rarity:${f.day}`)() < WORK_EGG_RARE ? 'R' : 'U') : kind.want
+      const mon = make(roll(egg.kind === 'rare-egg' ? `rare-egg:${f.day}` : `${egg.kind}:${f.day}`, want, kind.work ?? null), 'egg', f.day)
+      if (kind.hearts && v19day) mon.fed = (mon.fed ?? 0) + kind.hearts
       queue.push(mon)
       see(mon.form, f.day, false)
-      moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form })
+      moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form, egg: egg.kind })
       egg = null
     }
 
@@ -1777,7 +1802,13 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       const xp = monthXp[ym] ?? 0, step = monthStep[ym] ?? 0
       return { month: ym, step, into: xp - step * SEASON_STEP, need: SEASON_STEP, next: seasonReward(step + 1) }
     })(),
-    egg: egg ? { since: (egg as { since: string }).since, today: (egg as { today?: number }).today ?? 0, have: Math.min((egg as { have: number }).have, inv['old-charm'] ? EGG_STEPS_OLD_CHARM : EGG_STEPS), need: inv['old-charm'] ? EGG_STEPS_OLD_CHARM : EGG_STEPS } : null,
+    egg: egg ? (() => {
+      const e = egg as { kind: string; since: string; today?: number; have: number }
+      const need = eggNeed(e.kind, e.since, Boolean(inv['old-charm']))
+      const recent = stepLog.slice(-14)
+      return { kind: e.kind, since: e.since, today: e.today ?? 0, have: Math.min(e.have, need), need, pace: recent.length ? Math.round(recent.reduce((n, x) => n + x, 0) / recent.length) : 0 }
+    })() : null,
+    trail: { walked, every: TRAIL_EGG_STEPS, found: trailFound },
     wish: { options: Object.fromEntries(['full-incense', ...Object.keys(LURES)].map((id) => [id, wishOptions(id === 'full-incense' ? null : LURES[id])])), chosen: wishFor },
     sleep: (() => {
       const h = lastFacts?.habits.find((x) => x.id === SLEEP_HABIT && x.tag === 'sleep')

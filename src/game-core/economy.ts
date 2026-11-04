@@ -3,7 +3,7 @@
 //
 // An item's id is the name of its sprite file (sprites/items/<id>.png),
 // so a new item is one line here and one picture.
-import { REPEL_DAYS, STEPS_GOAL, V13_START, V14_START, V16_START, type Tag } from './rules.ts'
+import { EGG_STEPS, REPEL_DAYS, STEPS_GOAL, TRAIL_EGG_STEPS, V13_START, V14_START, V16_START, V19_START, type Tag } from './rules.ts'
 import { TYPE_DOMAIN } from './types.ts'
 
 /** seeded randomness: the same seed always gives the same run of numbers */
@@ -155,7 +155,7 @@ export const ITEMS: Record<string, ItemDef> = {
   'life-orb': { name: 'Life Orb', kind: 'unique', text: 'Hold: every kind of work strikes leaders ×1.1.' },
   'amulet-coin': { name: 'Amulet Coin', kind: 'unique', text: 'Quest coins ×1.25.' },
   'coin-case': { name: 'Coin Case', kind: 'unique', text: 'The Mart shows four deals a day.' },
-  'old-charm': { name: 'Old Charm', kind: 'unique', text: 'A Mystery Egg hatches after 40,000 steps, not 50,000.' },
+  'old-charm': { name: 'Old Charm', kind: 'unique', text: 'Every egg hatches after a fifth fewer steps: a Mystery Egg after 48,000, not 60,000.' },
   'key-stone': { name: 'Key Stone', kind: 'key', text: 'Without it, no Mega Evolution. Forge Mega Stones with shards.' },
   'red-shard': { name: 'Red Shard', kind: 'shard', text: 'Gym. Three forge a Mega X.' },
   'blue-shard': { name: 'Blue Shard', kind: 'shard', text: 'Code. Three forge a Mega Y.' },
@@ -168,7 +168,7 @@ export const ITEMS: Record<string, ItemDef> = {
   'rose-incense': { name: 'Rose Incense', kind: 'lure', text: 'Pick the next wild Pokemon from three Grass types.' },
   'lax-incense': { name: 'Lax Incense', kind: 'lure', text: 'Pick the next wild Pokemon from three Dark types.' },
   'full-incense': { name: 'Full Incense', kind: 'incense', text: 'Pick the next wild Pokemon from three of any type.' },
-  'rare-egg': { name: 'Mystery Egg', kind: 'egg', text: 'Hatches into a rare Pokemon once the steps the band counts add up to 50,000 (five full days of walking). It is set to incubate the day you get it; its steps count from the next day.' },
+  'rare-egg': { name: 'Mystery Egg', kind: 'egg', text: 'Hatches into a rare Pokemon once the steps the band counts add up to 60,000. Put in the Nursery, its steps count from the next day.' },
   chest: { name: 'Chest', kind: 'chest', text: 'Open it for coins, balls, berries or, now and then, incense.' },
   'theme-beach': { name: 'Beach', kind: 'theme', text: 'A new place for the battle scene.' },
   'theme-cave': { name: 'Cave', kind: 'theme', text: 'A new place for the battle scene.' },
@@ -228,9 +228,11 @@ export function martDeals(day: string, n: number = MART_DEALS): Offer[] {
   return out
 }
 
+/** What a Mystery Egg costs in the Rare shop. */
+export const RARE_EGG_GEMS = 150
 /** The rare shelf (gems). Themes and the Lucky Egg are bought once. */
 export const RARE_SHELF: Offer[] = [
-  { item: 'full-incense', gems: 40 }, { item: 'chest', gems: 30 }, { item: 'rare-egg', gems: 150 },
+  { item: 'full-incense', gems: 40 }, { item: 'chest', gems: 30 }, { item: 'rare-egg', gems: RARE_EGG_GEMS },
   { item: 'theme-beach', gems: 60 }, { item: 'theme-cave', gems: 60 }, { item: 'theme-night', gems: 60 },
   { item: 'lucky-egg', gems: 500 },
 ]
@@ -285,7 +287,7 @@ export function offerFor(shop: ShopId | undefined, item: string, day: string, de
     s === 'mart' ? [...martDeals(day, deals), ...STANDING, ...battleShelf(day)].find((o) => o.item === item)
       : s === 'rare' ? [...RARE_SHELF, ...(day >= V13_START ? RARE_SHELF_V13 : [])].find((o) => o.item === item)
         : s === 'bp' ? (day >= V13_START ? BP_SHELF.find((o) => o.item === item) : undefined)
-          : [...DOMAIN_SHOPS[s].stock, ...(day >= V13_START ? DOMAIN_V13[s] : [])].find((o) => o.item === item)
+          : [...DOMAIN_SHOPS[s].stock, ...(day >= V13_START ? DOMAIN_V13[s] : []), ...(day >= V19_START ? DOMAIN_V19[s] : [])].find((o) => o.item === item)
   const order: ShopId[] = shop ? [shop] : ['mart', 'rare', ...MARK_TAGS, 'bp']
   for (const s of order) { const offer = find(s); if (offer) return { shop: s, offer: priceOn(offer, day) } }
   return null
@@ -723,3 +725,32 @@ export function milestoneOptions(key: string, level: number, inv: Record<string,
   const b = (a + 1 + Math.floor(r() * (pool.length - 1))) % pool.length
   return [pool[a], pool[b]]
 }
+
+// ── version 19: kinds of egg ────────────────────────────────────────────────
+// Until version 19 there was one egg (the Mystery Egg), from a boss, a Professor rank or 150 gems: all of them work done at the desk, and
+// the walking that hatches it could not get one. Now there are kinds, and each has its own way in and its own size:
+//   Mystery Egg  a rare Pokemon          60,000 steps   a boss, every fifth research rank, or 150 gems
+//   Trail Egg    an uncommon, 10 hearts  30,000 steps   found by walking: one for every TRAIL_EGG_STEPS steps
+//   Work eggs    a Pokemon of that work  40,000 steps   bought with that work's own marks (uncommon, or a rare three in ten)
+// One egg is warmed at a time. With two kinds waiting, which one goes in is the player's choice (the `warm` use).
+export interface EggKind { name: string; steps: number; want: 'U' | 'R' | 'mix'; work?: MarkTag; hearts?: number }
+export const EGG_OLD_CHARM = 0.8
+/** The share of work eggs that hatch a rare one rather than an uncommon one. */
+export const WORK_EGG_RARE = 0.3
+/** The id of the egg of a kind of work. */
+export const workEgg = (t: MarkTag): string => `egg-${t}`
+export const EGG_KINDS: Record<string, EggKind> = {
+  'rare-egg': { name: 'Mystery Egg', steps: 60000, want: 'R' },
+  'trail-egg': { name: 'Trail Egg', steps: 30000, want: 'U', hearts: 10 },
+  ...Object.fromEntries(MARK_TAGS.map((t) => [workEgg(t), { name: `${DOMAIN_NAME[t][0].toUpperCase()}${DOMAIN_NAME[t].slice(1)} Egg`, steps: 40000, want: 'mix', work: t } as EggKind])),
+}
+/** The order eggs are listed in, and the one a lone egg is put in. */
+export const EGG_IDS: string[] = Object.keys(EGG_KINDS)
+export const isEgg = (id: string): boolean => id in EGG_KINDS
+/** What an egg needs: the size it had when it went into the Nursery (`since`, the day it was put in), less a fifth with the Old Charm. */
+export const eggNeed = (kind: string, since: string, charm: boolean): number =>
+  since < V19_START ? (charm ? EGG_STEPS_OLD_CHARM : EGG_STEPS) : Math.round((EGG_KINDS[kind]?.steps ?? EGG_KINDS['rare-egg'].steps) * (charm ? EGG_OLD_CHARM : 1))
+ITEMS['trail-egg'] = { name: 'Trail Egg', kind: 'egg', text: `Found by walking: one for every ${TRAIL_EGG_STEPS.toLocaleString('en-US')} steps. Hatches an uncommon Pokemon after 30,000 steps, one that is already fond of you (10 hearts).` }
+for (const t of MARK_TAGS) ITEMS[workEgg(t)] = { name: EGG_KINDS[workEgg(t)].name, kind: 'egg', text: `Hatches an uncommon or rare Pokemon of the ${DOMAIN_NAME[t]} types (${lureTypes(t).join(', ')}) after 40,000 steps. Bought with ${MARKS[t].name}.` }
+/** Version 19: each kind of work's shop sells its own egg. */
+export const DOMAIN_V19: Record<MarkTag, Offer[]> = Object.fromEntries(MARK_TAGS.map((t) => [t, [{ item: workEgg(t), marks: 10 }]])) as Record<MarkTag, Offer[]>
