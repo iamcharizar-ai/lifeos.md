@@ -289,3 +289,10 @@ export const V19_START = '2026-11-04'
 /** Walking finds a Trail Egg every this many steps (all the steps the band counts, from V19_START). */
 export const TRAIL_EGG_STEPS = 100000
 
+// ── version 20: the Professor's desk counts the day it is set ──
+/**
+ * The first day of version 20 (RULES-V20.md). From it the day's research is added after the day's own actions, so a Pokemon put on
+ * the desk today studies today (before, the desk was read before the day's taps and a change counted from the next day). Earlier days
+ * fold as they did.
+ */
+export const V20_START = '2026-11-05'

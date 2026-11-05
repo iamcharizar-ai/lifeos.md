@@ -17,7 +17,7 @@ import {
   ADVANTAGE_MULT, BALL_MULT, CATCH_WEIGHTS, DAILY_PAY, GEMS, TRAIL_EGG_STEPS, V19_START, LEADER_HP, LEGENDARY_EVERY_WILD, MEGA_BONUS, MOMENTUM_WINDOW, NATURES, NATURE_DOMAIN, NATURE_STATS,
   CLAIM_AUTO, KIT_IRON, KIT_SHARD_EVERY, PAY_STREAK, PILLARS_FOR_A_DAY, REPEL_DAYS, SEASON_STEP, SHINY_ODDS, SHINY_ODDS_WORN, SLEEP_AFTER, SLEEP_DEEP, DEEP_SLEEP_MIN, DEEP_SLEEP_FROM, REVIEW_GEMS, SLEEP_HABIT, SLIP, STAKES_FROM, START_SPECIES, STAT_DAYS, STEPS_GOAL, TAGS,
   TEAM_BONUS, TEAM_HOLE, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
-  type BondPerk, V13_START, V14_START, V15_START, V16_START, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
+  type BondPerk, V13_START, V14_START, V15_START, V16_START, V20_START, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
@@ -393,7 +393,9 @@ export interface Game {
   /** version 14 is in force: berries are food, the Collector keeps a wanted list, party vitamins count, any Pokemon can be fed */
   v14: boolean
   /** version 14: the Professor's research: its rank, the points toward the next, who is on the desk and what they add a day, and what it takes off wild Pokemon */
-  research: { rank: number; points: number; need: number; desk: Mon[]; chosen: boolean; perDay: number; today: number; cut: number; /** version 15/16: what a day with a pillar adds, part by part: the desk, the party at half, and Insight on a code day */ parts: { desk: number; party: number; insight: number } }
+  research: { rank: number; points: number; need: number; desk: Mon[]; chosen: boolean; perDay: number; today: number; cut: number; /** version 15/16: what a day with a pillar adds, part by part: the desk, the party at half, and Insight on a code day */ parts: { desk: number; party: number; insight: number }
+    /** whether the last day studies: 'pillar' it does; 'sleep' only Sleep is done (Sleep alone is not a pillar day, version 15); 'none' no pillar yet */
+    counts: 'pillar' | 'sleep' | 'none' }
   /** version 16 is in force on the last day */
   v16: boolean
   /** version 16: the trainer's bond (every heart across every Pokemon owned, never going down), its level, and the hearts the next level takes */
@@ -454,7 +456,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   let chosenNext: string | null = null
   /** version 14: who is on the Professor's research desk (null: the strongest not in the party), and how far the research is */
   let deskPick: string[] | null = null
-  const research = { rank: 0, points: 0, today: 0 }
+  const research = { rank: 0, points: 0, today: 0, counts: 'none' as Game['research']['counts'] }
   let keyStone: string | null = null
   const zeroMarks = (): Record<MarkTag, number> => ({ code: 0, fitness: 0, guitar: 0, arbor: 0, sleep: 0 })
   const wallet = { coins: 0, gems: 0, coinsToday: 0, gemsToday: 0, marks: zeroMarks(), marksToday: zeroMarks(), bp: 0, bpToday: 0 }
@@ -1359,7 +1361,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     }
     // version 14: on a day with a pillar the Professor studies whoever is on the desk; each rank takes HP off every wild Pokemon to come, and pays
     research.today = 0
-    if (v14On(f.day) && pillars > 0) {
+    research.counts = pillars > 0 ? 'pillar' : doneAll.some((h) => h.tag === 'sleep') ? 'sleep' : 'none'
+    const study = () => {
+      if (!(v14On(f.day) && pillars > 0)) return
       // version 15: the party studies too, at a share of a desk place, so research runs before there is anyone to spare for the desk
       research.today = studyOf(deskNow()) + (v15On(f.day) ? partyStudy() : 0)
       // version 16: Insight studies on a code day
@@ -1373,6 +1377,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         moments.push({ kind: 'research', day: f.day, rank: research.rank })
       }
     }
+    // version 20: the day's study waits for the day's own actions (below), so a desk set today counts today
+    if (f.day < V20_START) study()
 
     // ── how many: the wild Pokemon ──
     // stakes: one that has stayed its days is gone by morning, and the next one stands in its place
@@ -1638,6 +1644,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       payQuests()
       evalFeats(f.day)
     }
+    if (f.day >= V20_START) study()
 
     // version 19: walking finds a Trail Egg for every TRAIL_EGG_STEPS steps, all of them (the egg's own count is not cut any more); it waits in Collect
     const reading = typeof f.body?.steps === 'number' ? Math.max(0, f.body.steps) : null
@@ -1842,7 +1849,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     endure: { ready: !lastEndure || !last || dayGap(lastEndure, last.day) >= endureDays(), from: lastEndure ? addDays(lastEndure, endureDays()) : null },
     v13: Boolean(last && v13On(last.day)),
     v14: Boolean(last && v14On(last.day)),
-    research: { rank: research.rank, points: research.points, need: researchCost(research.rank), desk: deskNow(), chosen: deskPick !== null, perDay: studyOf(deskNow()) + (last && v15On(last.day) ? partyStudy() : 0), today: research.today, cut: researchCut(research.rank), parts: { desk: studyOf(deskNow()), party: last && v15On(last.day) ? partyStudy() : 0, insight: last && v16On(last.day) ? Math.round(SIG_INSIGHT * sigsNow().code) : 0 } },
+    research: { rank: research.rank, points: research.points, need: researchCost(research.rank), desk: deskNow(), chosen: deskPick !== null, perDay: studyOf(deskNow()) + (last && v15On(last.day) ? partyStudy() : 0), today: research.today, cut: researchCut(research.rank), counts: research.counts, parts: { desk: studyOf(deskNow()), party: last && v15On(last.day) ? partyStudy() : 0, insight: last && v16On(last.day) ? Math.round(SIG_INSIGHT * sigsNow().code) : 0 } },
     v16: Boolean(last && v16On(last.day)),
     trainer: { hearts: trainerHearts, level: trainerLevel(trainerHearts), next: TRAINER_LEVELS.find((n) => trainerHearts < n) ?? null, stars: starsGiven, nextStar: nextStarAt(trainerHearts), ranks: { ...perkRank } },
     sigs: sigsNow(),
