@@ -90,7 +90,7 @@ export type Moment =
   | { kind: 'graduate'; day: string; uid: string; form: string }
   | { kind: 'partner'; day: string; uid: string; form: string; origin: Mon['origin'] }
   /** `how`: 'perfect' = caught on the spot by a perfect day; 'worn' = its HP ran out; 'ball' = a thrown ball finished it */
-  | { kind: 'catch'; day: string; uid: string; form: string; shiny: boolean; n: number; how: 'perfect' | 'worn' | 'ball'; /** version 21: a second of a line already yours, turned into hearts for that one (its uid) */ dupe?: string }
+  | { kind: 'catch'; day: string; uid: string; form: string; shiny: boolean; n: number; how: 'perfect' | 'worn' | 'ball'; /** version 21: a second of a line already yours, turned into hearts for that one (its uid) */ dupe?: string; /** the ball thrown that caught it, whatever its class: a thrown ball is the ball it was caught in, a day's habits are poke, great or ultra */ thrown?: string }
   | { kind: 'appear'; day: string; form: string; rarity: Rarity }
   | { kind: 'form'; day: string; uid: string; form: string; what: 'mega' | 'gmax' }
   | { kind: 'region'; day: string; n: number }
@@ -851,7 +851,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     return twin
   }
   /** The wild Pokemon is caught: into the Box, and the next one appears tomorrow. */
-  const catchWild = (w: Wild, day: string, shiny: boolean, ball: Ball, how: 'perfect' | 'worn' | 'ball'): Mon => {
+  const catchWild = (w: Wild, day: string, shiny: boolean, ball: Ball, how: 'perfect' | 'worn' | 'ball', thrown?: string): Mon => {
     const mon = make(w.form, 'catch', day, shiny)
     mon.ball = ball
     const twin = twinOf(mon, day)
@@ -860,7 +860,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     see(mon.form, day, shiny)
     earn(0, GEMS.catch + (shiny ? GEMS.shiny : 0))
     weekCatch[weekOf(day)] = (weekCatch[weekOf(day)] ?? 0) + 1
-    moments.push({ kind: 'catch', day, uid: mon.uid, form: mon.form, shiny, n: catches, how, ...(twin ? { dupe: twin.uid } : {}) })
+    moments.push({ kind: 'catch', day, uid: mon.uid, form: mon.form, shiny, n: catches, how, ...(twin ? { dupe: twin.uid } : {}), ...(thrown ? { thrown } : {}) })
     caughtToday = { ...w, hp: 0, shiny, caught: true }
     wild = null
     if (shiny) bump('shiny')
@@ -948,7 +948,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         w.hp -= took
         if (today) today.hit += took
         if (w.hp <= 0) {
-          const mon = catchWild(w, day, false, ballClass(item), 'ball')
+          const mon = catchWild(w, day, false, ballClass(item), 'ball', item)
           mon.thrown = item
           if (b.hearts) mon.fed = (mon.fed ?? 0) + b.hearts
         } else if (day === ECHO_BUG_DAY && item === 'luxury-ball') {
