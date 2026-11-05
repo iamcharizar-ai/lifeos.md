@@ -115,3 +115,9 @@ export function starOptions(n: number, ranks: Record<BondPerk, number>): [Option
   const opt = (p: BondPerk | undefined): Option => (p ? { name: rankName(p, ranks[p] + 1), coins: 0, gems: 0, items: [], perk: p } : { name: '25 gems', coins: 0, gems: 25, items: [] })
   return [opt(pick[0]), opt(pick[1])]
 }
+
+// ── version 21: the Trainer perks as they are from V21_START ──
+/** Pickup at 10 hearts, the neglect bounty at 40, Endure at 100, Best friends at 200, Sharing at 350 (spare hearts go to the party). Focus and Exp. Share are gone. */
+export const PERKS_V21 = ['pickup', 'bounty', 'endure', 'friends', 'sharing'] as const
+export type PerkV21 = (typeof PERKS_V21)[number]
+export const hasPerkV21 = (level: number, perk: PerkV21): boolean => level >= PERKS_V21.indexOf(perk) + 1

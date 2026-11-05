@@ -3,7 +3,7 @@
 //
 // An item's id is the name of its sprite file (sprites/items/<id>.png),
 // so a new item is one line here and one picture.
-import { EGG_STEPS, REPEL_DAYS, STEPS_GOAL, TRAIL_EGG_STEPS, V13_START, V14_START, V16_START, V19_START, type Tag } from './rules.ts'
+import { EGG_STEPS, REPEL_DAYS, STEPS_GOAL, TRAIL_EGG_STEPS, V13_START, V14_START, V16_START, V19_START, V21_START, type Tag } from './rules.ts'
 import { TYPE_DOMAIN } from './types.ts'
 
 /** seeded randomness: the same seed always gives the same run of numbers */
@@ -287,7 +287,7 @@ export function offerFor(shop: ShopId | undefined, item: string, day: string, de
     s === 'mart' ? [...martDeals(day, deals), ...STANDING, ...battleShelf(day)].find((o) => o.item === item)
       : s === 'rare' ? [...RARE_SHELF, ...(day >= V13_START ? RARE_SHELF_V13 : [])].find((o) => o.item === item)
         : s === 'bp' ? (day >= V13_START ? BP_SHELF.find((o) => o.item === item) : undefined)
-          : [...DOMAIN_SHOPS[s].stock, ...(day >= V13_START ? DOMAIN_V13[s] : []), ...(day >= V19_START ? DOMAIN_V19[s] : [])].find((o) => o.item === item)
+          : [...(day >= V21_START ? DOMAIN_V21[s] : []), ...DOMAIN_SHOPS[s].stock, ...(day >= V13_START ? DOMAIN_V13[s] : []), ...(day >= V19_START ? DOMAIN_V19[s] : [])].find((o) => o.item === item)
   const order: ShopId[] = shop ? [shop] : ['mart', 'rare', ...MARK_TAGS, 'bp']
   for (const s of order) { const offer = find(s); if (offer) return { shop: s, offer: priceOn(offer, day) } }
   return null
@@ -754,3 +754,27 @@ ITEMS['trail-egg'] = { name: 'Trail Egg', kind: 'egg', text: `Found by walking: 
 for (const t of MARK_TAGS) ITEMS[workEgg(t)] = { name: EGG_KINDS[workEgg(t)].name, kind: 'egg', text: `Hatches an uncommon or rare Pokemon of the ${DOMAIN_NAME[t]} types (${lureTypes(t).join(', ')}) after 40,000 steps. Bought with ${MARKS[t].name}.` }
 /** Version 19: each kind of work's shop sells its own egg. */
 export const DOMAIN_V19: Record<MarkTag, Offer[]> = Object.fromEntries(MARK_TAGS.map((t) => [t, [{ item: workEgg(t), marks: 10 }]])) as Record<MarkTag, Offer[]>
+
+// ── version 21: a pillar's counter, the Lab's ranks, Ribbons ──
+/** What a pillar's marks reach for: its egg or its shard, at this many. Bought one at a time, and an egg only while fewer than EGG_WAIT_MAX wait. */
+export const COUNTER_V21 = 20
+export const EGG_WAIT_MAX = 3
+/** Each pillar's shop from V21: its egg at the counter's price, and its shard (Sleep has no colour: its egg only). Listed first, so the egg's old price gives way. */
+export const DOMAIN_V21: Record<MarkTag, Offer[]> = Object.fromEntries(MARK_TAGS.map((t) => [t, [{ item: workEgg(t), marks: COUNTER_V21 }, ...(MARKS[t].shard ? [{ item: MARKS[t].shard!, marks: COUNTER_V21 }] : [])]])) as Record<MarkTag, Offer[]>
+/** A V21 research rank: odd ranks a Lab pick (the next wild Pokemon from three: a Full Incense), even ranks 20 gems, every fifth a Mystery Egg. */
+export function researchRewardV21(rank: number): { coins?: number; gems?: number; items: [string, number][] } {
+  if (rank % 5 === 0) return { items: [['rare-egg', 1]] }
+  return rank % 2 === 1 ? { items: [['full-incense', 1]] } : { gems: 20, items: [] }
+}
+/** A Ribbon (every RIBBON_EVERY Trainer hearts once the whole party is at the last bond level): two of a Mystery Egg, the shard you hold least of, or a Lab pick. */
+export function ribbonOptions(n: number, inv: Record<string, number>): [Option, Option] {
+  const lacking = [...SHARDS].sort((a, b) => (inv[a] ?? 0) - (inv[b] ?? 0))[0]
+  const pool: Option[] = [
+    { name: 'A Mystery Egg', coins: 0, gems: 0, items: [['rare-egg', 1]] },
+    { name: `A ${ITEMS[lacking]?.name ?? 'shard'}`, coins: 0, gems: 0, items: [[lacking, 1]] },
+    { name: 'A Lab pick', coins: 0, gems: 0, items: [['full-incense', 1]] },
+  ]
+  const skip = Math.floor(rng(`ribbon:${n}`)() * pool.length)
+  const two = pool.filter((_, i) => i !== skip)
+  return [two[0], two[1]]
+}
