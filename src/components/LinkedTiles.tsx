@@ -4,7 +4,6 @@
 // slab with a padlock, Arbor's is a dark pixel-art panel that opens into
 // today's skills, Woodshed's is a painted guitar body with cream plates that
 // opens the app.
-import type { Game } from '../game-core/fold.ts'
 import { useMemo, useState } from 'react'
 import { targetFor as skillTarget } from '../arbor-core/coach.ts'
 import { practicedOn, valueOf, type ArborState, type DayPlan } from '../arbor-core/model.ts'
@@ -34,8 +33,6 @@ export interface LinkedCtx {
   }
   /** last night: measured by the band, waiting for its reading, or no band in use */
   sleep: { state: SleepState; night: SleepNight | undefined; check?: CheckAnswer | null }
-  /** version 21: each effortful pillar's reward, as the shared core works it out (game.tiles); empty before V21 */
-  tiles?: Game['tiles']
 }
 
 // ── pixel pictograms (same engine Arbor draws its tree with) ────────────────
