@@ -3,7 +3,7 @@
 // so Life OS and Pokedex cannot disagree about what happened on a day.
 import { liveCard, type BossCard, type BossInput } from './boss.ts'
 import type { ListedHabit } from './events.ts'
-import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, REVIEW_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V13_START, V14_START, V18_START, isTag, tagOf, tierXp, type Tag } from './rules.ts'
+import { ARBOR_HABIT, GAME_START, GRACE_DAYS, GUITAR_HABIT, REVIEW_HABIT, SLEEP_DONE, SLEEP_HABIT, TIER_XP, V13_START, V14_START, V18_START, V21_START, VERIFIED_BY, isTag, tagOf, tierXp, type Tag } from './rules.ts'
 
 export interface HabitLite {
   id: string
@@ -211,7 +211,12 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
       habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: 'sleep', worth: TIER_XP.pillar, pillar: true, frac: score / 100, done: score >= SLEEP_DONE, measured: true })
       continue
     }
-    const done = inTime(ticks[h.id], day)
+    const tag = isTag(h.domain) ? h.domain : tagOf(h.id)
+    // version 21: a pillar with a verified source (rules.ts VERIFIED_BY: Gym is a logged Strong workout, any length) counts by that
+    // source, not the tick; a tick without it is a basic habit
+    const source = day >= V21_START && h.tier === 'pillar' ? VERIFIED_BY[tag] : undefined
+    const verified = source ? (input.marks?.[day]?.[source] ?? 0) > 0 : false
+    const done = source ? verified : inTime(ticks[h.id], day)
     let frac = done ? 1 : 0
     if (!done && h.id === ARBOR_HABIT) {
       const plan = input.arbor?.plans[day]?.morning ?? []
@@ -223,7 +228,9 @@ export function factsFor(input: FactsInput, day: string, band: string | null = b
       const logs = input.shed?.logs ?? {}
       if (plan.length) frac = plan.filter((id) => logs[id]?.[day]?.done && inTime(logs[id][day].at, day)).length / plan.length
     }
-    habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: isTag(h.domain) ? h.domain : tagOf(h.id), worth: unread ? TIER_XP.core : tierXp(h.tier), pillar: unread ? false : h.tier === 'pillar', frac, done, ...(unread ? { selfReported: true as const } : {}) })
+    // version 21: a tick with no verified source behind it pays as a basic habit, never a pillar
+    if (source && !verified && inTime(ticks[h.id], day)) { habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag: 'routine', worth: TIER_XP.basic, pillar: false, frac: 1, done: true }); continue }
+    habits.push({ id: h.id, name: h.name, emoji: h.emoji, tag, worth: unread ? TIER_XP.core : tierXp(h.tier), pillar: unread ? false : h.tier === 'pillar', frac, done, ...(unread ? { selfReported: true as const } : {}) })
   }
   // a band's reading is the Sleep pillar whether or not the hand-ticked habit is on the list (it can be retired once a band reports): sleep must never depend on a habit that is no longer there
   if (band !== null && day >= band && typeof body?.sleepScore === 'number' && !habits.some((x) => x.id === SLEEP_HABIT)) {

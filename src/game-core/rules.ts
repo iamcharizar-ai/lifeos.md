@@ -296,3 +296,55 @@ export const TRAIL_EGG_STEPS = 100000
  * fold as they did.
  */
 export const V20_START = '2026-11-05'
+
+// ── version 21: effort tiers (GAME_REDESIGN.md v3) ──
+/**
+ * The first day of version 21 (RULES-V21.md), the day it shipped. Earlier days fold as they always did.
+ * A `let` so a test of an older rule can switch version 21 off for its own process (setV21Start); nothing else ever calls it.
+ */
+export let V21_START = '2026-11-05'
+export const setV21Start = (day: string): void => { V21_START = day }
+/**
+ * A pillar with a verified source counts only when that source logged something that day (a tick alone is then a basic habit). Gym is
+ * a Strong workout. A pillar not listed here is an honour tick. A later source (a LeetCode sync for Code, say) is one more entry here,
+ * naming a count in DayMarks (core/facts.ts) that its reader fills in, the way core/strong.ts fills `workouts`.
+ */
+export const VERIFIED_BY: Partial<Record<Tag, 'workouts' | 'records' | 'clean' | 'owned'>> = { fitness: 'workouts' }
+/** The effortful pillars: what a day's tier counts. Sleep is a bonus, chores the floor. */
+export const EFFORT_TAGS: Tag[] = ['code', 'fitness', 'arbor', 'guitar']
+/** A Max day: every effortful pillar on the list, and this share of the chores. */
+export const MAX_DAY_CHORES = 0.75
+/** By tier: 0 chores only, 1, 2, 3 (or more) effortful pillars, 4 a Max day. */
+// XP rises only on 3-pillar and Max days: sliding momentum already pays ×1.5 for steady work, and a steeper XP curve made partners
+// graduate faster than today (tools/sim-life.mjs: 9 fully trained in six months at normal pace against today's 7; this curve gives 8).
+export const DAY_XP_MULT = [1, 1, 1, 1.1, 1.15]
+export const DAY_HIT_MULT = [1, 1, 1.25, 1.5, 2] as const
+export const DAY_HEARTS = [0, 1, 3, 6, 10] as const
+export const DAY_RESEARCH = [0, 60, 140, 220, 300] as const
+export const DAY_GEMS = [0, 0, 0, 2, 5] as const
+export const DAY_COINS = [0, 60, 90, 140, 200] as const
+/** A chores-only day's coins: the first bar its chores reach. */
+export const CHORE_COINS: { share: number; coins: number }[] = [{ share: 0.75, coins: 60 }, { share: 0.5, coins: 40 }]
+/** The first effortful pillar of a day pays this on top of its tier, so starting is worth it. */
+export const FIRST_PILLAR = { hearts: 1, research: 40, gems: 2 }
+/** A night of 80+ on a day with an effortful pillar: a heart, a share more research, and a Bell (two at SLEEP_DEEP). */
+export const SLEEP_BONUS = { hearts: 1, research: 0.2 } as const
+/** The neglect bounty: a pillar idle 2 days (or 3 and more) pays its own XP and counter ×this, the day it comes back. Doing it clears it. Kept under what the missed days were worth, so steady always earns more (tools/sim-life.mjs --bounty). */
+// Tuned with tools/sim-life.mjs on V21 (5 Nov 2026): skipping a pillar and cashing in starts to beat steady between ×4 and ×5 on that
+// pillar's counter (normal pace, two days skipped); at ×3 / ×4 steady still wins on every measure at every pace, by 3% at the thinnest.
+export const BOUNTY = { two: 3, three: 4 }
+export const bountyMult = (idle: number): number => (idle >= 3 ? BOUNTY.three : idle >= 2 ? BOUNTY.two : 1)
+/** Sliding momentum: a day with this many effortful pillars moves it up a step, any other day down one, but for one free day a week. */
+export const MOMENTUM_STEPS = [1, 1.2, 1.35, 1.5] as const
+export const MOMENTUM_PILLARS = 2
+/** The Lab: every rank costs the same, and each Pokemon on the desk adds a share of the day's research by its rarity. */
+export const RANK_V21 = 1500
+export const DESK_BONUS: Record<Rarity, number> = { C: 0.1, U: 0.15, R: 0.2, L: 0.3 }
+/** Leaders' gems: a gym, an Elite Four member or a Champion, and what a league adds. */
+export const LEADER_GEMS_V21 = { gym: 10, elite: 15, league: 25 } as const
+/** A Mega is worth this per bond level of its Pokemon, and half of that from the party. */
+export const MEGA_PER_BOND = 0.05
+/** A second Pokemon of a line already yours turns into this many hearts for the one you have (a shiny is kept). */
+export const DUPE_HEARTS = 20
+/** Once the whole party is at the last bond level, every this many Trainer hearts is a Ribbon. */
+export const RIBBON_EVERY = 150

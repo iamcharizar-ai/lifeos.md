@@ -38,6 +38,8 @@ export type EventType =
   | 'health'
   | 'workout'
   | 'workout_clear'
+  // written by Strong when a logged workout is deleted
+  | 'workout_delete'
   | 'config'
   | 'month'
   // the Sunday reset task list (the ticks themselves are plain `tick` events)
@@ -122,7 +124,7 @@ async function fetchEvents(
 /** Event types whose whole history is folded in one pass at boot (by the shared cores). */
 const FOLDED_IN_BULK = new Set<EventType>(['skill', 'plan', 'guitar', 'guitar_plan'])
 /** Event types applyEvent passes to the game link (gameLink.ts). */
-const GAME_TYPES = new Set<EventType>(['day_list', 'item_use', 'boss_card', 'boss_day', 'day_start', 'vitals'])
+const GAME_TYPES = new Set<EventType>(['day_list', 'item_use', 'boss_card', 'boss_day', 'day_start', 'vitals', 'workout', 'workout_delete'])
 
 const DEVICE_KEY = 'lifeos.device.v1'
 const OUTBOX_KEY = 'lifeos.outbox.v1'
@@ -205,13 +207,19 @@ function applyEvent(ev: LifeEvent, s: CloudSetters): void {
         ...prev,
         [ev.day]: { type: String(p.type), at: String(p.at), ...(session ? { session } : {}) },
       }))
-      if (typeof p.gear === 'string') markStrongLinked() // this came from the new Strong: the link is live
+      if (typeof p.gear === 'string') {
+        markStrongLinked() // this came from the new Strong: the link is live
+        applyGameEvents([ev]) // the game reads Strong's workouts too (version 21: a Gym day is a logged workout)
+      }
       // Strong finishing a session is what ticks Gym — once linked, it cannot be ticked by hand.
       s.setTicks((prev) =>
         prev[ev.day]?.[GYM_HABIT] ? prev : { ...prev, [ev.day]: { ...(prev[ev.day] ?? {}), [GYM_HABIT]: String(p.at ?? ev.at) } },
       )
       break
     }
+    case 'workout_delete':
+      applyGameEvents([ev])
+      break
     case 'workout_clear':
       s.setWorkouts((prev) => {
         const next = { ...prev }

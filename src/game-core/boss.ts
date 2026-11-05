@@ -10,7 +10,7 @@
 // to know what a workout or a guitar log is.
 import { BALLS } from './economy.ts'
 import type { GameEvent } from './events.ts'
-import { V15_START, type Rarity, type Tag } from './rules.ts'
+import { V15_START, V21_START, type Rarity, type Tag } from './rules.ts'
 
 export const CARD_EVENT = 'boss_card'
 export const BOSS_DAY_EVENT = 'boss_day'
@@ -21,7 +21,7 @@ export const BOSS_PARTY = 6
 /** From version 15 (V15_START) a boss comes once the party is this many; a smaller party just hits it softer (strikeOf is worked out against six). */
 export const BOSS_MIN_PARTY = 3
 /** How many in the party a boss needs on `day`. */
-export const bossNeed = (day: string): number => (day >= V15_START ? BOSS_MIN_PARTY : BOSS_PARTY)
+export const bossNeed = (day: string): number => (day >= V21_START ? 1 : day >= V15_START ? BOSS_MIN_PARTY : BOSS_PARTY)
 /** Boss level from the party: 13 + 0.18 × the six levels added. */
 export const bossLevel = (levelSum: number): number => Math.round(13 + 0.18 * levelSum)
 /** How much a line's rarity is worth in a fight. */
@@ -52,6 +52,8 @@ export const BOSS_POOL_MIN = 6
 export const BOSS_NO_REPEAT = 3
 /** The card planner's revision. A card of a higher revision replaces an older one for the same week (the old planner is revision 1, written without one). */
 export const BOSS_CARD_REV = 2
+/** Version 21's planner: its card replaces one an older planner drew for the same week (an app opened before the deploy, say). */
+export const BOSS_CARD_REV_V21 = 3
 
 /** Balls may be thrown once this share of its HP or less is left, and this many times. */
 export const THROW_AT = 0.4
@@ -85,13 +87,15 @@ export const BOSS_TASK_MARKS = 3
 export const BOSS_TASK_COINS = 60
 
 // ── the card ────────────────────────────────────────────────────────────────
-export type BossKind = 'gym' | 'arbor' | 'shed' | 'sleep' | 'life'
+export type BossKind = 'gym' | 'arbor' | 'shed' | 'sleep' | 'life' | 'code'
+/** The kinds the old planner (before V21) draws from. Code has a task only from version 21. */
 export const BOSS_KINDS: BossKind[] = ['gym', 'arbor', 'shed', 'sleep', 'life']
+export const ALL_BOSS_KINDS: BossKind[] = [...BOSS_KINDS, 'code']
 /** The share of the boss's HP each kind of task stands for. */
-export const BOSS_SHARE: Record<BossKind, number> = { gym: 0.3, arbor: 0.25, shed: 0.2, sleep: 0.15, life: 0.1 }
+export const BOSS_SHARE: Record<BossKind, number> = { gym: 0.3, arbor: 0.25, shed: 0.2, sleep: 0.15, life: 0.1, code: 0 }
 /** The game's own domain for each kind. */
-export const BOSS_TAG: Record<BossKind, Tag> = { gym: 'fitness', arbor: 'arbor', shed: 'guitar', sleep: 'sleep', life: 'routine' }
-export const BOSS_WHERE: Record<BossKind, string> = { gym: 'Strong', arbor: 'Arbor', shed: 'Woodshed', sleep: 'The band', life: 'Life OS' }
+export const BOSS_TAG: Record<BossKind, Tag> = { gym: 'fitness', arbor: 'arbor', shed: 'guitar', sleep: 'sleep', life: 'routine', code: 'code' }
+export const BOSS_WHERE: Record<BossKind, string> = { gym: 'Strong', arbor: 'Arbor', shed: 'Woodshed', sleep: 'The band', life: 'Life OS', code: 'Life OS' }
 
 export interface BossTask {
   kind: BossKind
@@ -121,7 +125,7 @@ export interface BossCard {
   tasks: BossTask[]
 }
 
-const isKind = (x: unknown): x is BossKind => typeof x === 'string' && (BOSS_KINDS as string[]).includes(x)
+const isKind = (x: unknown): x is BossKind => typeof x === 'string' && (ALL_BOSS_KINDS as string[]).includes(x)
 function parseCard(week: string, raw: unknown): BossCard | null {
   try {
     const c = JSON.parse(String(raw)) as Partial<BossCard>
@@ -205,3 +209,64 @@ export function catchChance(item: string, trained: number, allTasks: boolean, hp
 }
 /** What three throws come to: the chance of a catch in a week, for telling the player. */
 export const weekChance = (one: number, throws = THROWS): number => 1 - Math.pow(1 - Math.max(0, Math.min(1, one)), throws)
+
+// ── version 21: the card is the boss (GAME_REDESIGN.md v3, section 9) ──
+/** Each party member whose type beats the boss's adds this; a Max day's progress counts this much more. */
+export const BOSS_EDGE_V21 = 0.05
+/** The kinds of task a Max day's boost can count on. */
+export const EFFORT_TASKS: BossKind[] = ['code', 'gym', 'arbor', 'shed']
+// Tuned with tools/sim-life.mjs (three seeds each): the boss won 90% of weeks at normal pace and 100% at strong. With targets up to 9 a
+// week, a stretch of 1.3 and a Max day at ×1.45 it is 77% at normal, 31% at real and 96% at strong.
+export const MAX_DAY_BOSS = { mult: 1.45, /** the boost counts on the effortful tasks only (the night and the chores count plainly) */ effortOnly: false }
+/** What its HP taken pays: a quarter, a half, three quarters; and a win: gems, its shard, and it joins you. */
+export const BOSS_MILESTONES_V21: { at: number; coins?: number; gems?: number; items?: [string, number][] }[] = [
+  { at: 0.25, coins: 100, items: [['great-ball', 1]] },
+  { at: 0.5, gems: 5, items: [['oran-berry', 1]] },
+  { at: 0.75, gems: 10, items: [['ultra-ball', 1]] },
+]
+export const BOSS_WIN_GEMS_V21 = 20
+/** The card: effortful tasks share this much of its HP; the night and the chores the rest, one task each. */
+export const EFFORT_SHARE_V21 = 0.7
+/** Every effortful pillar on the list has a task; one done on fewer than this many of the last 21 days (neglected) gets a small target.
+ * No target is below 2, so no single day finishes a task, and no card is beaten on its first day. */
+export const TASK_FROM_DAYS = 3
+export const NEGLECTED_TARGET: [number, number] = [2, 2]
+export const TARGET_V21: [number, number] = [2, 9]
+export const TARGET_STRETCH = { x: 1.3 }
+export const MAX_TASKS = 5
+
+/** The last 21 days, as the V21 card is drawn from them: days each effortful kind was done, nights of 80+ on a day of work, and steady days. */
+export interface CardHistory { done: Partial<Record<'code' | 'gym' | 'arbor' | 'shed', number>>; nights: number; steady: number; days: number }
+const EFFORT_KINDS = ['code', 'gym', 'arbor', 'shed'] as const
+const TASK_TEXT: Record<BossKind, (n: number) => string> = {
+  code: (n) => `Code on ${n} day${n > 1 ? 's' : ''}`,
+  gym: (n) => `${n} workout${n > 1 ? 's' : ''} in Strong`,
+  arbor: (n) => `Arbor on ${n} morning${n > 1 ? 's' : ''}`,
+  shed: (n) => `Guitar on ${n} day${n > 1 ? 's' : ''}`,
+  sleep: (n) => `${n} night${n > 1 ? 's' : ''} at 80 or more, on a day of work`,
+  life: (n) => `${n} day${n > 1 ? 's' : ''} with three-quarters of your habits ticked`,
+}
+/**
+ * The V21 card's tasks, from what the last 21 days hold and the kinds on the Life OS list. Every effortful kind on the list has a task:
+ * sized to its last three weeks (at least 2), or, done on fewer than 3 of those days, a target of 2, so a neglected pillar never drops off. They share 70% of the HP,
+ * the night and the chores 15% each, at most five tasks (the chores task goes first, then the night). Null with no effortful kind on the list.
+ */
+export function tasksV21(h: CardHistory, live: (k: BossKind) => boolean): BossTask[] | null {
+  const kinds = EFFORT_KINDS.filter((k) => live(k))
+  if (!kinds.length) return null
+  const per = (n: number) => (h.days > 0 ? (n / h.days) * 7 : 0)
+  const size = (n: number, [lo, hi]: [number, number]) => Math.max(lo, Math.min(hi, Math.round(per(n) * TARGET_STRETCH.x)))
+  // a neglected pillar never drops off: every effortful pillar on the list has a task, the neglected ones with a target of 1 or 2
+  const tasks: Omit<BossTask, 'share'>[] = kinds.map((k) => {
+    const target = (h.done[k] ?? 0) < TASK_FROM_DAYS ? size(h.done[k] ?? 0, NEGLECTED_TARGET) : size(h.done[k] ?? 0, TARGET_V21)
+    return { kind: k, template: 'days', target, text: TASK_TEXT[k](target) }
+  })
+  const extra: Omit<BossTask, 'share'>[] = []
+  if (live('sleep')) { const n = size(h.nights, TARGET_V21); extra.push({ kind: 'sleep', template: 'bonus', target: n, text: TASK_TEXT.sleep(n) }) }
+  { const n = size(h.steady, TARGET_V21); extra.push({ kind: 'life', template: 'steady', target: n, text: TASK_TEXT.life(n) }) }
+  const room = Math.max(0, MAX_TASKS - tasks.length)
+  const rest = extra.slice(0, room) // the night before the chores
+  const restShare = rest.length ? (1 - EFFORT_SHARE_V21) / rest.length : 0
+  const effortShare = (rest.length ? EFFORT_SHARE_V21 : 1) / tasks.length
+  return [...tasks.map((t) => ({ ...t, share: Math.round(effortShare * 1000) / 1000 })), ...rest.map((t) => ({ ...t, share: Math.round(restShare * 1000) / 1000 }))]
+}

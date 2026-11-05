@@ -25,7 +25,7 @@ export const spriteUrl = (form: string, shiny = false): string => POKEDEX_URL + 
 
 export function useGame(habits: Habit[], ticks: Ticks, arbor: ArborState, shed: ShedState, link: GameLink, today: string): Game {
   return useMemo(
-    () => foldGame(buildFacts({ habits, ticks, arbor, shed, lists: link.lists, body: link.body, uses: link.uses, boss: link.boss, today })),
+    () => foldGame(buildFacts({ habits, ticks, arbor, shed, lists: link.lists, body: link.body, uses: link.uses, boss: link.boss, marks: link.marks, today })),
     [habits, ticks, arbor, shed, link, today],
   )
 }

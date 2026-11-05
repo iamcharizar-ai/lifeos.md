@@ -11,6 +11,8 @@ import { BOSS_DAY_EVENT, CARD_EVENT, bossOf, type BossInput } from '../game-core
 import { inOrder } from '../game-core/order.ts'
 import { SLEEP_HABIT } from '../game-core/rules.ts'
 import { DAY_START_EVENT } from '../game-core/day.ts'
+import { strongMarks } from '../game-core/strong.ts'
+import type { DayMarks } from '../game-core/facts.ts'
 
 type Stored = GameEvent & { device?: string; inserted_at?: string }
 
@@ -27,6 +29,8 @@ export interface GameLink {
   boss: BossInput
   /** calendar dates started by hand ("Start my day"), when the band's reading had not come */
   started: string[]
+  /** day → what Strong logged (workouts, records, routines): from version 21 a Gym day is a logged workout, read by the shared core */
+  marks: Record<string, DayMarks>
 }
 
 const KEY = 'lifeos.gamelink.v1'
@@ -34,7 +38,9 @@ const listeners = new Set<() => void>()
 const keyOf = (e: Stored): string => `${e.device ?? ''}|${e.at}|${e.type}|${JSON.stringify(e.payload)}`
 // a vitals row matters here only when it carries something the game reads
 const relevant = (e: Stored): boolean =>
-  e.type === USE_EVENT || e.type === LIST_EVENT || e.type === DAY_START_EVENT || e.type === CARD_EVENT || e.type === BOSS_DAY_EVENT || (e.type === BODY_EVENT && ['sleepScore', 'steps', 'recovery', 'sleepMin', 'bed', 'wake'].some((k) => k in (e.payload ?? {})))
+  e.type === USE_EVENT || e.type === LIST_EVENT || e.type === DAY_START_EVENT || e.type === CARD_EVENT || e.type === BOSS_DAY_EVENT ||
+  // a workout from Strong (it carries the whole session as `gear`), and a deleted one
+  (e.type === 'workout' && typeof e.payload?.gear === 'string') || e.type === 'workout_delete' || (e.type === BODY_EVENT && ['sleepScore', 'steps', 'recovery', 'sleepMin', 'bed', 'wake'].some((k) => k in (e.payload ?? {})))
 
 function load(): Stored[] {
   try {
@@ -50,7 +56,7 @@ const seen = new Set(events.map(keyOf))
 const derive = (): GameLink => {
   const sorted = inOrder(events)
   const body = bodyOf(sorted)
-  return { body, uses: usesOf(sorted), lists: listsOf(sorted), band: bandFrom({ habits: [], ticks: {}, today: '', body }), nights: sleepOf(sorted), boss: bossOf(sorted), started: [...new Set(sorted.filter((e) => e.type === DAY_START_EVENT).map((e) => e.day))] }
+  return { body, uses: usesOf(sorted), lists: listsOf(sorted), band: bandFrom({ habits: [], ticks: {}, today: '', body }), nights: sleepOf(sorted), boss: bossOf(sorted), started: [...new Set(sorted.filter((e) => e.type === DAY_START_EVENT).map((e) => e.day))], marks: strongMarks(sorted) }
 }
 let state: GameLink = derive()
 
