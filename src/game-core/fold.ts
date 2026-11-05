@@ -24,7 +24,7 @@ import {
 import { COUNTER_V21, EGG_WAIT_MAX, researchRewardV21, ribbonOptions, workEgg, BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
 import { FACILITIES, GOLD_BP, GOLD_GEMS, REMATCH_BP, SILVER_BP, SILVER_GEMS, bpFor } from './frontier.ts'
 import {
-  BOSS_EDGE_V21, MAX_DAY_BOSS, BOSS_MILESTONES_V21, BOSS_WIN_GEMS_V21, BOSS_CATCH_GEMS, BOSS_HEAL, BOSS_HP_PER_LEVEL, BOSS_KILL_GEMS, BOSS_MILESTONES, BOSS_SHINY, BOSS_TAG, BOSS_TASK_COINS, BOSS_TASK_MARKS, KILL_CAP, THROWS, THROW_AT, TYPE_EDGE,
+  BOSS_EDGE_V21, EFFORT_TASKS, MAX_DAY_BOSS, BOSS_MILESTONES_V21, BOSS_WIN_GEMS_V21, BOSS_CATCH_GEMS, BOSS_HEAL, BOSS_HP_PER_LEVEL, BOSS_KILL_GEMS, BOSS_MILESTONES, BOSS_SHINY, BOSS_TAG, BOSS_TASK_COINS, BOSS_TASK_MARKS, KILL_CAP, THROWS, THROW_AT, TYPE_EDGE,
   cardDone, cardWork, catchChance, strikeOf, type BossCard, type BossTask, type Member,
 } from './boss.ts'
 import { SPECIES, type SpeciesRec } from './species.ts'
@@ -479,7 +479,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const v16On = (day: string): boolean => day >= V16_START
   const v21On = (day: string): boolean => day >= V21_START
   /** version 21: sliding momentum's step and the week its free rest day was used; the day index each effortful pillar was last done; Ribbons */
-  let slide = 0, restWeek = ''
+  let slide = 0, restWeek = '', v21Begun = false
   const lastDone: Partial<Record<Tag, number>> = {}
   let ribbonFrom: number | null = null, ribbonsGiven = 0
   /** version 21: what each pillar's counter is aimed at, when chosen by hand */
@@ -1332,6 +1332,14 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     // momentum looks back, so the multiplier is known the moment the day starts
     const back = days.slice(Math.max(0, i - MOMENTUM_WINDOW), i)
     const mDays = back.filter((d) => d.counts).length
+    // version 21's first day: nothing that was under way jumps. Momentum starts at the step nearest the old multiplier, and the Lab's
+    // points are scaled to the flat rank so the dial keeps its fill (23 of 500 is 69 of 1,500)
+    if (v21 && !v21Begun) {
+      v21Begun = true
+      const old = momentumMult(mDays)
+      slide = MOMENTUM_STEPS.reduce((best, x, k) => (Math.abs(x - old) < Math.abs(MOMENTUM_STEPS[best] - old) ? k : best), 0)
+      research.points = Math.round((research.points * RANK_V21) / researchCost(research.rank))
+    }
     // version 21: momentum slides: a day of MOMENTUM_PILLARS effortful pillars up a step, any other day down one, but for one free day a week
     const mult = v21 ? MOMENTUM_STEPS[slide] : momentumMult(mDays)
     momentum = { days: mDays, mult }
@@ -1644,7 +1652,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       const work = cardWork(b.card, f.boss.p)
       const moved = work - b.work
       if (v21 && !b.caught) {
-        b.dealt = Math.max(0, b.dealt + moved * (1 + b.common) * (moved > 0 && tier === 4 ? MAX_DAY_BOSS : 1))
+        // a Max day's progress counts more: on every task, or (MAX_DAY_BOSS.effortOnly) on the effortful ones only
+        const boosted = tier === 4 ? b.card.tasks.reduce((n, t, k) => n + (MAX_DAY_BOSS.effortOnly && !EFFORT_TASKS.includes(t.kind) ? 0 : t.share * Math.max(0, Math.min(1, f.boss!.p[k] ?? 0) - Math.min(1, b.p[k] ?? 0))), 0) : 0
+        b.dealt = Math.max(0, b.dealt + (moved + boosted * (MAX_DAY_BOSS.mult - 1)) * (1 + b.common))
         b.taken = Math.min(1, b.dealt)
       } else if (!v21 && !b.caught && !b.fled) {
         // progress takes HP (and work undone gives it back); a day with none lets it heal
@@ -1866,7 +1876,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       tasks: b.card.tasks.map((t, k) => ({ ...t, p: b.p[k] ?? 0 })), allDone: cardDone(b.card, b.p),
       daysLeft: Math.max(0, 6 - dayGap(b.card.week, last.day)),
       throws: b.throws, throwsLeft: Math.max(0, THROWS - b.throws),
-      canThrow: !b.caught && !b.fled && b.throws < THROWS && hpLeft <= THROW_AT + 1e-9,
+      // version 21: no throws (a beaten boss joins you)
+      canThrow: !v21On(last.day) && !b.caught && !b.fled && b.throws < THROWS && hpLeft <= THROW_AT + 1e-9,
       trained: trainedTeam().length, killed: b.killed, caught: b.caught, fled: b.fled,
     }
   }

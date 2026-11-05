@@ -52,6 +52,8 @@ export const BOSS_POOL_MIN = 6
 export const BOSS_NO_REPEAT = 3
 /** The card planner's revision. A card of a higher revision replaces an older one for the same week (the old planner is revision 1, written without one). */
 export const BOSS_CARD_REV = 2
+/** Version 21's planner: its card replaces one an older planner drew for the same week (an app opened before the deploy, say). */
+export const BOSS_CARD_REV_V21 = 3
 
 /** Balls may be thrown once this share of its HP or less is left, and this many times. */
 export const THROW_AT = 0.4
@@ -211,7 +213,11 @@ export const weekChance = (one: number, throws = THROWS): number => 1 - Math.pow
 // ── version 21: the card is the boss (GAME_REDESIGN.md v3, section 9) ──
 /** Each party member whose type beats the boss's adds this; a Max day's progress counts this much more. */
 export const BOSS_EDGE_V21 = 0.05
-export const MAX_DAY_BOSS = 1.5
+/** The kinds of task a Max day's boost can count on. */
+export const EFFORT_TASKS: BossKind[] = ['code', 'gym', 'arbor', 'shed']
+// Tuned with tools/sim-life.mjs (three seeds each): the boss won 90% of weeks at normal pace and 100% at strong. With targets up to 9 a
+// week, a stretch of 1.3 and a Max day at ×1.45 it is 77% at normal, 31% at real and 96% at strong.
+export const MAX_DAY_BOSS = { mult: 1.45, /** the boost counts on the effortful tasks only (the night and the chores count plainly) */ effortOnly: false }
 /** What its HP taken pays: a quarter, a half, three quarters; and a win: gems, its shard, and it joins you. */
 export const BOSS_MILESTONES_V21: { at: number; coins?: number; gems?: number; items?: [string, number][] }[] = [
   { at: 0.25, coins: 100, items: [['great-ball', 1]] },
@@ -221,11 +227,12 @@ export const BOSS_MILESTONES_V21: { at: number; coins?: number; gems?: number; i
 export const BOSS_WIN_GEMS_V21 = 20
 /** The card: effortful tasks share this much of its HP; the night and the chores the rest, one task each. */
 export const EFFORT_SHARE_V21 = 0.7
-/** A pillar done on this many of the last 21 days earns a task; the one done least always keeps one, with a small target. */
+/** Every effortful pillar on the list has a task; one done on fewer than this many of the last 21 days (neglected) gets a small target.
+ * No target is below 2, so no single day finishes a task, and no card is beaten on its first day. */
 export const TASK_FROM_DAYS = 3
-export const NEGLECTED_TARGET: [number, number] = [1, 2]
-export const TARGET_V21: [number, number] = [1, 6]
-export const TARGET_STRETCH = 1.4
+export const NEGLECTED_TARGET: [number, number] = [2, 2]
+export const TARGET_V21: [number, number] = [2, 9]
+export const TARGET_STRETCH = { x: 1.3 }
 export const MAX_TASKS = 5
 
 /** The last 21 days, as the V21 card is drawn from them: days each effortful kind was done, nights of 80+ on a day of work, and steady days. */
@@ -240,19 +247,18 @@ const TASK_TEXT: Record<BossKind, (n: number) => string> = {
   life: (n) => `${n} day${n > 1 ? 's' : ''} with three-quarters of your habits ticked`,
 }
 /**
- * The V21 card's tasks, from what the last 21 days hold and the kinds on the Life OS list. Every effortful kind done on 3+ days has a
- * task; the one done least always keeps one with a target of 1 or 2, so a neglected pillar never drops off. They share 70% of the HP,
+ * The V21 card's tasks, from what the last 21 days hold and the kinds on the Life OS list. Every effortful kind on the list has a task:
+ * sized to its last three weeks (at least 2), or, done on fewer than 3 of those days, a target of 2, so a neglected pillar never drops off. They share 70% of the HP,
  * the night and the chores 15% each, at most five tasks (the chores task goes first, then the night). Null with no effortful kind on the list.
  */
 export function tasksV21(h: CardHistory, live: (k: BossKind) => boolean): BossTask[] | null {
   const kinds = EFFORT_KINDS.filter((k) => live(k))
   if (!kinds.length) return null
   const per = (n: number) => (h.days > 0 ? (n / h.days) * 7 : 0)
-  const size = (n: number, [lo, hi]: [number, number]) => Math.max(lo, Math.min(hi, Math.round(per(n) * TARGET_STRETCH)))
-  const least = [...kinds].sort((a, b) => (h.done[a] ?? 0) - (h.done[b] ?? 0) || (a < b ? -1 : 1))[0]
-  const effort = kinds.filter((k) => k === least || (h.done[k] ?? 0) >= TASK_FROM_DAYS)
-  const tasks: Omit<BossTask, 'share'>[] = effort.map((k) => {
-    const target = k === least && (h.done[k] ?? 0) < TASK_FROM_DAYS ? size(h.done[k] ?? 0, NEGLECTED_TARGET) : size(h.done[k] ?? 0, TARGET_V21)
+  const size = (n: number, [lo, hi]: [number, number]) => Math.max(lo, Math.min(hi, Math.round(per(n) * TARGET_STRETCH.x)))
+  // a neglected pillar never drops off: every effortful pillar on the list has a task, the neglected ones with a target of 1 or 2
+  const tasks: Omit<BossTask, 'share'>[] = kinds.map((k) => {
+    const target = (h.done[k] ?? 0) < TASK_FROM_DAYS ? size(h.done[k] ?? 0, NEGLECTED_TARGET) : size(h.done[k] ?? 0, TARGET_V21)
     return { kind: k, template: 'days', target, text: TASK_TEXT[k](target) }
   })
   const extra: Omit<BossTask, 'share'>[] = []

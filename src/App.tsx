@@ -425,7 +425,7 @@ export default function App() {
             today={today}
             game={game}
             actions={actions}
-            linked={{ workout: workouts[today], gymNext: nextGymDay(workouts, today).name, arbor, plan, onSkill, guitar: { shed, session }, sleep: { state: sleepState(link, today), night: link.nights[today], check: sleepCheck } }}
+            linked={{ workout: workouts[today], gymNext: nextGymDay(workouts, today).name, arbor, plan, onSkill, guitar: { shed, session }, sleep: { state: sleepState(link, today), night: link.nights[today], check: sleepCheck }, tiles: game.tiles }}
             weekly={weekly}
           />
         )}

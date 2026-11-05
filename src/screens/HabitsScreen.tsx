@@ -5,6 +5,7 @@
 // same place. The old split (add in Library → walk to Daily to arrange) is gone.
 // Habits you switch off drop into the Shelf below, still ordered, one tap from
 // coming back.
+import { RewardGhost } from '../components/RewardGhost'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, Reorder, motion, useDragControls } from 'framer-motion'
 import { flyReward } from '../lib/flyReward'
@@ -376,6 +377,9 @@ function ChecklistRow({
             {ticked ? `+${xp}` : xp}
           </span>
         </div>
+        )}
+        {habit.tier === 'pillar' && linked.tiles?.[domainOf(habit) as keyof Game['tiles']] && (
+          <RewardGhost tile={linked.tiles[domainOf(habit) as keyof Game['tiles']]!} tag={domainOf(habit)} />
         )}
         <button
           onClick={() => onOpen(open ? null : habit.id)}
