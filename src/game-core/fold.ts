@@ -39,6 +39,13 @@ type Share = Record<Tag, { got: number; max: number }>
 const emptyShare = (): Share => Object.fromEntries(TAGS.map((t) => [t, { got: 0, max: 0 }])) as Share
 const ratio = (s: Share, t: Tag): number => (s[t].max > 0 ? s[t].got / s[t].max : 0)
 
+/**
+ * 5 Nov 2026: every item used in the Pokedex was counted twice on screen until a reload (the ledger's copy of it was not recognised
+ * as the same event), so a Luxury Ball looked like a catch and was not one. A Luxury Ball thrown that day that did not catch is
+ * handed back to Collect.
+ */
+const ECHO_BUG_DAY = '2026-11-05'
+
 export interface Mon {
   uid: string
   /** first stage of its line */
@@ -560,6 +567,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     else held.set(key, h)
   }
   /** earned now, collected later: today's tally rises at once, the wallet when it is claimed */
+  /** Luxury Balls handed back for the 5 Nov 2026 echo bug */
+  let echoRefunds = 0
   const hold = (key: string, day: string, title: string, coins: number, gems: number, items: [string, number][] = []) => {
     if (coins <= 0 && gems <= 0 && !items.length) return
     wallet.coinsToday += coins; wallet.gemsToday += gems
@@ -942,6 +951,10 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
           const mon = catchWild(w, day, false, ballClass(item), 'ball')
           mon.thrown = item
           if (b.hearts) mon.fed = (mon.fed ?? 0) + b.hearts
+        } else if (day === ECHO_BUG_DAY && item === 'luxury-ball') {
+          // the echo bug (lib/eventkey.ts) showed these as catches: the ball comes back, once, to Collect
+          echoRefunds++
+          hold(`makegood:${ECHO_BUG_DAY}:${echoRefunds}`, day, 'Luxury Ball back: that catch was a display bug', 0, 0, [[item, 1]])
         }
         return
       }
