@@ -299,10 +299,11 @@ export const V20_START = '2026-11-05'
 
 // ── version 21: effort tiers (GAME_REDESIGN.md v3) ──
 /**
- * The first day of version 21. A PLACEHOLDER far in the future while the numbers are tuned: nothing in it applies to a real day
- * until it is set to the deploy day (approved by the player). tools/sim-life.mjs --rules v21 plays forward from it.
+ * The first day of version 21 (RULES-V21.md), the day it shipped. Earlier days fold as they always did.
+ * A `let` so a test of an older rule can switch version 21 off for its own process (setV21Start); nothing else ever calls it.
  */
-export const V21_START = '2099-01-01'
+export let V21_START = '2026-11-05'
+export const setV21Start = (day: string): void => { V21_START = day }
 /**
  * A pillar with a verified source counts only when that source logged something that day (a tick alone is then a basic habit). Gym is
  * a Strong workout. A pillar not listed here is an honour tick. A later source (a LeetCode sync for Code, say) is one more entry here,
