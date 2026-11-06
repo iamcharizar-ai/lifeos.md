@@ -43,22 +43,6 @@ export const SKILLS: Skill[] = [
   "kind": "foundation"
  },
  {
-  "id": "compression-foundation",
-  "name": "Compression Foundation",
-  "branch": "Physical Foundations",
-  "family": "cal",
-  "req": [
-   "hollow-arch-basics",
-   "pike-compression-stretch"
-  ],
-  "tiers": {
-   "u": "Seated leg lifts ×10",
-   "p": "Pike pulses + active flexibility weekly",
-   "m": "Compression strong enough for L-sit/V-sit work"
-  },
-  "kind": "foundation"
- },
- {
   "id": "assisted-pushup",
   "name": "Assisted Push-Up",
   "branch": "Horizontal Push",
@@ -154,7 +138,7 @@ export const SKILLS: Skill[] = [
   "branch": "Horizontal Push",
   "family": "cal",
   "req": [
-   "archer-pushup"
+   "elevated-oap"
   ],
   "unit": "reps",
   "t": [
@@ -341,23 +325,6 @@ export const SKILLS: Skill[] = [
   ]
  },
  {
-  "id": "planche-program-8wk",
-  "name": "8-Week Planche Block",
-  "branch": "Horizontal Push",
-  "family": "cal",
-  "req": [
-   "pseudo-pushup",
-   "tuck-planche"
-  ],
-  "tiers": {
-   "u": "Block written: days, volume, progressions",
-   "p": "4 weeks in, holds measured weekly",
-   "m": "Block complete — measured gain in tuck hold"
-  },
-  "kind": "milestone",
-  "note": "First measured planche block"
- },
- {
   "id": "tuck-planche-pushup",
   "name": "Tuck Planche Push-Up",
   "branch": "Horizontal Push",
@@ -446,7 +413,7 @@ export const SKILLS: Skill[] = [
    3,
    5
   ],
-  "note": "2026 goal: 1 clean 90° push-up"
+  "note": "2026 goal: 1 clean 90° push-up. From the 90° hold, press up in the planche position and back down — not the handstand version (that is hspu-90)"
  },
  {
   "id": "full-planche",
@@ -480,22 +447,6 @@ export const SKILLS: Skill[] = [
   ],
   "star": true,
   "note": "Triple-crown piece #1"
- },
- {
-  "id": "wide-pushup",
-  "name": "Wide Push-Up",
-  "branch": "Horizontal Push",
-  "family": "cal",
-  "req": [
-   "pushup"
-  ],
-  "unit": "reps",
-  "t": [
-   12,
-   22,
-   40
-  ],
-  "note": "Wider grip, arms still <45° from torso — pec emphasis"
  },
  {
   "id": "uneven-pushup",
@@ -626,22 +577,6 @@ export const SKILLS: Skill[] = [
   "note": "Feet-supported entry to the dip pattern"
  },
  {
-  "id": "bulgarian-dip",
-  "name": "Bulgarian Dip",
-  "branch": "Horizontal Push",
-  "family": "cal",
-  "req": [
-   "dip"
-  ],
-  "unit": "reps",
-  "t": [
-   5,
-   10,
-   16
-  ],
-  "note": "Wide arms, 90° at the bottom — rear delt / lat emphasis"
- },
- {
   "id": "chest-dip",
   "name": "Chest Dip",
   "branch": "Horizontal Push",
@@ -697,7 +632,8 @@ export const SKILLS: Skill[] = [
   "branch": "Horizontal Push",
   "family": "cal",
   "req": [
-   "rto-support-hold"
+   "rto-support-hold",
+   "ring-dip"
   ],
   "unit": "reps",
   "t": [
@@ -835,7 +771,7 @@ export const SKILLS: Skill[] = [
  {
   "id": "iron-cross-fly",
   "name": "Iron Cross Fly",
-  "branch": "Horizontal Push",
+  "branch": "Vertical Pull",
   "family": "cal",
   "req": [
    "rto-support-hold"
@@ -852,7 +788,7 @@ export const SKILLS: Skill[] = [
  {
   "id": "straight-arm-rto-dip",
   "name": "Iron Cross Dip",
-  "branch": "Horizontal Push",
+  "branch": "Vertical Pull",
   "family": "cal",
   "req": [
    "rto-dip"
@@ -869,7 +805,7 @@ export const SKILLS: Skill[] = [
  {
   "id": "iron-cross",
   "name": "Iron Cross",
-  "branch": "Horizontal Push",
+  "branch": "Vertical Pull",
   "family": "cal",
   "req": [
    "iron-cross-fly",
@@ -905,10 +841,11 @@ export const SKILLS: Skill[] = [
  {
   "id": "pelican-curl",
   "name": "Pelican Curl",
-  "branch": "Horizontal Push",
+  "branch": "Vertical Pull",
   "family": "cal",
   "req": [
-   "rto-support-hold"
+   "rto-support-hold",
+   "korean-dip"
   ],
   "unit": "reps",
   "t": [
@@ -922,10 +859,11 @@ export const SKILLS: Skill[] = [
  {
   "id": "hefesto",
   "name": "Hefesto",
-  "branch": "Horizontal Push",
+  "branch": "Vertical Pull",
   "family": "cal",
   "req": [
-   "pelican-curl"
+   "pelican-curl",
+   "full-bl"
   ],
   "unit": "reps",
   "t": [
@@ -969,7 +907,7 @@ export const SKILLS: Skill[] = [
  {
   "id": "crow-pose",
   "name": "Crow Pose",
-  "branch": "Vertical Push",
+  "branch": "Arm Balances",
   "family": "cal",
   "req": [
    "pike-pushup"
@@ -988,7 +926,7 @@ export const SKILLS: Skill[] = [
   "branch": "Vertical Push",
   "family": "cal",
   "req": [
-   "crow-pose"
+   "pike-pushup"
   ],
   "unit": "sec",
   "t": [
@@ -1104,12 +1042,12 @@ export const SKILLS: Skill[] = [
   ],
   "unit": "sec",
   "t": [
-   5,
    10,
-   20
+   30,
+   60
   ],
   "star": true,
-  "note": "Prime goal. 2026: 10s, then 20s. Balance drills first, not just wall time."
+  "note": "Prime goal. 2026: 10s (now the unlock), then 30s. 60s is the usual gate before one-arm work. Balance drills first, not just wall time."
  },
  {
   "id": "assisted-hspu",
@@ -1133,8 +1071,7 @@ export const SKILLS: Skill[] = [
   "branch": "Vertical Push",
   "family": "cal",
   "req": [
-   "assisted-hspu",
-   "handstand"
+   "assisted-hspu"
   ],
   "unit": "reps",
   "t": [
@@ -1149,7 +1086,8 @@ export const SKILLS: Skill[] = [
   "branch": "Vertical Push",
   "family": "cal",
   "req": [
-   "hspu"
+   "hspu",
+   "handstand"
   ],
   "unit": "reps",
   "t": [
@@ -1165,7 +1103,8 @@ export const SKILLS: Skill[] = [
   "family": "cal",
   "req": [
    "handstand",
-   "pancake"
+   "pancake",
+   "straddle-press-negative"
   ],
   "unit": "reps",
   "t": [
@@ -1181,8 +1120,7 @@ export const SKILLS: Skill[] = [
   "branch": "Vertical Push",
   "family": "cal",
   "req": [
-   "press-to-handstand",
-   "freestanding-hspu"
+   "straddle-oahs"
   ],
   "unit": "sec",
   "t": [
@@ -1382,7 +1320,7 @@ export const SKILLS: Skill[] = [
  {
   "id": "hanging-leg-raise",
   "name": "Hanging Leg Raise",
-  "branch": "Vertical Pull",
+  "branch": "Core",
   "family": "cal",
   "req": [
    "active-hang"
@@ -1397,7 +1335,7 @@ export const SKILLS: Skill[] = [
  {
   "id": "toes-to-bar",
   "name": "Toes to Bar",
-  "branch": "Vertical Pull",
+  "branch": "Core",
   "family": "cal",
   "req": [
    "hanging-leg-raise"
@@ -1725,7 +1663,7 @@ export const SKILLS: Skill[] = [
   "branch": "Vertical Pull",
   "family": "cal",
   "req": [
-   "tuck-human-flag"
+   "adv-tuck-human-flag"
   ],
   "unit": "sec",
   "t": [
@@ -1844,28 +1782,12 @@ export const SKILLS: Skill[] = [
   ]
  },
  {
-  "id": "bulgarian-row",
-  "name": "Bulgarian Row",
-  "branch": "Horizontal Pull",
-  "family": "cal",
-  "req": [
-   "inverted-row"
-  ],
-  "unit": "reps",
-  "t": [
-   6,
-   12,
-   20
-  ],
-  "note": "Wide 90°/90° grip — rear-delt emphasis"
- },
- {
   "id": "one-arm-inverted-row",
   "name": "One-Arm Inverted Row",
   "branch": "Horizontal Pull",
   "family": "cal",
   "req": [
-   "inverted-row"
+   "archer-row"
   ],
   "unit": "reps",
   "t": [
@@ -1945,6 +1867,7 @@ export const SKILLS: Skill[] = [
   "branch": "Horizontal Pull",
   "family": "cal",
   "req": [
+   "adv-tuck-fl",
    "single-leg-tuck-fl"
   ],
   "unit": "sec",
@@ -1961,7 +1884,7 @@ export const SKILLS: Skill[] = [
   "family": "cal",
   "req": [
    "tuck-fl-row",
-   "adv-single-leg-tuck-fl"
+   "adv-tuck-fl"
   ],
   "unit": "reps",
   "t": [
@@ -2114,30 +2037,12 @@ export const SKILLS: Skill[] = [
   "note": "Dream tier — front-lever body held flat at ring height"
  },
  {
-  "id": "back-lever-skin-cat-volume",
-  "name": "Skin-the-Cat Volume",
-  "branch": "Horizontal Pull",
-  "family": "cal",
-  "req": [
-   "skin-the-cat",
-   "bridge-wheel"
-  ],
-  "unit": "reps",
-  "t": [
-   3,
-   6,
-   10
-  ],
-  "kind": "bridge",
-  "note": "Shoulder-prep volume before back lever loading"
- },
- {
   "id": "tuck-bl",
   "name": "Tuck Back Lever",
   "branch": "Horizontal Pull",
   "family": "cal",
   "req": [
-   "back-lever-skin-cat-volume"
+   "skin-the-cat"
   ],
   "unit": "sec",
   "t": [
@@ -2383,9 +2288,9 @@ export const SKILLS: Skill[] = [
   ],
   "unit": "sec",
   "t": [
-   1,
    2,
-   3
+   5,
+   10
   ]
  },
  {
@@ -2394,7 +2299,7 @@ export const SKILLS: Skill[] = [
   "branch": "Core",
   "family": "cal",
   "req": [
-   "v-sit"
+   "high-v-sit"
   ],
   "unit": "sec",
   "t": [
@@ -2505,7 +2410,7 @@ export const SKILLS: Skill[] = [
   "branch": "Core",
   "family": "cal",
   "req": [
-   "dragon-flag"
+   "toes-to-bar"
   ],
   "unit": "reps",
   "t": [
@@ -2521,7 +2426,7 @@ export const SKILLS: Skill[] = [
   "branch": "Core",
   "family": "cal",
   "req": [
-   "hollow-body"
+   "ab-rollout-negative"
   ],
   "unit": "reps",
   "t": [
@@ -2579,7 +2484,7 @@ export const SKILLS: Skill[] = [
  },
  {
   "id": "single-leg-balance",
-  "name": "Single-Leg Balance",
+  "name": "Single-Leg Balance (Eyes Closed)",
   "branch": "Legs",
   "family": "cal",
   "req": [
@@ -2587,9 +2492,9 @@ export const SKILLS: Skill[] = [
   ],
   "unit": "sec",
   "t": [
-   30,
-   45,
-   60
+   10,
+   20,
+   30
   ],
   "kind": "bridge",
   "note": "Stable stand each leg — pistol prerequisite"
@@ -2660,7 +2565,7 @@ export const SKILLS: Skill[] = [
   "branch": "Legs",
   "family": "cal",
   "req": [
-   "split-squat"
+   "bulgarian-split-squat"
   ],
   "unit": "reps",
   "t": [
@@ -2678,7 +2583,8 @@ export const SKILLS: Skill[] = [
   "family": "cal",
   "req": [
    "single-leg-balance",
-   "cossack-squat"
+   "cossack-squat",
+   "ankle-mobility-squat"
   ],
   "unit": "reps",
   "t": [
@@ -2835,8 +2741,9 @@ export const SKILLS: Skill[] = [
   "branch": "Legs",
   "family": "cal",
   "req": [
-   "sissy-squat",
-   "nordic-anchor-setup"
+   "nordic-anchor-setup",
+   "single-leg-rdl",
+   "hamstring-slide"
   ],
   "unit": "reps",
   "t": [
@@ -2943,7 +2850,8 @@ export const SKILLS: Skill[] = [
   "branch": "Bar Dynamics",
   "family": "cal",
   "req": [
-   "pullover"
+   "pullover",
+   "cast"
   ],
   "tiers": {
    "u": "Cast and circle with bent arms or a spot",
@@ -3091,7 +2999,8 @@ export const SKILLS: Skill[] = [
   "family": "cal",
   "req": [
    "bar-kip",
-   "back-hip-circle"
+   "back-hip-circle",
+   "cast"
   ],
   "tiers": {
    "u": "Cast to horizontal and swing down under control",
@@ -3160,19 +3069,357 @@ export const SKILLS: Skill[] = [
  },
  {
   "id": "geinger",
-  "name": "Geinger",
+  "name": "Gienger",
   "branch": "Bar Dynamics",
   "family": "cal",
   "req": [
    "giant",
-   "flyaway",
-   "swing-360"
+   "flyaway"
   ],
   "tiers": {
    "u": "Drilled into a pit with a spot",
    "p": "Release, half turn, regrasp",
    "m": "Linked out of a giant"
   }
+ },
+ {
+  "id": "adv-tuck-fl",
+  "name": "Adv. Tuck Front Lever",
+  "branch": "Horizontal Pull",
+  "family": "cal",
+  "req": [
+   "tuck-fl"
+  ],
+  "unit": "sec",
+  "t": [
+   5,
+   10,
+   15
+  ],
+  "note": "Back flat, hips open to 90° — the standard step after the tuck"
+ },
+ {
+  "id": "ring-dip",
+  "name": "Ring Dip",
+  "branch": "Horizontal Push",
+  "family": "cal",
+  "req": [
+   "dip",
+   "support-hold"
+  ],
+  "unit": "reps",
+  "t": [
+   3,
+   8,
+   12
+  ],
+  "note": "Rings not turned out. Bar dips 3×8 first; the step before RTO dips"
+ },
+ {
+  "id": "elevated-oap",
+  "name": "Elevated One-Arm Push-Up",
+  "branch": "Horizontal Push",
+  "family": "cal",
+  "req": [
+   "archer-pushup"
+  ],
+  "unit": "reps",
+  "t": [
+   3,
+   6,
+   10
+  ],
+  "note": "Hand on a bench or box; lower the surface as it gets easier"
+ },
+ {
+  "id": "straddle-press-negative",
+  "name": "Straddle Press Negative",
+  "branch": "Vertical Push",
+  "family": "cal",
+  "req": [
+   "handstand"
+  ],
+  "unit": "reps",
+  "t": [
+   1,
+   3,
+   5
+  ],
+  "note": "Lower from handstand to straddle stand under control; then elevated presses from a box"
+ },
+ {
+  "id": "straddle-oahs",
+  "name": "Straddle One-Arm Handstand",
+  "branch": "Vertical Push",
+  "family": "cal",
+  "req": [
+   "handstand"
+  ],
+  "unit": "sec",
+  "t": [
+   2,
+   5,
+   10
+  ],
+  "note": "Straddle weight shift > fingertip assist > free straddle OAHS. Legs-together comes much later"
+ },
+ {
+  "id": "handstand-walk",
+  "name": "Handstand Walk",
+  "branch": "Vertical Push",
+  "family": "cal",
+  "req": [
+   "freestanding-kickups"
+  ],
+  "unit": "m",
+  "t": [
+   5,
+   10,
+   20
+  ],
+  "note": "Controlled steps, shoulders open, no running to save it"
+ },
+ {
+  "id": "ring-muscle-up",
+  "name": "Ring Muscle-Up",
+  "branch": "Vertical Pull",
+  "family": "cal",
+  "req": [
+   "false-grip-transition",
+   "ring-dip",
+   "chest-pullup"
+  ],
+  "unit": "reps",
+  "t": [
+   1,
+   3,
+   5
+  ],
+  "note": "False grip held through the transition — no regrip, unlike the bar"
+ },
+ {
+  "id": "adv-tuck-human-flag",
+  "name": "Adv. Tuck Human Flag",
+  "branch": "Vertical Pull",
+  "family": "cal",
+  "req": [
+   "tuck-human-flag"
+  ],
+  "unit": "sec",
+  "t": [
+   2,
+   5,
+   8
+  ],
+  "note": "Hips open, knees tucked — between tuck and straddle"
+ },
+ {
+  "id": "archer-row",
+  "name": "Archer Row",
+  "branch": "Horizontal Pull",
+  "family": "cal",
+  "req": [
+   "inverted-row"
+  ],
+  "unit": "reps",
+  "t": [
+   4,
+   8,
+   12
+  ],
+  "note": "Reps per side; the bridge to the one-arm row"
+ },
+ {
+  "id": "kneeling-ab-rollout",
+  "name": "Kneeling Ab Rollout",
+  "branch": "Core",
+  "family": "cal",
+  "req": [
+   "plank"
+  ],
+  "unit": "reps",
+  "t": [
+   5,
+   10,
+   15
+  ],
+  "note": "Full extension from the knees, hips never sag"
+ },
+ {
+  "id": "ab-rollout-negative",
+  "name": "Standing Rollout Negative",
+  "branch": "Core",
+  "family": "cal",
+  "req": [
+   "kneeling-ab-rollout",
+   "hollow-body"
+  ],
+  "unit": "reps",
+  "t": [
+   1,
+   3,
+   5
+  ],
+  "note": "Roll out from standing to the floor under control, or rollouts up a ramp"
+ },
+ {
+  "id": "high-v-sit",
+  "name": "High V-Sit",
+  "branch": "Core",
+  "family": "cal",
+  "req": [
+   "v-sit"
+  ],
+  "unit": "sec",
+  "t": [
+   2,
+   5,
+   10
+  ],
+  "note": "Legs well past vertical toward the face, hands still in front — the bridge to manna"
+ },
+ {
+  "id": "bulgarian-split-squat",
+  "name": "Bulgarian Split Squat",
+  "branch": "Legs",
+  "family": "cal",
+  "req": [
+   "split-squat"
+  ],
+  "unit": "reps",
+  "t": [
+   5,
+   8,
+   12
+  ],
+  "note": "Rear foot elevated, reps per leg. 3×8 before shrimp work"
+ },
+ {
+  "id": "single-leg-glute-bridge",
+  "name": "Single-Leg Glute Bridge",
+  "branch": "Legs",
+  "family": "cal",
+  "req": [],
+  "unit": "reps",
+  "t": [
+   10,
+   15,
+   25
+  ],
+  "kind": "foundation",
+  "note": "Reps per side, hips level, full hip extension at the top"
+ },
+ {
+  "id": "hamstring-slide",
+  "name": "Hamstring Slide",
+  "branch": "Legs",
+  "family": "cal",
+  "req": [
+   "single-leg-glute-bridge"
+  ],
+  "unit": "reps",
+  "t": [
+   3,
+   6,
+   10
+  ],
+  "note": "From the bridge top, slide the heels out on socks/sliders. Eccentric first, then full, then single-leg"
+ },
+ {
+  "id": "single-leg-rdl",
+  "name": "Single-Leg Romanian Deadlift",
+  "branch": "Legs",
+  "family": "cal",
+  "req": [
+   "single-leg-balance"
+  ],
+  "unit": "reps",
+  "t": [
+   5,
+   8,
+   12
+  ],
+  "note": "Bodyweight hinge, reps per leg, back flat, hips square"
+ },
+ {
+  "id": "vertical-jump",
+  "name": "Vertical Jump",
+  "branch": "Legs",
+  "family": "cal",
+  "req": [
+   "safe-landing",
+   "bw-squat"
+  ],
+  "unit": "cm",
+  "t": [
+   41,
+   49,
+   57
+  ],
+  "note": "Standing jump-and-reach height. Thresholds = adult male 25th/50th/75th percentile"
+ },
+ {
+  "id": "broad-jump",
+  "name": "Standing Broad Jump",
+  "branch": "Legs",
+  "family": "cal",
+  "req": [
+   "safe-landing",
+   "bw-squat"
+  ],
+  "unit": "cm",
+  "t": [
+   190,
+   210,
+   235
+  ],
+  "note": "Two-foot takeoff, stuck landing — no step back counts"
+ },
+ {
+  "id": "depth-jump",
+  "name": "Depth Jump",
+  "branch": "Legs",
+  "family": "cal",
+  "req": [
+   "vertical-jump",
+   "broad-jump"
+  ],
+  "tiers": {
+   "u": "Step off a 30 cm box, stick the landing quietly",
+   "p": "Step off 30 cm and rebound straight up, short ground contact",
+   "m": "Rebound off 45 cm, jump height no lower than your standing jump"
+  },
+  "note": "Highest-intensity plyometric — last in the ladder, low boxes only"
+ },
+ {
+  "id": "copenhagen-plank",
+  "name": "Copenhagen Plank",
+  "branch": "Legs",
+  "family": "cal",
+  "req": [
+   "side-plank"
+  ],
+  "tiers": {
+   "u": "Short lever (knee on the bench) 3×10 s each side",
+   "p": "Long lever (foot on the bench) 3×10 s each side",
+   "m": "Long-lever dynamic reps, 8 each side"
+  },
+  "note": "Adductor strength; groin-injury prevention"
+ },
+ {
+  "id": "cast",
+  "name": "Cast",
+  "branch": "Bar Dynamics",
+  "family": "cal",
+  "req": [
+   "pullover"
+  ],
+  "tiers": {
+   "u": "Hips push off the bar from front support and return",
+   "p": "Cast to horizontal, straight arms",
+   "m": "Cast above horizontal"
+  },
+  "note": "Starts back hip circles and every giant"
  },
  {
   "id": "active-flexibility-basics",
@@ -3259,27 +3506,12 @@ export const SKILLS: Skill[] = [
   "kind": "foundation"
  },
  {
-  "id": "shoulder-mobility-drills",
-  "name": "Shoulder Mobility Drills",
-  "branch": "Mobility Foundations",
-  "family": "mob",
-  "req": [
-   "active-flexibility-basics"
-  ],
-  "tiers": {
-   "u": "Behind-back + prone overhead raises tried",
-   "p": "Both in the weekly routine, range increasing",
-   "m": "Shoulders open enough that flexion drills feel easy"
-  },
-  "kind": "foundation"
- },
- {
   "id": "shoulder-dislocates",
   "name": "Shoulder Dislocates",
   "branch": "Mobility Foundations",
   "family": "mob",
   "req": [
-   "shoulder-mobility-drills"
+   "shoulder-flexion"
   ],
   "unit": "reps",
   "t": [
@@ -3318,7 +3550,7 @@ export const SKILLS: Skill[] = [
    20,
    30
   ],
-  "note": "Standing forward fold — the hamstring baseline before loaded pike work"
+  "note": "Standing forward fold. Seconds count only with palms flat on the floor, knees straight"
  },
  {
   "id": "plow-pose",
@@ -3379,7 +3611,8 @@ export const SKILLS: Skill[] = [
    10,
    20,
    30
-  ]
+  ],
+  "note": "Seconds count only with the chest on the thighs, knees straight"
  },
  {
   "id": "pancake",
@@ -3396,7 +3629,7 @@ export const SKILLS: Skill[] = [
    30
   ],
   "star": true,
-  "note": "2026 goal: 30s. Unlocks press-to-handstand."
+  "note": "2026 goal: 30s. Seconds count only with the chest on the floor and the back flat. Unlocks press-to-handstand."
  },
  {
   "id": "middle-split-strength",
@@ -3404,7 +3637,7 @@ export const SKILLS: Skill[] = [
   "branch": "Flexibility",
   "family": "mob",
   "req": [
-   "pancake"
+   "hip-rotation"
   ],
   "tiers": {
    "u": "Horse stance 60s",
@@ -3426,7 +3659,8 @@ export const SKILLS: Skill[] = [
    10,
    20,
    30
-  ]
+  ],
+  "note": "Seconds count only with the hips on the floor, no hands holding you up"
  },
  {
   "id": "front-split-strength",
@@ -3434,7 +3668,8 @@ export const SKILLS: Skill[] = [
   "branch": "Flexibility",
   "family": "mob",
   "req": [
-   "pike-compression-stretch"
+   "pike-compression-stretch",
+   "couch-stretch"
   ],
   "tiers": {
    "u": "Hip flexor + hamstring active control drills",
@@ -3457,7 +3692,7 @@ export const SKILLS: Skill[] = [
    20,
    30
   ],
-  "note": "= Hanumanasana"
+  "note": "= Hanumanasana. Seconds count only with the hips on the floor and square, each side"
  },
  {
   "id": "standing-split",
@@ -3472,7 +3707,8 @@ export const SKILLS: Skill[] = [
    10,
    20,
    30
-  ]
+  ],
+  "note": "Seconds count only with hands on the floor and the raised leg at 160° or more"
  },
  {
   "id": "leg-behind-neck",
@@ -3509,7 +3745,8 @@ export const SKILLS: Skill[] = [
   "family": "mob",
   "req": [
    "camel-pose",
-   "joint-prep-wrists"
+   "joint-prep-wrists",
+   "shoulder-flexion"
   ],
   "tiers": {
    "u": "Wrists, shoulders, thoracic, glutes each prepped",
@@ -3532,7 +3769,7 @@ export const SKILLS: Skill[] = [
    20,
    30
   ],
-  "note": "Urdhva Dhanurasana — full backbend"
+  "note": "Urdhva Dhanurasana. Seconds count only with straight arms and shoulders stacked over the wrists"
  },
  {
   "id": "lotus-prep",
@@ -3586,7 +3823,7 @@ export const SKILLS: Skill[] = [
   "family": "mob",
   "req": [
    "wrist-loading-yoga",
-   "compression-foundation"
+   "lsit-compression"
   ],
   "tiers": {
    "u": "Knees-to-chest compression drills",
@@ -3600,9 +3837,7 @@ export const SKILLS: Skill[] = [
   "name": "Twist Mobility",
   "branch": "Arm Balances",
   "family": "mob",
-  "req": [
-   "wrist-loading-yoga"
-  ],
+  "req": [],
   "tiers": {
    "u": "Seated + revolved twists daily",
    "p": "Deep twist with straight spine both sides",
@@ -3647,7 +3882,7 @@ export const SKILLS: Skill[] = [
   "branch": "Arm Balances",
   "family": "mob",
   "req": [
-   "one-legged-crow"
+   "crow-pose"
   ],
   "unit": "sec",
   "t": [
@@ -3726,7 +3961,7 @@ export const SKILLS: Skill[] = [
   "branch": "Arm Balances",
   "family": "mob",
   "req": [
-   "side-crow",
+   "bhujapidasana",
    "hip-compression-arm-balance"
   ],
   "unit": "sec",
@@ -3757,7 +3992,8 @@ export const SKILLS: Skill[] = [
   "branch": "Arm Balances",
   "family": "mob",
   "req": [
-   "crane-pose"
+   "elbow-lever",
+   "wrist-loading-yoga"
   ],
   "unit": "sec",
   "t": [
@@ -3797,34 +4033,6 @@ export const SKILLS: Skill[] = [
   "note": "Vrikasana"
  },
  {
-  "id": "warrior-ii",
-  "name": "Warrior II",
-  "branch": "Yoga Holds",
-  "family": "mob",
-  "req": [],
-  "unit": "sec",
-  "t": [
-   15,
-   30,
-   60
-  ],
-  "note": "Virabhadrasana II"
- },
- {
-  "id": "chair-pose",
-  "name": "Chair Pose",
-  "branch": "Yoga Holds",
-  "family": "mob",
-  "req": [],
-  "unit": "sec",
-  "t": [
-   15,
-   30,
-   60
-  ],
-  "note": "Utkatasana"
- },
- {
   "id": "boat-pose",
   "name": "Boat Pose",
   "branch": "Yoga Holds",
@@ -3844,7 +4052,8 @@ export const SKILLS: Skill[] = [
   "branch": "Yoga Holds",
   "family": "mob",
   "req": [
-   "tree-pose"
+   "tree-pose",
+   "bow-pose"
   ],
   "unit": "sec",
   "t": [
@@ -3875,7 +4084,8 @@ export const SKILLS: Skill[] = [
   "branch": "Yoga Holds",
   "family": "mob",
   "req": [
-   "king-dance"
+   "pigeon-stretch",
+   "camel-pose"
   ],
   "unit": "sec",
   "t": [
@@ -3938,7 +4148,8 @@ export const SKILLS: Skill[] = [
   "branch": "Yoga Holds",
   "family": "mob",
   "req": [
-   "scorpion-pose"
+   "scorpion-pose",
+   "handstand"
   ],
   "unit": "sec",
   "t": [
@@ -3948,6 +4159,64 @@ export const SKILLS: Skill[] = [
   ],
   "star": true,
   "note": "Dream tier — scorpion in a handstand"
+ },
+ {
+  "id": "couch-stretch",
+  "name": "Couch Stretch",
+  "branch": "Flexibility",
+  "family": "mob",
+  "req": [],
+  "tiers": {
+   "u": "Rear knee at the wall, shin up it, front foot down",
+   "p": "Torso upright, glute squeezed, no low-back arch",
+   "m": "Upright with the hips fully open — hip flexors never limit a split"
+  },
+  "note": "Hip-flexor length the front split needs; the pike work only covers hamstrings"
+ },
+ {
+  "id": "wheel-dropback",
+  "name": "Drop-Back to Wheel",
+  "branch": "Flexibility",
+  "family": "mob",
+  "req": [
+   "bridge-wheel"
+  ],
+  "tiers": {
+   "u": "Walk down a wall into wheel",
+   "p": "Drop back from standing to wheel, unspotted",
+   "m": "Drop back and stand back up"
+  }
+ },
+ {
+  "id": "bow-pose",
+  "name": "Bow Pose",
+  "branch": "Yoga Holds",
+  "family": "mob",
+  "req": [],
+  "unit": "sec",
+  "t": [
+   15,
+   30,
+   45
+  ],
+  "note": "Dhanurasana — ankles held, thighs and chest off the floor"
+ },
+ {
+  "id": "bhujapidasana",
+  "name": "Shoulder-Press Pose",
+  "branch": "Arm Balances",
+  "family": "mob",
+  "req": [
+   "hip-compression-arm-balance",
+   "wrist-loading-yoga"
+  ],
+  "unit": "sec",
+  "t": [
+   3,
+   6,
+   10
+  ],
+  "note": "Bhujapidasana — thighs on the upper arms, ankles crossed; the entry to firefly"
  },
  {
   "id": "safe-landing",
@@ -4272,31 +4541,17 @@ export const SKILLS: Skill[] = [
   "kind": "bridge"
  },
  {
-  "id": "no-handed-cartwheel",
-  "name": "No-Handed Cartwheel",
+  "id": "aerial-drills",
+  "name": "Aerial Lead-Ups",
   "branch": "Flips & Twists",
   "family": "mov",
   "req": [
    "cartwheel-pop"
   ],
   "tiers": {
-   "u": "First clean rep",
-   "p": "3 in a row",
-   "m": "Clean in a filmed reel"
-  }
- },
- {
-  "id": "aerial-drills",
-  "name": "Aerial Drills",
-  "branch": "Flips & Twists",
-  "family": "mov",
-  "req": [
-   "no-handed-cartwheel"
-  ],
-  "tiers": {
-   "u": "One-hand + dive cartwheel drills",
-   "p": "Takeoff drills with real block/lift",
-   "m": "Every drill in the aerial toolbox owned"
+   "u": "One-handed cartwheel, both sides",
+   "p": "Aerial off a raised panel mat or downhill, unspotted",
+   "m": "Raised-surface aerial lands every time — ready for flat ground"
   },
   "kind": "bridge"
  },
@@ -4320,7 +4575,8 @@ export const SKILLS: Skill[] = [
   "branch": "Flips & Twists",
   "family": "mov",
   "req": [
-   "kip-up"
+   "bridge-wheel",
+   "cartwheel"
   ],
   "tiers": {
    "u": "First macaco (capoeira back-sweep)",
@@ -4334,7 +4590,8 @@ export const SKILLS: Skill[] = [
   "branch": "Flips & Twists",
   "family": "mov",
   "req": [
-   "aerial"
+   "tornado-kick",
+   "cartwheel"
   ],
   "tiers": {
    "u": "First landed raiz",
@@ -4349,7 +4606,8 @@ export const SKILLS: Skill[] = [
   "branch": "Flips & Twists",
   "family": "mov",
   "req": [
-   "roundoff"
+   "roundoff",
+   "bridge-kickover"
   ],
   "tiers": {
    "u": "First spotted/soft-ground rep",
@@ -4381,7 +4639,8 @@ export const SKILLS: Skill[] = [
   "branch": "Flips & Twists",
   "family": "mov",
   "req": [
-   "backflip"
+   "front-handspring",
+   "jump-tuck-landing"
   ],
   "tiers": {
    "u": "First landed front tuck",
@@ -4452,7 +4711,7 @@ export const SKILLS: Skill[] = [
   "branch": "Flips & Twists",
   "family": "mov",
   "req": [
-   "aerial"
+   "crescent-kick"
   ],
   "tiers": {
    "u": "First clean b-kick",
@@ -4466,7 +4725,7 @@ export const SKILLS: Skill[] = [
   "branch": "Flips & Twists",
   "family": "mov",
   "req": [
-   "butterfly-kick"
+   "gainer"
   ],
   "tiers": {
    "u": "First recognizable attempt landed",
@@ -4495,8 +4754,8 @@ export const SKILLS: Skill[] = [
   "branch": "Flips & Twists",
   "family": "mov",
   "req": [
-   "aerial",
-   "backflip"
+   "cheat-gainer",
+   "b-twist"
   ],
   "tiers": {
    "u": "First landed cork (spotted)",
@@ -4673,8 +4932,8 @@ export const SKILLS: Skill[] = [
   "branch": "Breaking",
   "family": "mov",
   "req": [
-   "windmills",
-   "full-planche"
+   "v-sit",
+   "double-leg-circles"
   ],
   "tiers": {
    "u": "One full flare rotation",
@@ -4703,8 +4962,7 @@ export const SKILLS: Skill[] = [
   "branch": "Breaking",
   "family": "mov",
   "req": [
-   "backspin",
-   "one-arm-handstand"
+   "two-thousand"
   ],
   "tiers": {
    "u": "One rotation on one hand",
@@ -4737,7 +4995,8 @@ export const SKILLS: Skill[] = [
   "req": [
    "six-step",
    "windmills",
-   "freeze-basics"
+   "freeze-basics",
+   "go-downs"
   ],
   "tiers": {
    "u": "Combo designed: entry, footwork, power, freeze, exit",
@@ -4791,7 +5050,7 @@ export const SKILLS: Skill[] = [
   "branch": "Dance",
   "family": "mov",
   "req": [
-   "body-wave"
+   "side-glide"
   ],
   "tiers": {
    "u": "Basic backslide, 2 metres",
@@ -4829,6 +5088,284 @@ export const SKILLS: Skill[] = [
    "p": "A 15s illusion routine",
    "m": "Filmed — the floor looks frictionless"
   }
+ },
+ {
+  "id": "bridge-kickover",
+  "name": "Bridge Kickover",
+  "branch": "Acrobatics Foundations",
+  "family": "mov",
+  "req": [
+   "bridge-wheel"
+  ],
+  "tiers": {
+   "u": "Kickover from bridge with a spot or off a raised surface",
+   "p": "From a bridge on flat ground, one leg leads over",
+   "m": "Handstand down to bridge, kick back over"
+  }
+ },
+ {
+  "id": "back-walkover",
+  "name": "Back Walkover",
+  "branch": "Acrobatics Foundations",
+  "family": "mov",
+  "req": [
+   "bridge-kickover",
+   "wall-handstand"
+  ],
+  "tiers": {
+   "u": "Back walkover with a spot",
+   "p": "Unspotted, legs split through handstand",
+   "m": "Connected, straight arms, filmed"
+  }
+ },
+ {
+  "id": "front-handspring",
+  "name": "Front Handspring",
+  "branch": "Acrobatics Foundations",
+  "family": "mov",
+  "req": [
+   "cartwheel",
+   "wall-handstand"
+  ],
+  "tiers": {
+   "u": "Front handspring over a block or with a spot",
+   "p": "Front handspring step-out on flat ground",
+   "m": "Two-foot landing, rebound ready for a front tuck"
+  }
+ },
+ {
+  "id": "cheat-gainer",
+  "name": "Cheat Gainer",
+  "branch": "Flips & Twists",
+  "family": "mov",
+  "req": [
+   "trampoline-spotting",
+   "tornado-kick"
+  ],
+  "tiers": {
+   "u": "First landed cheat gainer (spotted / soft ground)",
+   "p": "3 in a row unassisted",
+   "m": "Clean in a filmed line"
+  },
+  "note": "The cork's real entry: one-foot takeoff out of a cheat"
+ },
+ {
+  "id": "two-thousand",
+  "name": "2000 (Stacked-Hand Spin)",
+  "branch": "Breaking",
+  "family": "mov",
+  "req": [
+   "handstand"
+  ],
+  "tiers": {
+   "u": "One rotation with hands stacked",
+   "p": "3 continuous rotations",
+   "m": "In a power-move set, filmed"
+  }
+ },
+ {
+  "id": "double-leg-circles",
+  "name": "Double-Leg Circles",
+  "branch": "Breaking",
+  "family": "mov",
+  "req": [
+   "lsit"
+  ],
+  "tiers": {
+   "u": "Circles on a mushroom or floor with a spot",
+   "p": "5 continuous circles",
+   "m": "Circles with the legs straddling — the flare's base"
+  }
+ },
+ {
+  "id": "go-downs",
+  "name": "Go-Downs",
+  "branch": "Breaking",
+  "family": "mov",
+  "req": [
+   "toprock"
+  ],
+  "tiers": {
+   "u": "One go-down from toprock into footwork",
+   "p": "Three different go-downs on the beat",
+   "m": "Go-downs flow straight into footwork in a round"
+  },
+  "note": "Drops from toprock to the floor (knee drop, sweep, baseball slide)"
+ },
+ {
+  "id": "popping-hit",
+  "name": "Hit (Pop)",
+  "branch": "Dance",
+  "family": "mov",
+  "req": [
+   "dance-musicality"
+  ],
+  "tiers": {
+   "u": "Clean arm and chest hits on the beat",
+   "p": "Hits through the whole body, on 1 and 3 or every beat",
+   "m": "Hits land exactly on the music at any tempo"
+  },
+  "note": "The foundation popping is built on"
+ },
+ {
+  "id": "side-glide",
+  "name": "Side Glide",
+  "branch": "Dance",
+  "family": "mov",
+  "req": [],
+  "tiers": {
+   "u": "Side glide one direction, 2 m",
+   "p": "Both directions, smooth to music",
+   "m": "In a filmed reel"
+  }
+ },
+ {
+  "id": "touchdown-raiz",
+  "name": "Touchdown Raiz",
+  "branch": "Flips & Twists",
+  "family": "mov",
+  "req": [
+   "raiz"
+  ],
+  "tiers": {
+   "u": "First touchdown raiz, hand down, landed",
+   "p": "3 in a row",
+   "m": "Used as a setup into another trick, filmed"
+  },
+  "note": "TDR — the raiz with a hand touch; a setup for advanced outside tricks"
+ },
+ {
+  "id": "sideswipe",
+  "name": "Sideswipe",
+  "branch": "Flips & Twists",
+  "family": "mov",
+  "req": [
+   "tornado-kick",
+   "cartwheel"
+  ],
+  "tiers": {
+   "u": "First landed sideswipe (soft ground)",
+   "p": "3 in a row",
+   "m": "Clean in a filmed line"
+  },
+  "note": "Beginner-tier invert-kick trick"
+ },
+ {
+  "id": "double-leg",
+  "name": "Double Leg",
+  "branch": "Flips & Twists",
+  "family": "mov",
+  "req": [
+   "raiz",
+   "tornado-kick"
+  ],
+  "tiers": {
+   "u": "First landed double leg",
+   "p": "3 in a row",
+   "m": "Clean in a filmed line"
+  },
+  "note": "Capoeira armada dupla — both legs kick through a spinning takeoff; base of the cheat 720 double leg"
+ },
+ {
+  "id": "trick-combo",
+  "name": "First Linked Combo",
+  "branch": "Flips & Twists",
+  "family": "mov",
+  "req": [
+   "cheat-540",
+   "butterfly-kick"
+  ],
+  "tiers": {
+   "u": "Two tricks linked by a swingthrough or vanish, no reset step",
+   "p": "Three tricks linked, same direction",
+   "m": "Filmed combo of four or more using two different transitions"
+  }
+ },
+ {
+  "id": "turtles",
+  "name": "Turtles",
+  "branch": "Breaking",
+  "family": "mov",
+  "req": [
+   "freeze-basics"
+  ],
+  "tiers": {
+   "u": "Turtle freeze walked through a half rotation",
+   "p": "One full rotation on the hands",
+   "m": "3 continuous rotations"
+  }
+ },
+ {
+  "id": "crickets",
+  "name": "Crickets",
+  "branch": "Breaking",
+  "family": "mov",
+  "req": [
+   "turtles"
+  ],
+  "tiers": {
+   "u": "Float held, first hand-to-hand turns",
+   "p": "One full rotation",
+   "m": "3 continuous rotations"
+  }
+ },
+ {
+  "id": "jackhammer",
+  "name": "Jackhammer",
+  "branch": "Breaking",
+  "family": "mov",
+  "req": [
+   "crickets"
+  ],
+  "tiers": {
+   "u": "First one-hand hop rotation",
+   "p": "One full rotation on one hand",
+   "m": "3 continuous rotations, filmed"
+  }
+ },
+ {
+  "id": "lock-point",
+  "name": "Lock & Point",
+  "branch": "Dance",
+  "family": "mov",
+  "req": [
+   "dance-musicality"
+  ],
+  "tiers": {
+   "u": "Clean lock (the uplock) and point on the beat",
+   "p": "Lock-point combos for 8 counts both sides",
+   "m": "Locks and points hit with character in a freestyle, filmed"
+  },
+  "note": "Don Campbell's fundamentals of locking"
+ },
+ {
+  "id": "wrist-roll",
+  "name": "Wrist Roll",
+  "branch": "Dance",
+  "family": "mov",
+  "req": [
+   "lock-point"
+  ],
+  "tiers": {
+   "u": "Wrist rolls travelling up the body",
+   "p": "Wrist roll into a point on the beat",
+   "m": "Rolls used as accents in a locking routine"
+  }
+ },
+ {
+  "id": "scooby-doo",
+  "name": "Scooby Doo",
+  "branch": "Dance",
+  "family": "mov",
+  "req": [
+   "lock-point"
+  ],
+  "tiers": {
+   "u": "Muscle-man lock then two kicks, slow",
+   "p": "On the beat, both sides",
+   "m": "In a locking routine, filmed"
+  },
+  "note": "Credited to Jimmy \"Scoo B Doo\" Foster"
  }
 ]
 

@@ -12,7 +12,7 @@
 //    slipped in per day.
 import { GOALS, STRICT, WORKING_SIZE, canDo, categoryOf, gymOnly, type Category, type Where } from './meta.ts'
 import { rankOf, valueOf, type ArborState, type DayPlan, type Progress, type Rank, type Skill } from './model.ts'
-import { gymDayFor } from './schedule.ts'
+import { gymDayFor, type GymDay } from './schedule.ts'
 
 const STALE_DAYS = 30
 /** push / pull / legs skills get at least one full day off between sessions */
@@ -123,9 +123,8 @@ function byRest(list: Skill[], progress: Progress): Skill[] {
 }
 
 /** Compute the plan for `day` from scratch. Deterministic for a given state. */
-export function planDay(skills: Skill[], state: ArborState, day: string): DayPlan {
+export function planDay(skills: Skill[], state: ArborState, day: string, gym: GymDay = gymDayFor(day)): DayPlan {
   const progress = state.progress
-  const gym = gymDayFor(day)
   const work = workingSet(skills, progress)
   const rested = (s: Skill) => {
     const last = progress[s.id]?.practiced
@@ -172,9 +171,9 @@ export function planDay(skills: Skill[], state: ArborState, day: string): DayPla
 }
 
 /** Today's plan: the frozen one if a device already published it, else freshly computed. */
-export function planFor(skills: Skill[], state: ArborState, day: string): { plan: DayPlan; frozen: boolean } {
+export function planFor(skills: Skill[], state: ArborState, day: string, gym?: GymDay): { plan: DayPlan; frozen: boolean } {
   const saved = state.plans[day]
-  return saved ? { plan: { morning: saved.morning, gym: saved.gym }, frozen: true } : { plan: planDay(skills, state, day), frozen: false }
+  return saved ? { plan: { morning: saved.morning, gym: saved.gym }, frozen: true } : { plan: planDay(skills, state, day, gym), frozen: false }
 }
 
 /** One line telling you what to aim for. */

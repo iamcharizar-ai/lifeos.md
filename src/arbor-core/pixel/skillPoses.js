@@ -2,19 +2,31 @@
 // appear here — `npm run validate` fails otherwise, so new skills can't ship
 // without a picture.
 const S = {
+  // Added by the 2026-11 skill audit
+  'adv-tuck-fl': 'flAdv', 'ring-dip': 'dipBottom', 'elevated-oap': 'pushupOne', 'straddle-press-negative': 'pressHS',
+  'straddle-oahs': 'handstandOne', 'handstand-walk': 'handstand', 'ring-muscle-up': 'muscleUp', 'adv-tuck-human-flag': 'flagTuck',
+  'archer-row': 'rowTop', 'kneeling-ab-rollout': 'rollout', 'ab-rollout-negative': 'rollout', 'high-v-sit': 'vSit',
+  'bulgarian-split-squat': 'lunge', 'single-leg-glute-bridge': 'gluteBridge', 'hamstring-slide': 'gluteBridge', 'single-leg-rdl': 'hingeOne',
+  'vertical-jump': 'tuckJump', 'broad-jump': 'tuckJump', 'depth-jump': 'landing', 'copenhagen-plank': 'sidePlank',
+  'cast': 'hipCircle', 'couch-stretch': 'lunge', 'wheel-dropback': 'wheel', 'bow-pose': 'bow',
+  'bhujapidasana': 'firefly', 'bridge-kickover': 'handstandArch', 'back-walkover': 'handstandArch', 'front-handspring': 'handspring',
+  'cheat-gainer': 'flipBack', 'two-thousand': 'nineties', 'double-leg-circles': 'flare', 'go-downs': 'sixStep',
+  'popping-hit': 'music', 'side-glide': 'glide', 'touchdown-raiz': 'macaco', 'sideswipe': 'aerial',
+  'double-leg': 'kick540', 'trick-combo': 'reel', 'turtles': 'freeze', 'crickets': 'freeze',
+  'jackhammer': 'freeze', 'lock-point': 'music', 'wrist-roll': 'wave', 'scooby-doo': 'music',
   // Physical Foundations
-  'joint-prep-wrists': 'catCow', 'scapular-control': 'hangActive', 'hollow-arch-basics': 'hollow', 'compression-foundation': 'vSit',
+  'joint-prep-wrists': 'catCow', 'scapular-control': 'hangActive', 'hollow-arch-basics': 'hollow', 
   // Horizontal Push
   'assisted-pushup': 'pushupKnee', 'pushup': 'pushup', 'decline-pushup': 'pushupDec', 'diamond-pushup': 'pushupDown',
   'archer-pushup': 'pushupWide', 'bicep-pushup': 'pushupDown', 'oap-eccentric': 'pushupOne', 'one-arm-pushup': 'pushupOne',
   'dip': 'dipBottom', 'weighted-dip': 'dipWeight', 'support-hold': 'dipTop', 'straight-bar-dip': 'muscleUp',
   'elbow-lever': 'elbowLever', 'planche-lean': 'plancheLean', 'frog-stand-to-tuck': 'frogStand', 'planche-lean-pushup': 'plancheLeanBent',
-  'pseudo-pushup': 'plancheLeanBent', 'tuck-planche': 'tuckPlanche', 'planche-program-8wk': 'plancheLean', 'tuck-planche-pushup': 'tuckPlanche',
+  'pseudo-pushup': 'plancheLeanBent', 'tuck-planche': 'tuckPlanche', 'tuck-planche-pushup': 'tuckPlanche',
   'adv-tuck-planche': 'advTuck', 'adv-tuck-planche-pushup': 'advTuck', 'straddle-planche': 'strPlanche', 'ninety-deg-hold': 'pushupDown',
-  'ninety-deg-pushup': 'pushupDown', 'full-planche': 'fullPlanche', 'planche-pushup': 'plancheDown', 'wide-pushup': 'pushupWide',
+  'ninety-deg-pushup': 'pushupDown', 'full-planche': 'fullPlanche', 'planche-pushup': 'plancheDown', 
   'uneven-pushup': 'pushupOne', 'spiderman-pushup': 'pushupDown', 'scorpion-pushup': 'pushupOne', 'tigerbend-pushup': 'pikeUp',
   'hindu-pushup': 'pike', 'dive-bomber-pushup': 'pike', 'straddle-planche-pushup': 'plancheDown', 'bench-dip': 'dipBench',
-  'bulgarian-dip': 'dipBottom', 'chest-dip': 'dipBottom', 'archer-dip': 'dipBottom', 'rto-support-hold': 'dipTop',
+  'chest-dip': 'dipBottom', 'archer-dip': 'dipBottom', 'rto-support-hold': 'dipTop',
   'rto-dip': 'dipBottom', 'korean-dip': 'dipBench', 'elbow-dip': 'dipBottom', 'russian-dip': 'dipBottom',
   'impossible-dip': 'dipBottom', 'frog-planche': 'frogStand', 'piked-straddle-planche': 'strPlanche', 'half-lay-planche': 'fullPlanche',
   'wide-grip-planche': 'fullPlanche', 'iron-cross-fly': 'ringsCross', 'straight-arm-rto-dip': 'ringsCross', 'iron-cross': 'ringsCross',
@@ -41,11 +53,11 @@ const S = {
   'swing-360': 'barSpin', 'bar-540': 'barSpin', 'bar-720': 'barSpin', 'muscle-up-360': 'barSpin', 'alley-oop': 'barSpin',
   'baby-giant': 'giant', 'giant': 'giant', 'shrimp-flip': 'flyaway', 'flyaway': 'flyaway', 'front-flyaway': 'flyaway', 'geinger': 'flyaway',
   // Horizontal Pull
-  'assisted-inverted-row': 'row', 'inverted-row': 'row', 'bulgarian-row': 'rowTop', 'one-arm-inverted-row': 'rowTop',
+  'assisted-inverted-row': 'row', 'inverted-row': 'row', 'one-arm-inverted-row': 'rowTop',
   'tuck-fl': 'flTuck', 'front-lever-raises-tuck': 'flTuck', 'tuck-fl-row': 'flTuck', 'single-leg-tuck-fl': 'flOne',
   'adv-single-leg-tuck-fl': 'flOne', 'adv-tuck-fl-row': 'flAdv', 'front-lever-negatives': 'flAdv', 'piked-straddle-front-lever': 'flStrad',
   'straddle-fl': 'flStrad', 'half-lay-front-lever': 'flFull', 'straddle-fl-row': 'flPull', 'full-fl': 'flFull',
-  'full-fl-row': 'flPull', 'fl-pullup': 'flPull', 'victorian-cross': 'flCross', 'back-lever-skin-cat-volume': 'skinCat',
+  'full-fl-row': 'flPull', 'fl-pullup': 'flPull', 'victorian-cross': 'flCross', 
   'tuck-bl': 'blTuck', 'adv-tuck-bl': 'blAdv', 'frog-back-lever': 'blTuck', 'piked-straddle-back-lever': 'blStrad',
   'straddle-bl': 'blStrad', 'half-lay-back-lever': 'blFull', 'full-bl': 'blFull',
   // Core
@@ -62,7 +74,7 @@ const S = {
   'nordic-curl': 'nordic',
   // Mobility Foundations
   'active-flexibility-basics': 'seatedFold', 'shoulder-flexion': 'shoulderUp', 'thoracic-extension': 'thoracic', 'hip-rotation': 'hipRotate',
-  'ankle-dorsiflexion': 'ankleWall', 'cat-cow': 'catCow', 'shoulder-mobility-drills': 'dislocate', 'shoulder-dislocates': 'dislocate',
+  'ankle-dorsiflexion': 'ankleWall', 'cat-cow': 'catCow', 'shoulder-dislocates': 'dislocate',
   'deep-squat-hold': 'deepSquat',
   // Flexibility
   'touching-toes': 'foldFwd', 'plow-pose': 'plow', 'pigeon-stretch': 'pigeon', 'hamstring-loaded-pike': 'seatedFold',
@@ -75,7 +87,7 @@ const S = {
   'flying-pigeon': 'flyPigeon', 'grasshopper': 'grasshopper', 'firefly-pose': 'firefly', 'eight-angle-pose': 'eightAngle',
   'mayurasana': 'peacock', 'flying-split-balance': 'flySplit',
   // Yoga Holds
-  'tree-pose': 'tree', 'warrior-ii': 'warrior2', 'chair-pose': 'chair', 'boat-pose': 'boat', 'king-dance': 'kingDancer',
+  'tree-pose': 'tree', 'boat-pose': 'boat', 'king-dance': 'kingDancer',
   'full-king-dancer': 'kingDancer', 'mermaid-pose': 'mermaid', 'king-pigeon': 'kingPigeon', 'full-king-pigeon': 'kingPigeon',
   'scorpion-pose': 'scorpion', 'hollowback-handstand': 'handstandArch',
   // Acrobatics Foundations
@@ -86,7 +98,7 @@ const S = {
   'cheat-540': 'kick540', '540-hook': 'kick540', 'pop-540': 'popKick', 'pop-720': 'popKick', 'hyperhook': 'hyperhook',
   'jackknife': 'jackknife', 'cheat-900': 'kickBig',
   // Flips & Twists
-  'cartwheel-pop': 'cartwheel', 'no-handed-cartwheel': 'flipSide', 'aerial-drills': 'aerial', 'aerial': 'aerial', 'macaco': 'macaco',
+  'cartwheel-pop': 'cartwheel', 'aerial-drills': 'aerial', 'aerial': 'aerial', 'macaco': 'macaco',
   'raiz': 'macaco', 'back-handspring': 'handspring', 'backflip': 'flipBack', 'front-flip': 'flipFront', 'side-flip': 'flipSide',
   'gainer': 'flipBack', 'webster': 'webster', 'flash-kick': 'flash', 'butterfly-kick': 'butterfly', 'moon-kick': 'moon',
   'full-twist': 'fullTwist', 'corkscrew': 'corkscrew', 'b-twist': 'bTwist',

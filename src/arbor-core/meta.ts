@@ -32,6 +32,7 @@ const BALANCE = new Set([
   'crow-pose', 'assisted-handstand', 'wall-handstand', 'wall-line-drill', 'handstand-bail', 'toe-pulls',
   'freestanding-kickups', 'handstand-shape', 'handstand', 'press-to-handstand', 'one-arm-handstand',
   'headstand', 'forearm-stand', 'shoulder-stand', 'elbow-lever',
+  'straddle-press-negative', 'straddle-oahs', 'handstand-walk',
 ])
 
 export function categoryOf(s: Skill): Category {
@@ -41,16 +42,22 @@ export function categoryOf(s: Skill): Category {
 
 export type Where = 'home' | 'gym'
 
-// Needs rings, dip bars, a pole, a rope, or a high bar with clearance — gym only.
-// Everything else works at home with a pull-up bar, parallettes and a mat.
+// Needs rings, dip bars, a low bar, a pole, a rope, or a bar with clearance — gym only.
+// Home is a doorway pull-up bar, parallettes, an ab wheel, a band and light dumbbells.
 const GYM_ONLY = new Set([
-  'rto-support-hold', 'rto-dip', 'straight-arm-rto-dip', 'iron-cross-fly', 'iron-cross', 'maltese', 'victorian-cross', 'pelican-curl',
-  'dip', 'weighted-dip', 'chest-dip', 'archer-dip', 'bulgarian-dip', 'korean-dip', 'elbow-dip', 'russian-dip', 'impossible-dip',
-  'straight-bar-dip', 'support-hold',
+  'rto-support-hold', 'rto-dip', 'ring-dip', 'straight-arm-rto-dip', 'iron-cross-fly', 'iron-cross', 'maltese', 'victorian-cross',
+  'pelican-curl', 'hefesto',
+  'dip', 'weighted-dip', 'chest-dip', 'archer-dip', 'korean-dip', 'elbow-dip', 'russian-dip', 'impossible-dip',
+  'straight-bar-dip',
   'rope-climb', 'pullover', 'waist-pullup', 'false-grip-transition', 'banded-muscle-up-transition', 'muscle-up-negative',
-  'muscle-up', 'strict-muscle-up',
-  'dead-hang-human-flag', 'tuck-human-flag', 'straddle-human-flag', 'human-flag',
-  'german-hang', 'skin-the-cat', 'back-lever-skin-cat-volume',
+  'muscle-up', 'strict-muscle-up', 'ring-muscle-up',
+  'dead-hang-human-flag', 'tuck-human-flag', 'adv-tuck-human-flag', 'straddle-human-flag', 'human-flag',
+  'german-hang', 'skin-the-cat',
+  // Rows need a bar at hip height or rings; a doorway bar is too high.
+  'assisted-inverted-row', 'inverted-row', 'archer-row', 'one-arm-inverted-row',
+  // A doorway bar has no clearance for the body to swing level beneath it.
+  'tuck-fl-row', 'adv-tuck-fl-row', 'straddle-fl-row', 'full-fl-row', 'fl-pullup',
+  'tuck-bl', 'adv-tuck-bl', 'frog-back-lever', 'piked-straddle-back-lever', 'straddle-bl', 'half-lay-back-lever', 'full-bl',
 ])
 
 export const canDo = (s: Skill, where: Where): boolean =>
@@ -73,4 +80,4 @@ export const WORKING_SIZE: Record<Category, number> = {
  * Loading a movement needs a real base, not just the entry criterion: these
  * only open once every prerequisite is "in progress" or better.
  */
-export const STRICT = new Set(['weighted-pullup', 'weighted-dip', 'oap-negative', 'oac-negative', 'oap-eccentric'])
+export const STRICT = new Set(['weighted-pullup', 'weighted-dip', 'oap-negative', 'oac-negative', 'oap-eccentric', 'straddle-oahs'])

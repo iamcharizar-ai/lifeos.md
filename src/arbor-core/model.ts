@@ -35,6 +35,10 @@ export interface SkillRec {
 
 export type Progress = Record<string, SkillRec>
 
+/** Skills merged into another: events logged under the old id count for the new one. */
+export const SKILL_ALIAS: Record<string, string> = { 'no-handed-cartwheel': 'aerial' }
+export const canonicalId = (id: string): string => SKILL_ALIAS[id] ?? id
+
 export function rankOf(skill: Skill, rec: SkillRec | undefined): Rank {
   if (skill.unit && skill.t) {
     const cur = rec?.cur ?? 0
@@ -88,7 +92,7 @@ export function foldArbor(state: ArborState, events: LedgerEvent[]): ArborState 
   for (const ev of events) {
     const p = ev.payload ?? {}
     if (ev.type === 'skill') {
-      const id = String(p.skillId ?? '')
+      const id = canonicalId(String(p.skillId ?? ''))
       // Events from the pre-2026-10 Arbor carried { skillId, status } only: not ours, skip.
       if (!id || (typeof p.value !== 'number' && typeof p.done !== 'boolean')) continue
       if (typeof p.value === 'number') {
