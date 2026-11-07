@@ -61,6 +61,10 @@ How the whole system fits together, and why, is in [docs/GUIDE.md](docs/GUIDE.md
 - **Synced between phone and PC**: an optional cloud sync (via Supabase) lets an action on your phone show up on your PC in under a second, and vice versa. It works as an append-only log - every action is recorded as an event, and the current state is always rebuilt from that history rather than overwritten, so nothing gets silently lost.
 - **Installable like an app**: it's a Progressive Web App, meaning you can add it to your phone's home screen from the browser and it behaves like a normal app icon, no app store needed.
 
+## Letting an AI read your data
+
+The pages are pictures, so a pasted link shows an AI nothing. `/api/ai/<secret>` returns the whole system as plain text, `/api/mcp/<secret>` is a read-only MCP server over the same data, and each app has a short `/ai/<secret>` link. `npm run ai:links` prints them. How it works, the secret and what it can and cannot do: [docs/AI-ACCESS.md](docs/AI-ACCESS.md).
+
 ## Setting up the cloud sync (optional, ~15 minutes)
 
 1. Create a free Supabase project, open its SQL editor, and run the setup script included in this repo (`supabase/schema.sql`).

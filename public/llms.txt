@@ -1,0 +1,15 @@
+# Life OS
+
+> A private, single-user life-tracking system: daily habits, a gym logger (Strong), a calisthenics skill tree (Arbor), guitar practice (Woodshed), a game layer that mirrors the work (Pokedex) and Google Health data (sleep, steps, weight).
+
+This site is a JavaScript app. The page you fetched is an empty shell: the data is private and loads only inside the owner's own app, so there is nothing to read here.
+
+## How to read the data
+
+The owner has a read-only snapshot link of the form `https://redesign-life-os-ui.vercel.app/api/ai/<secret>`. It returns everything as plain text (Markdown), or JSON with `?format=json`. If the owner has not given you one, ask for it. Do not guess the secret.
+
+Options on that link: `?days=30` (history, up to 120), `?sections=today,habits,months,game,body,arbor,woodshed,workouts`, `?redact=health` (leave out band readings, weight and Sleep).
+
+The same data is available to MCP clients at `https://redesign-life-os-ui.vercel.app/api/mcp/<secret>` (read-only tools: get_snapshot, get_today, get_habits, get_months, get_game, get_health, get_arbor, get_woodshed, get_workouts, list_event_types, query_events).
+
+Everything is read-only. Nothing you do through these links can change the owner's data.

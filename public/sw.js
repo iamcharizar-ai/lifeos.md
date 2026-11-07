@@ -80,6 +80,8 @@ self.addEventListener('fetch', (e) => {
   const req = e.request
   const url = new URL(req.url)
   if (req.method !== 'GET' || url.origin !== self.location.origin) return
+  // the AI snapshot and the functions are never the app: a slow answer must not be swapped for the cached shell
+  if (/^\/(api|ai|mcp)\//.test(url.pathname)) return
 
   if (url.pathname.startsWith('/assets/') || url.pathname === '/favicon.svg') {
     e.respondWith(
