@@ -32,7 +32,7 @@ Deleted habits are remembered as deleted, so a phone and a PC that disagree can 
 Three habits are fed by other apps through the same event ledger and wear those apps' looks:
 
 - **Gym** is ticked by Strong. Finishing a workout there writes a `workout` event; Life OS ticks Gym from it. Once the first workout has come through, Gym can no longer be ticked by hand (until then it still can, so you are never locked out).
-- **Arbor skills** opens into the calisthenics skills the Arbor coach picked for this morning. Tick each one here; type a number first to log a new best. Every tick is a `skill` event that Arbor reads, and the habit ticks itself when all of them are done. The day's plan is published once (a `plan` event) so the phone, the desktop and Strong all show the same thing.
+- **Arbor skills** opens into the calisthenics skills the Arbor coach picked for this morning. Tick each one here; type a number first to log what you actually did, even if it is lower than last time. Every tick is a `skill` event that Arbor reads, and the habit ticks itself when all of them are done. The day's plan is published once (a `plan` event) so the phone, the desktop and Strong all show the same thing.
 
 - **Guitar** opens into today's practice session from the Woodshed coach. Log each item by how it went (rough, nearly, clean); every log is a `guitar` event that Woodshed reads, and the habit ticks itself when the whole session is logged. Woodshed has the tabs and the metronome. Set `VITE_WOODSHED_URL` to its address so the link in the block points there.
 

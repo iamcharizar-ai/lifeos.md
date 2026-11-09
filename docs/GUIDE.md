@@ -132,7 +132,7 @@ Rows are only ever added, never changed. Each app reads the rows it cares about 
 | `config` | Life OS | Life OS, Pokedex | the whole habit library, each time it changes |
 | `workout` / `workout_clear` | Strong | Life OS, Pokedex | a gym session was finished or deleted |
 | `routine`, `workout_delete` | Strong | Strong | routines and history, synced between your devices |
-| `skill` | Arbor, Life OS, Strong | Arbor, Life OS, Strong, Pokedex | a skill was practised (optionally with a new best) |
+| `skill` | Arbor, Life OS, Strong | Arbor, Life OS, Strong, Pokedex | a skill was practised (optionally with the reps / seconds you did) |
 | `plan` | whichever app opens first that day | Arbor, Life OS, Strong, Pokedex | today's Arbor skills, frozen for the day |
 | `guitar` | Woodshed, Life OS | Woodshed, Life OS, Pokedex | a practice item was logged |
 | `guitar_plan` | whichever app opens first | Woodshed, Life OS, Pokedex | today's Woodshed session, frozen for the day |
@@ -146,7 +146,7 @@ Rows are only ever added, never changed. Each app reads the rows it cares about 
 Four habits are fed by other apps and wear those apps' looks:
 
 - **Gym** is ticked by Strong. Finishing a workout writes a `workout` event; Life OS ticks Gym from it. Once the first Strong workout has ever come through, Gym can no longer be ticked by hand. Until then it can, so you are never locked out before the link is proven.
-- **Arbor skills** opens into the skills the coach picked. You tick each one in Life OS (type a number first to log a new best). The habit ticks itself when all are done.
+- **Arbor skills** opens into the skills the coach picked. You tick each one in Life OS (type a number first to log what you actually did, even if lower than last time). The habit ticks itself when all are done.
 - **Woodshed** opens into today's session. You log each item with how it felt. The habit ticks itself when the session is done.
 - **The partner card** at the top is the Pokedex's window into Life OS.
 

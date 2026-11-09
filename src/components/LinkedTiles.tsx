@@ -155,7 +155,7 @@ export function ArborHead({ name, xp, ticked, done, total, open, onToggle }: { n
   )
 }
 
-/** Today's coach-picked skills. Ticking one logs the practice for Arbor; a number logs a new best too. */
+/** Today's coach-picked skills. Ticking one logs the practice for Arbor; a number logs what you actually did (higher or lower) too. */
 export function ArborSkills({ ctx, today }: { ctx: LinkedCtx; today: string }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const skills = useMemo(
@@ -179,7 +179,7 @@ export function ArborSkills({ ctx, today }: { ctx: LinkedCtx; today: string }) {
                 inputMode="numeric"
                 value={drafts[sk.id] ?? ''}
                 placeholder={cur ? String(cur) : sk.unit}
-                aria-label={`New best for ${sk.name} (${sk.unit})`}
+                aria-label={`Today's ${sk.unit} for ${sk.name}`}
                 onChange={(e) => setDrafts((d) => ({ ...d, [sk.id]: e.target.value.replace(/[^\d.]/g, '').slice(0, 5) }))}
                 className="arbor-input num"
               />
@@ -189,8 +189,10 @@ export function ArborSkills({ ctx, today }: { ctx: LinkedCtx; today: string }) {
               aria-pressed={done}
               aria-label={`${sk.name} practised`}
               onClick={() => {
+                // Whatever you typed is what you did today, higher OR lower than last time. `cur` is the
+                // current ability (last write wins), not a high-water mark, so a weaker day is recorded too.
                 const n = Number(drafts[sk.id])
-                ctx.onSkill(sk.id, !done, !done && drafts[sk.id] && n > cur ? n : undefined)
+                ctx.onSkill(sk.id, !done, !done && drafts[sk.id] && Number.isFinite(n) && n > 0 && n !== cur ? n : undefined)
                 setDrafts((d) => ({ ...d, [sk.id]: '' }))
               }}
               className="arbor-tick"
