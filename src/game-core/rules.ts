@@ -348,3 +348,23 @@ export const MEGA_PER_BOND = 0.05
 export const DUPE_HEARTS = 20
 /** Once the whole party is at the last bond level, every this many Trainer hearts is a Ribbon. */
 export const RIBBON_EVERY = 150
+
+// ── version 21.1: the screens and the rules agree again (AUDIT-2026-11-10.md) ──
+/**
+ * The first day of the fixes found on 10 Nov 2026, the day they shipped. Earlier days fold as they always did.
+ * - A Rare Candy is for any Pokemon you own that still has a level to gain, the partner too (it had been "fully trained only",
+ *   while the screens offered it only to those not fully trained: it could be used on nobody).
+ * - Momentum is the seven days again (momentumWindow below): what the Life OS card draws, and one meaning of "a day that counts".
+ * - Endure is read from version 21's own perk ladder (100 Trainer hearts), as its screen says.
+ * A `let` so a test of version 21 as it first shipped can switch these off for its own process (setV21Fix).
+ */
+export let V21_FIX = '2026-11-10'
+export const setV21Fix = (day: string): void => { V21_FIX = day }
+/**
+ * Momentum from V21_FIX: of the last seven days, how many counted (two pillars, and a good night can be one of them but never the
+ * only one). The top step is six of seven, so one rest day a week does not cost it. The screens draw these steps, never their own.
+ */
+export const MOMENTUM_WINDOW_STEPS: [days: number, mult: number][] = [[3, 1.2], [5, 1.35], [6, 1.5]]
+export const momentumWindow = (days: number): number => [...MOMENTUM_WINDOW_STEPS].reverse().find(([d]) => days >= d)?.[1] ?? 1
+/** The steps of the seven-day rule before version 21 (momentumMult): the top was seven of seven. */
+export const MOMENTUM_OLD_STEPS: [days: number, mult: number][] = [[3, 1.2], [5, 1.35], [7, 1.5]]

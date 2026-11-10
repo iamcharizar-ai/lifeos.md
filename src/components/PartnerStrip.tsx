@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { nameOf, type Game, type Moment } from '../game-core/fold.ts'
-import { MOMENTUM_WINDOW } from '../game-core/rules.ts'
+import { MOMENTUM_OLD_STEPS, MOMENTUM_WINDOW } from '../game-core/rules.ts'
 import { POKEDEX_URL, freshMoments, momentKey, momentText, spriteUrl } from '../lib/game'
 
 /** A sprite from the Pokedex site; a plain block with the initial if it cannot load. */
@@ -41,6 +41,9 @@ export function PartnerStrip({ game }: { game: Game }) {
   // the seven days before today, oldest first, then today
   const prev = game.days.slice(-(MOMENTUM_WINDOW + 1), -1)
   const missing = MOMENTUM_WINDOW - prev.length
+  // the steps come from the rule itself (game-core), so the dots and the multiplier beside them cannot disagree
+  const steps = momentum.steps ?? MOMENTUM_OLD_STEPS
+  const rule = `Days that counted in the last seven: ${steps.map(([d, m]) => `${d} make XP ×${m}`).join(', ')}. A day counts with two pillars; a good night can be one of them, never the only one. It slides back a day at a time, never resets.`
 
   return (
     <section className={`dex-card is-lean ${game.aura ? `aura-${game.aura}` : ''}`} aria-label="Your partner">
@@ -66,7 +69,7 @@ export function PartnerStrip({ game }: { game: Game }) {
             <motion.i className="bar-today" animate={{ width: `${(pct - before) * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
           </div>
         </div>
-        <div className="dex-lean-row" title="Days with two pillars in the last seven: 3 make XP ×1.2, 5 ×1.35, 7 ×1.5. It slides back a day at a time, never resets.">
+        <div className="dex-lean-row" title={rule}>
           <span className="dex-week" aria-label={`Momentum: ${momentum.days} of the last 7 days counted`}>
             {Array.from({ length: MOMENTUM_WINDOW }, (_, i) => {
               const d = prev[i - missing]

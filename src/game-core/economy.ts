@@ -157,11 +157,11 @@ export const ITEMS: Record<string, ItemDef> = {
   'coin-case': { name: 'Coin Case', kind: 'unique', text: 'The Mart shows four deals a day.' },
   'old-charm': { name: 'Old Charm', kind: 'unique', text: 'Every egg hatches after a fifth fewer steps: a Mystery Egg after 48,000, not 60,000.' },
   'key-stone': { name: 'Key Stone', kind: 'key', text: 'Without it, no Mega Evolution. Forge Mega Stones with shards.' },
-  'red-shard': { name: 'Red Shard', kind: 'shard', text: 'Gym. Three forge a Mega X.' },
-  'blue-shard': { name: 'Blue Shard', kind: 'shard', text: 'Code. Three forge a Mega Y.' },
-  'yellow-shard': { name: 'Yellow Shard', kind: 'shard', text: 'Guitar. Three forge a Mega Y.' },
-  'green-shard': { name: 'Green Shard', kind: 'shard', text: 'Arbor. Three forge a Mega with only one form.' },
-  'comet-shard': { name: 'Comet Shard', kind: 'shard', text: 'A month reviewed. Fits any Mega: three forge one.' },
+  'red-shard': { name: 'Red Shard', kind: 'shard', text: 'Gym. A Mega Stone takes three shards of three different colours.' },
+  'blue-shard': { name: 'Blue Shard', kind: 'shard', text: 'Code. A Mega Stone takes three shards of three different colours.' },
+  'yellow-shard': { name: 'Yellow Shard', kind: 'shard', text: 'Guitar. A Mega Stone takes three shards of three different colours.' },
+  'green-shard': { name: 'Green Shard', kind: 'shard', text: 'Arbor. A Mega Stone takes three shards of three different colours.' },
+  'comet-shard': { name: 'Comet Shard', kind: 'shard', text: 'A month reviewed. It stands in for any colour you are missing when a Mega Stone is forged.' },
   'odd-incense': { name: 'Odd Incense', kind: 'lure', text: 'Pick the next wild Pokemon from three code types (Psychic, Electric, Ghost).' },
   'rock-incense': { name: 'Rock Incense', kind: 'lure', text: 'Pick the next wild Pokemon from three gym types (Fighting, Rock, Ground, Steel, Fire, Dragon).' },
   'pure-incense': { name: 'Pure Incense', kind: 'lure', text: 'Pick the next wild Pokemon from three guitar types (Fairy, Normal, Flying).' },
@@ -444,7 +444,7 @@ export const DIRE_HIT: Record<string, number> = { 'dire-hit': 0.1, 'dire-hit-2':
 for (const [id, add] of Object.entries(DIRE_HIT)) ITEMS[id] = { name: `Dire Hit${id.endsWith('2') ? ' 2' : id.endsWith('3') ? ' 3' : ''}`, kind: 'battle', text: `Use it before the day's work: today's chance of a critical hit +${Math.round(add * 100)}%.` }
 ITEMS['guard-spec'] = { name: 'Guard Spec.', kind: 'battle', text: 'Use it to stand guard: the next empty day costs nothing.' }
 ITEMS['honey'] = { name: 'Honey', kind: 'field', text: 'Spread it: the next wild Pokemon to come is a rare one.' }
-ITEMS['rare-candy'] = { name: 'Rare Candy', kind: 'candy', text: 'Give it to a Pokemon in My Pokemon: one level up.' }
+ITEMS['rare-candy'] = { name: 'Rare Candy', kind: 'candy', text: 'Give it to any of your Pokemon, your partner too: one level up.' }
 
 // ── evolution items: one stage for a Pokemon that is not the partner ──
 /** An item evolves a Pokemon in My Pokemon by one stage when the form it would become has one of these types. */

@@ -496,6 +496,31 @@ const LEADER_GEMS_V21 = {
 };
 /** A Mega is worth this per bond level of its Pokemon, and half of that from the party. */
 const MEGA_PER_BOND = .05;
+/**
+* The first day of the fixes found on 10 Nov 2026, the day they shipped. Earlier days fold as they always did.
+* - A Rare Candy is for any Pokemon you own that still has a level to gain, the partner too (it had been "fully trained only",
+*   while the screens offered it only to those not fully trained: it could be used on nobody).
+* - Momentum is the seven days again (momentumWindow below): what the Life OS card draws, and one meaning of "a day that counts".
+* - Endure is read from version 21's own perk ladder (100 Trainer hearts), as its screen says.
+* A `let` so a test of version 21 as it first shipped can switch these off for its own process (setV21Fix).
+*/
+let V21_FIX = "2026-11-10";
+/**
+* Momentum from V21_FIX: of the last seven days, how many counted (two pillars, and a good night can be one of them but never the
+* only one). The top step is six of seven, so one rest day a week does not cost it. The screens draw these steps, never their own.
+*/
+const MOMENTUM_WINDOW_STEPS = [
+	[3, 1.2],
+	[5, 1.35],
+	[6, 1.5]
+];
+const momentumWindow = (days) => [...MOMENTUM_WINDOW_STEPS].reverse().find(([d]) => days >= d)?.[1] ?? 1;
+/** The steps of the seven-day rule before version 21 (momentumMult): the top was seven of seven. */
+const MOMENTUM_OLD_STEPS = [
+	[3, 1.2],
+	[5, 1.35],
+	[7, 1.5]
+];
 const BODY_FIELDS = [
 	"sleepScore",
 	"steps",
@@ -1042,27 +1067,27 @@ const ITEMS$1 = {
 	"red-shard": {
 		name: "Red Shard",
 		kind: "shard",
-		text: "Gym. Three forge a Mega X."
+		text: "Gym. A Mega Stone takes three shards of three different colours."
 	},
 	"blue-shard": {
 		name: "Blue Shard",
 		kind: "shard",
-		text: "Code. Three forge a Mega Y."
+		text: "Code. A Mega Stone takes three shards of three different colours."
 	},
 	"yellow-shard": {
 		name: "Yellow Shard",
 		kind: "shard",
-		text: "Guitar. Three forge a Mega Y."
+		text: "Guitar. A Mega Stone takes three shards of three different colours."
 	},
 	"green-shard": {
 		name: "Green Shard",
 		kind: "shard",
-		text: "Arbor. Three forge a Mega with only one form."
+		text: "Arbor. A Mega Stone takes three shards of three different colours."
 	},
 	"comet-shard": {
 		name: "Comet Shard",
 		kind: "shard",
-		text: "A month reviewed. Fits any Mega: three forge one."
+		text: "A month reviewed. It stands in for any colour you are missing when a Mega Stone is forged."
 	},
 	"odd-incense": {
 		name: "Odd Incense",
@@ -2095,7 +2120,7 @@ ITEMS$1["honey"] = {
 ITEMS$1["rare-candy"] = {
 	name: "Rare Candy",
 	kind: "candy",
-	text: "Give it to a Pokemon in My Pokemon: one level up."
+	text: "Give it to any of your Pokemon, your partner too: one level up."
 };
 /** An item evolves a Pokemon in My Pokemon by one stage when the form it would become has one of these types. */
 const EVO_ITEMS = {
@@ -15306,6 +15331,25 @@ const emptyDay = (f) => {
 	const mine = f.habits.filter((h) => !h.measured);
 	return mine.length > 0 && mine.every((h) => !h.done && h.frac === 0);
 };
+/**
+* Can this Pokemon take a Rare Candy on `day`? The one rule, read by the fold and by every screen that offers a candy, so a button
+* is never shown that the game would ignore.
+*   from V21_FIX   anyone you own with a level still to gain: below fully trained, or fully trained and below the last level
+*   version 21     the fully trained only (below the last level)
+*   version 14     My Pokemon and the fully trained (below the last level)
+*   version 13     My Pokemon
+*/
+function canCandy(g, uid, day) {
+	if (day < "2026-10-15") return false;
+	const inBox = g.queue.find((m) => m.uid === uid), trained = g.graduates.find((m) => m.uid === uid);
+	if (day >= V21_FIX) {
+		const m = g.partner.uid === uid ? g.partner : inBox ?? trained;
+		if (!m) return false;
+		return levelOf(m.xp) < (m.graduated ? 100 : graduateAt(SPECIES[m.base]?.x ?? 1));
+	}
+	const m = (day >= V21_START ? void 0 : inBox) ?? (day >= "2026-10-19" ? trained : void 0);
+	return m !== void 0 && levelOf(m.xp) < 100;
+}
 function foldGame(facts, opts = {}) {
 	const moments = [];
 	const dex = {};
@@ -16289,10 +16333,20 @@ function foldGame(facts, opts = {}) {
 				return;
 			}
 			case "candy": {
-				const m = (v21On(day) ? void 0 : queue.find((x) => x.uid === u.uid)) ?? (v14On(day) ? graduates.find((x) => x.uid === u.uid) : void 0);
-				if (!v13On(day) || item !== "rare-candy" || !inv[item] || !m || levelOf(m.xp) >= 100) return;
+				const m = [
+					partner,
+					...queue,
+					...graduates
+				].find((x) => x.uid === u.uid);
+				if (item !== "rare-candy" || !inv[item] || !m || !canCandy({
+					partner,
+					queue,
+					graduates
+				}, m.uid, day)) return;
 				inv[item]--;
-				m.xp = Math.max(m.xp, xpForLevel(levelOf(m.xp) + 1));
+				const to = xpForLevel(levelOf(m.xp) + 1);
+				if (m.uid === partner.uid && day >= V21_FIX) gain(Math.max(0, to - partner.xp), day);
+				else m.xp = Math.max(m.xp, to);
 				return;
 			}
 			case "vitamin": {
@@ -16410,7 +16464,8 @@ function foldGame(facts, opts = {}) {
 	let asleep = false;
 	let momentum = {
 		days: 0,
-		mult: 1
+		mult: 1,
+		steps: MOMENTUM_OLD_STEPS
 	};
 	/** the partner, and its XP, as today began: what the bar showed before anything was ticked */
 	let dayStart = {
@@ -16446,7 +16501,7 @@ function foldGame(facts, opts = {}) {
 			});
 		}
 		const gone = facts[i - 2];
-		const shield = !(stakes && gone && gone.day >= "2026-10-12" && dayGap(gone.day, f.day) === 2 && emptyDay(gone)) || !v13 ? null : partner.held === "focus-sash" ? "sash" : hasPerk(perkLevel(f.day), "endure") && (!lastEndure || dayGap(lastEndure, f.day) >= endureDays()) ? "endure" : guard ? "guard" : null;
+		const shield = !(stakes && gone && gone.day >= "2026-10-12" && dayGap(gone.day, f.day) === 2 && emptyDay(gone)) || !v13 ? null : partner.held === "focus-sash" ? "sash" : (f.day >= V21_FIX ? perkOn(f.day, "endure") : hasPerk(perkLevel(f.day), "endure")) && (!lastEndure || dayGap(lastEndure, f.day) >= endureDays()) ? "endure" : guard ? "guard" : null;
 		if (shield && gone) {
 			if (shield === "endure") lastEndure = f.day;
 			if (shield === "guard") guard = false;
@@ -16527,12 +16582,14 @@ function foldGame(facts, opts = {}) {
 			slide = MOMENTUM_STEPS.reduce((best, x, k) => Math.abs(x - old) < Math.abs(MOMENTUM_STEPS[best] - old) ? k : best, 0);
 			research.points = Math.round(research.points * RANK_V21 / researchCost(research.rank));
 		}
-		const mult = v21 ? MOMENTUM_STEPS[slide] : momentumMult(mDays);
+		const windowOn = f.day >= V21_FIX;
+		const mult = windowOn ? momentumWindow(mDays) : v21 ? MOMENTUM_STEPS[slide] : momentumMult(mDays);
 		momentum = {
 			days: mDays,
-			mult
+			mult,
+			steps: windowOn ? MOMENTUM_WINDOW_STEPS : v21 ? null : MOMENTUM_OLD_STEPS
 		};
-		if (v21) if (E >= 2) slide = Math.min(MOMENTUM_STEPS.length - 1, slide + 1);
+		if (v21 && !windowOn) if (E >= 2) slide = Math.min(MOMENTUM_STEPS.length - 1, slide + 1);
 		else if (restWeek !== weekOf(f.day)) restWeek = weekOf(f.day);
 		else slide = Math.max(0, slide - 1);
 		const dry = days.length >= 2 && days.slice(-2).every((d) => d.pillars === 0);
@@ -17119,6 +17176,7 @@ function foldGame(facts, opts = {}) {
 			evalFeats(f.day);
 		}
 		if (f.day >= "2026-11-05") study();
+		if (f.day >= V21_FIX) gain(0, f.day);
 		const reading = typeof f.body?.steps === "number" ? Math.max(0, f.body.steps) : null;
 		if (reading !== null) stepLog.push(reading);
 		if (reading !== null && f.day >= "2026-11-04") {
@@ -17379,7 +17437,7 @@ function foldGame(facts, opts = {}) {
 		theme,
 		team,
 		teamSlots: teamSlotsNow(),
-		power: powerOf(Boolean(last && v13On(last.day)), Boolean(last && v14On(last.day)), Boolean(last && v16On(last.day))),
+		power: powerOf(Boolean(last && v13On(last.day)), Boolean(last && v14On(last.day)), Boolean(last && v16On(last.day)), Boolean(last && v21On(last.day))),
 		quests: last ? { weekly: WEEKLY_QUESTS.map(quest(wkNow)) } : { weekly: [] },
 		season: (() => {
 			const ym = last ? last.day.slice(0, 7) : "";

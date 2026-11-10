@@ -18,7 +18,7 @@ import {
   CLAIM_AUTO, KIT_IRON, KIT_SHARD_EVERY, PAY_STREAK, PILLARS_FOR_A_DAY, REPEL_DAYS, SEASON_STEP, SHINY_ODDS, SHINY_ODDS_WORN, SLEEP_AFTER, SLEEP_DEEP, DEEP_SLEEP_MIN, DEEP_SLEEP_FROM, REVIEW_GEMS, SLEEP_HABIT, SLIP, STAKES_FROM, START_SPECIES, STAT_DAYS, STEPS_GOAL, TAGS,
   TEAM_BONUS, TEAM_HOLE, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
   type BondPerk, V13_START, V14_START, V15_START, V16_START, V20_START, BOND_PERKS,
-  V21_START, EFFORT_TAGS, MAX_DAY_CHORES, DAY_XP_MULT, DAY_HIT_MULT, DAY_HEARTS, DAY_RESEARCH, DAY_GEMS, DAY_COINS, CHORE_COINS, FIRST_PILLAR, SLEEP_BONUS, bountyMult, MOMENTUM_STEPS, MOMENTUM_PILLARS, RANK_V21, DESK_BONUS, LEADER_GEMS_V21, MEGA_PER_BOND, DUPE_HEARTS, RIBBON_EVERY, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
+  V21_START, V21_FIX, MOMENTUM_WINDOW_STEPS, MOMENTUM_OLD_STEPS, momentumWindow, EFFORT_TAGS, MAX_DAY_CHORES, DAY_XP_MULT, DAY_HIT_MULT, DAY_HEARTS, DAY_RESEARCH, DAY_GEMS, DAY_COINS, CHORE_COINS, FIRST_PILLAR, SLEEP_BONUS, bountyMult, MOMENTUM_STEPS, MOMENTUM_PILLARS, RANK_V21, DESK_BONUS, LEADER_GEMS_V21, MEGA_PER_BOND, DUPE_HEARTS, RIBBON_EVERY, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { COUNTER_V21, EGG_WAIT_MAX, researchRewardV21, ribbonOptions, workEgg, BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
@@ -344,7 +344,7 @@ export interface Game {
   days: DayResult[]
   today: DayResult
   /** the multiplier in force today, and how many of the last seven days counted */
-  momentum: { days: number; mult: number }
+  momentum: { days: number; mult: number; /** the seven-day rule's steps in force ([days, multiplier], lowest first), for the screens to draw; null while version 21's ladder was the rule (5 to 9 Nov 2026) */ steps: [number, number][] | null }
   perfectDays: number
   regions: number
   league: LeagueState
@@ -454,6 +454,26 @@ export const isGym = (league: number, slot: number): boolean => slot < (LEAGUES[
 const emptyDay = (f: DayFacts): boolean => {
   const mine = f.habits.filter((h) => !h.measured)
   return mine.length > 0 && mine.every((h) => !h.done && h.frac === 0)
+}
+
+/**
+ * Can this Pokemon take a Rare Candy on `day`? The one rule, read by the fold and by every screen that offers a candy, so a button
+ * is never shown that the game would ignore.
+ *   from V21_FIX   anyone you own with a level still to gain: below fully trained, or fully trained and below the last level
+ *   version 21     the fully trained only (below the last level)
+ *   version 14     My Pokemon and the fully trained (below the last level)
+ *   version 13     My Pokemon
+ */
+export function canCandy(g: Pick<Game, 'partner' | 'queue' | 'graduates'>, uid: string, day: string): boolean {
+  if (day < V13_START) return false
+  const inBox = g.queue.find((m) => m.uid === uid), trained = g.graduates.find((m) => m.uid === uid)
+  if (day >= V21_FIX) {
+    const m = g.partner.uid === uid ? g.partner : inBox ?? trained
+    if (!m) return false
+    return levelOf(m.xp) < (m.graduated ? MAX_LEVEL : graduateAt(SPECIES[m.base]?.x ?? 1))
+  }
+  const m = (day >= V21_START ? undefined : inBox) ?? (day >= V14_START ? trained : undefined)
+  return m !== undefined && levelOf(m.xp) < MAX_LEVEL
 }
 
 export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): Game {
@@ -1173,10 +1193,14 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       case 'candy': {
         // version 14: a fully trained Pokemon takes a candy too, up to the last level
         // version 21: a candy only for the fully trained (levels are the partner's journey)
-        const m = (v21On(day) ? undefined : queue.find((x) => x.uid === u.uid)) ?? (v14On(day) ? graduates.find((x) => x.uid === u.uid) : undefined)
-        if (!v13On(day) || item !== 'rare-candy' || !inv[item] || !m || levelOf(m.xp) >= MAX_LEVEL) return
+        // version 21.1: any Pokemon you own that still has a level to gain, the partner too (canCandy is the one rule, read by the screens as well)
+        const m = [partner, ...queue, ...graduates].find((x) => x.uid === u.uid)
+        if (item !== 'rare-candy' || !inv[item] || !m || !canCandy({ partner, queue, graduates }, m.uid, day)) return
         inv[item]--
-        m.xp = Math.max(m.xp, xpForLevel(levelOf(m.xp) + 1))
+        const to = xpForLevel(levelOf(m.xp) + 1)
+        // the partner's level is its journey: it evolves, or finishes its training, on the spot
+        if (m.uid === partner.uid && day >= V21_FIX) gain(Math.max(0, to - partner.xp), day)
+        else m.xp = Math.max(m.xp, to)
         return
       }
       case 'vitamin': {
@@ -1265,7 +1289,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   let display = partner.form
   let aura: Game['aura'] = null
   let asleep = false
-  let momentum = { days: 0, mult: 1 }
+  let momentum: Game['momentum'] = { days: 0, mult: 1, steps: MOMENTUM_OLD_STEPS }
   /** the partner, and its XP, as today began: what the bar showed before anything was ticked */
   let dayStart = { uid: partner.uid, xp: partner.xp }
 
@@ -1294,7 +1318,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     // version 13: the bond's Endure (one empty day a week), the Focus Sash, or a Guard Spec standing guard: the day costs nothing
     const shield = !(stakes && gone && gone.day >= STAKES_FROM && dayGap(gone.day, f.day) === 2 && emptyDay(gone)) || !v13 ? null
       : partner.held === 'focus-sash' ? 'sash' as const
-        : hasPerk(perkLevel(f.day), 'endure') && (!lastEndure || dayGap(lastEndure, f.day) >= endureDays()) ? 'endure' as const
+        : (f.day >= V21_FIX ? perkOn(f.day, 'endure') : hasPerk(perkLevel(f.day), 'endure')) && (!lastEndure || dayGap(lastEndure, f.day) >= endureDays()) ? 'endure' as const
           : guard ? 'guard' as const : null
     if (shield && gone) {
       if (shield === 'endure') lastEndure = f.day
@@ -1354,9 +1378,11 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       research.points = Math.round((research.points * RANK_V21) / researchCost(research.rank))
     }
     // version 21: momentum slides: a day of MOMENTUM_PILLARS effortful pillars up a step, any other day down one, but for one free day a week
-    const mult = v21 ? MOMENTUM_STEPS[slide] : momentumMult(mDays)
-    momentum = { days: mDays, mult }
-    if (v21) {
+    // version 21.1: the seven days again, the top step at six of them (what the Life OS card draws; RULES-V21.md, the fixes)
+    const windowOn = f.day >= V21_FIX
+    const mult = windowOn ? momentumWindow(mDays) : v21 ? MOMENTUM_STEPS[slide] : momentumMult(mDays)
+    momentum = { days: mDays, mult, steps: windowOn ? MOMENTUM_WINDOW_STEPS : v21 ? null : MOMENTUM_OLD_STEPS }
+    if (v21 && !windowOn) {
       if (E >= MOMENTUM_PILLARS) slide = Math.min(MOMENTUM_STEPS.length - 1, slide + 1)
       else if (restWeek !== weekOf(f.day)) restWeek = weekOf(f.day)
       else slide = Math.max(0, slide - 1)
@@ -1794,6 +1820,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       evalFeats(f.day)
     }
     if (f.day >= V20_START) study()
+    // version 21.1: whoever leads at the end of the day's actions evolves today if its level is already there (a Rare Candy given in the Box, then led)
+    if (f.day >= V21_FIX) gain(0, f.day)
 
     // version 19: walking finds a Trail Egg for every TRAIL_EGG_STEPS steps, all of them (the egg's own count is not cut any more); it waits in Collect
     const reading = typeof f.body?.steps === 'number' ? Math.max(0, f.body.steps) : null
@@ -1970,7 +1998,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     theme,
     team,
     teamSlots: teamSlotsNow(),
-    power: powerOf(Boolean(last && v13On(last.day)), Boolean(last && v14On(last.day)), Boolean(last && v16On(last.day))),
+    power: powerOf(Boolean(last && v13On(last.day)), Boolean(last && v14On(last.day)), Boolean(last && v16On(last.day)), Boolean(last && v21On(last.day))),
     quests: last ? { weekly: WEEKLY_QUESTS.map(quest(wkNow)) } : { weekly: [] },
     season: (() => {
       const ym = last ? last.day.slice(0, 7) : ''
