@@ -521,6 +521,34 @@ const MOMENTUM_OLD_STEPS = [
 	[5, 1.35],
 	[7, 1.5]
 ];
+//#endregion
+//#region src/game-core/rules.ts
+/** The first day of version 22: the day it deploys. A placeholder far in the future until the owner approves. A `let` only so a test can set it. */
+let V22_START = "2099-01-01";
+const v22On = (day) => day >= V22_START;
+/**
+* The wild Pokemon: every habit ticked takes one HP off, nothing multiplies it (3.3). Its HP is a fixed number of ticks by rarity, set from the owner's
+* real ledger (39 days, 14.8 ticks a day) so a catch takes as long as it did when the day hit for 100 x share^1.5 x ball: 0.267 ticks to a legacy HP.
+* (549 ticks against 2,059 HP over the days that were not perfect; then 10% off, because the simulator's catches a month at the real pace were 4.3 against 4.8.)
+* A busier player ticks more of the list, and the old curve paid them more than linear ticks do: at the 'normal' pace v22 catches 7.1 a month against 11.2. That is the cost of the rule "one tick, one HP".
+*/
+const TICKS_PER_HP = .24;
+const WILD_TICKS = {
+	C: 170,
+	U: 260,
+	R: 390,
+	L: 720
+};
+/**
+* Party power (5.3): for each of the six, level x POWER_LEVEL plus POWER_HEART for every bond level it has; doubled when its type beats the foe's, doubled again with a
+* Mega Stone, and the partner's share counted twice. The Trainer adds POWER_TRAINER for each Trainer level (every TRAINER_HEARTS hearts, no last level).
+*/
+const POWER_LEVEL = .002;
+const POWER_HEART = .01;
+const POWER_TRAINER = .02;
+/** The boss takes party power at this share: the same number as the leader's, damped so a week's card is as hard to beat as it was (tools/sim-life.mjs --rules v22). */
+const BOSS_POWER = .6;
+const trainerLevelV22 = (hearts) => Math.floor(hearts / 100);
 const BODY_FIELDS = [
 	"sleepScore",
 	"steps",
@@ -832,7 +860,7 @@ const BALLS = {
 	}
 };
 /** What a ball takes off a wild Pokemon: its types, the day it appeared, today, and whether the species is already yours. */
-function throwHp(ball, wild, day) {
+function throwHp$1(ball, wild, day) {
 	const b = BALLS[ball];
 	if (!b) return 0;
 	let hp = b.hp;
@@ -1181,7 +1209,7 @@ const GEAR = {
 	"d7-arms-delts": "power-weight"
 };
 const GEAR_ITEMS = Object.values(GEAR);
-Object.fromEntries(Object.entries(GEAR).map(([r, i]) => [i, r]));
+const GEAR_FOR = Object.fromEntries(Object.entries(GEAR).map(([r, i]) => [i, r]));
 for (const [id, [name, what]] of Object.entries({
 	protector: ["Protector", "Upper chest and side delts"],
 	"silver-wing": ["Silver Wing", "Lats, rear delts and biceps"],
@@ -15200,6 +15228,114 @@ const PERKS_V21 = [
 ];
 const hasPerkV21 = (level, perk) => level >= PERKS_V21.indexOf(perk) + 1;
 //#endregion
+//#region src/game-core/economy.ts
+/** What a thrown ball takes off the wild Pokemon. From V22_START the wild Pokemon's HP is counted in ticks, so a ball's HP is too (TICKS_PER_HP); a Master Ball still catches anything. */
+function throwHp(ball, wild, day) {
+	const hp = throwHp$1(ball, wild, day);
+	return v22On(day) && BALLS[ball] && hp < 1e6 ? Math.max(1, Math.round(hp * TICKS_PER_HP)) : hp;
+}
+/** The berry each kind of work drops: one per pillar done (4.2). */
+const BERRY_OF = Object.fromEntries(Object.entries(FRIEND_BERRY).map(([id, tag]) => [tag, id]));
+const TRACK_NAME = {
+	code: "Code",
+	fitness: "Gym",
+	guitar: "Guitar",
+	arbor: "Arbor",
+	sleep: "Sleep"
+};
+/** The prize of a full track: its shard or its egg (a choice), and for Sleep, which has no shard, its egg alone. */
+function trackPrize(tag) {
+	const egg = {
+		name: `A ${TRACK_NAME[tag]} Egg`,
+		coins: 0,
+		gems: 0,
+		items: [[workEgg(tag), 1]]
+	};
+	const shard = MARKS[tag].shard;
+	return shard ? [{
+		name: `A ${shard.split("-")[0][0].toUpperCase()}${shard.split("-")[0].slice(1)} Shard`,
+		coins: 0,
+		gems: 0,
+		items: [[shard, 1]]
+	}, egg] : egg;
+}
+/** Version 22 level milestones (10.5): a choice of two from coins, gems, balls and a Rare Candy. No shard: shards come from tracks. */
+function milestoneOptionsV22(key, level) {
+	const pool = [
+		{
+			name: "3 Great Balls",
+			coins: 0,
+			gems: 0,
+			items: [["great-ball", 3]]
+		},
+		{
+			name: "A Rare Candy",
+			coins: 0,
+			gems: 0,
+			items: [["rare-candy", 1]]
+		},
+		{
+			name: `${100 + level * 4} coins`,
+			coins: 100 + level * 4,
+			gems: 0,
+			items: []
+		},
+		{
+			name: "15 gems",
+			coins: 0,
+			gems: 15,
+			items: []
+		}
+	];
+	const r = rng(`milestone:${key}`);
+	const a = Math.floor(r() * pool.length);
+	const b = (a + 1 + Math.floor(r() * (pool.length - 1))) % pool.length;
+	return [pool[a], pool[b]];
+}
+//#endregion
+//#region src/game-core/v22.ts
+const done = (h) => h.done || h.frac >= 1;
+/**
+* The day's pillars (spec section 2). Effort pillars are the listed pillars that are not Sleep. A good night is a pillar only beside an effort
+* pillar: on a day with none it pays its own XP and counts for nothing else, here or anywhere.
+*/
+function pillarsOf(habits) {
+	const pillars = habits.filter((h) => h.pillar);
+	const effort = pillars.filter((h) => EFFORT_TAGS.includes(h.tag) && done(h)).map((h) => h.tag);
+	const sleep = effort.length > 0 && pillars.some((h) => h.tag === "sleep" && done(h));
+	return {
+		effort,
+		sleep,
+		done: sleep ? [...effort, "sleep"] : effort,
+		listed: pillars.length
+	};
+}
+/** The tier: pillars done, 1 to 3; Max (4) is every pillar on the list done and three-quarters of the chores. 0 with no effort pillar. */
+function tierOf(habits) {
+	const p = pillarsOf(habits);
+	if (!p.effort.length) return 0;
+	const chores = habits.filter((h) => !h.pillar && h.measured !== true);
+	const choreShare = chores.length ? chores.filter(done).length / chores.length : 0;
+	return p.done.length >= p.listed && choreShare >= .75 ? 4 : Math.min(3, p.done.length);
+}
+/** One member's share (5.3): level and bond, doubled for a type that beats the foe, doubled again for a Mega, the partner's counted twice. */
+const shareOf = (m) => (m.level * POWER_LEVEL + m.bond * POWER_HEART) * (m.beats ? 2 : 1) * (m.mega ? 2 : 1) * (m.partner ? 2 : 1);
+/** Party power: the sum of the six, plus the Trainer's levels. */
+const partyPower = (party, trainerHearts) => party.reduce((n, m) => n + shareOf(m), 0) + POWER_TRAINER * trainerLevelV22(trainerHearts);
+/**
+* The gym leader's hit (3.4): each pillar done is PILLAR_HIT, or WEAK_HIT if the leader is weak to it, times (1 + party power). The caller applies the day's tier
+* multiplier (DAY_HIT_MULT) once, to the whole. Chores do not hit.
+*/
+const leaderHit = (pillars, weak, power) => pillars.reduce((n, t) => n + (weak.includes(t) ? 150 : 115), 0) * (1 + power);
+/**
+* Hearts one berry gives one Pokemon (spec 4.2), the same answer for the fold's rule and for every screen that previews it. From V22_START one of the six
+* berries is BERRY_PLAIN, or BERRY_FAVOURITE for the Pokemon that likes it best; before it, the berry's own hearts, doubled on a day of its kind of work.
+*/
+function berryGain(item, form, day, workedToday) {
+	if (v22On(day) && FRIEND_BERRY[item]) return BERRY_OF[signatureOf(form).tag] === item ? 5 : 2;
+	return (BERRY_HEARTS[item] ?? 0) * (workedToday ? 2 : 1);
+}
+//#endregion
 //#region src/game-core/legacy/frontier.ts
 const FACILITIES = [
 	{
@@ -15300,7 +15436,7 @@ const FACILITIES = [
 */
 const bpFor = (run, counted = false) => counted ? 3 : run <= 0 ? 0 : 1 + (run % 7 === 0 ? Math.min(35, run) : 0);
 //#endregion
-//#region src/game-core/legacy/fold.ts
+//#region src/game-core/fold.ts
 const emptyShare = () => Object.fromEntries(TAGS.map((t) => [t, {
 	got: 0,
 	max: 0
@@ -15350,7 +15486,7 @@ function canCandy(g, uid, day) {
 	const m = (day >= V21_START ? void 0 : inBox) ?? (day >= "2026-10-19" ? trained : void 0);
 	return m !== void 0 && levelOf(m.xp) < 100;
 }
-function foldGame$1(facts, opts = {}) {
+function foldGame(facts, opts = {}) {
 	const moments = [];
 	const dex = {};
 	const queue = [];
@@ -15415,10 +15551,18 @@ function foldGame$1(facts, opts = {}) {
 		v21: false,
 		tier: 0,
 		effort: 0,
+		pillars: 0,
 		first: false,
 		sleepBonus: false,
 		bounty: {}
 	};
+	/** version 22: each pillar's track, begun on the first day (marks and kit pieces turn into pips) */
+	const tracks = Object.fromEntries(MARK_TAGS.map((t) => [t, {
+		pips: 0,
+		n: 0,
+		kit: /* @__PURE__ */ new Set()
+	}]));
+	let v22Begun = false;
 	/** version 16: the trainer's bond: every heart across every Pokemon owned, kept at its highest */
 	let trainerHearts = 0;
 	/** version 16: Trainer stars handed out, and how far each perk has been ranked up by them */
@@ -15911,7 +16055,7 @@ function foldGame$1(facts, opts = {}) {
 			if (v15On(day)) for (let lv = before + 1; lv <= levelOf(partner.xp); lv++) {
 				if (lv % 5 !== 0) continue;
 				const key = `level:${partner.uid}:${lv}`;
-				holdChoice(key, day, `${nameOf(partner.form)} reached Lv ${lv}`, milestoneOptions(key, lv, inv));
+				holdChoice(key, day, `${nameOf(partner.form)} reached Lv ${lv}`, v22On(day) ? milestoneOptionsV22(key, lv) : milestoneOptions(key, lv, inv));
 			}
 		}
 	};
@@ -16089,8 +16233,7 @@ function foldGame$1(facts, opts = {}) {
 				return;
 			}
 			case "feed": {
-				const hearts = BERRY_HEARTS[item] ?? 0;
-				if (!hearts || !inv[item]) return;
+				if (!(BERRY_HEARTS[item] ?? 0) || !inv[item]) return;
 				const m = v14On(day) && u.uid ? [
 					partner,
 					...queue,
@@ -16098,7 +16241,7 @@ function foldGame$1(facts, opts = {}) {
 				].find((x) => x.uid === u.uid) : partner;
 				if (!m || v14On(day) && heartsOf(m) >= HEART_CAP) return;
 				inv[item]--;
-				const gain = hearts * (v16On(day) && didWork(signatureOf(m.form).tag, dayHabits) ? 2 : 1);
+				const gain = berryGain(item, m.form, day, v16On(day) && didWork(signatureOf(m.form).tag, dayHabits));
 				m.fed = (m.fed ?? 0) + (v16On(day) ? Math.min(gain, HEART_CAP - heartsOf(m)) : gain);
 				noteHearts(day);
 				return;
@@ -16459,6 +16602,15 @@ function foldGame$1(facts, opts = {}) {
 			domain
 		};
 	};
+	/** version 22: party power against a foe of this type (spec 5.3): the six, the Trainer's levels */
+	const powerV22 = (foeType) => partyPower([partner, ...teamNow().filter((m) => m.uid !== partner.uid)].map((m) => ({
+		level: levelOf(m.xp),
+		hearts: heartsOf(m),
+		bond: bondLevel(heartsOf(m)),
+		beats: beats(typesOf(m), foeType),
+		mega: Boolean(m.megas?.length),
+		partner: m.uid === partner.uid
+	})), trainerHearts);
 	let display = partner.form;
 	let aura = null;
 	let asleep = false;
@@ -16475,6 +16627,7 @@ function foldGame$1(facts, opts = {}) {
 	facts.forEach((f, i) => {
 		teamDay = f.day;
 		const v13 = v13On(f.day);
+		const v22 = v22On(f.day);
 		wallet.coinsToday = 0;
 		wallet.gemsToday = 0;
 		wallet.marksToday = zeroMarks();
@@ -16520,7 +16673,7 @@ function foldGame$1(facts, opts = {}) {
 			}
 			const w = wild;
 			if (w && !w.caught) {
-				wildBack = Math.min(SLIP.wild, w.max - w.hp);
+				wildBack = Math.min(v22 ? 16 : SLIP.wild, w.max - w.hp);
 				w.hp += wildBack;
 			}
 			const floor = levelOf(partner.xp) <= 1 ? 0 : xpForLevel(levelOf(partner.xp));
@@ -16558,10 +16711,11 @@ function foldGame$1(facts, opts = {}) {
 		const E = effortDone.length;
 		const chores = yours.filter((h) => !h.pillar);
 		const choreShare = chores.length ? chores.filter((h) => h.done).length / chores.length : 0;
-		const tier = !v21 || E === 0 ? 0 : E === effort.length && choreShare >= .75 ? 4 : Math.min(3, E);
+		const p22 = v22 ? pillarsOf(f.habits) : null;
+		const tier = v22 ? tierOf(f.habits) : !v21 || E === 0 ? 0 : E === effort.length && choreShare >= .75 ? 4 : Math.min(3, E);
 		const sleepBonus = v21 && E > 0 && f.habits.some((h) => h.tag === "sleep" && h.measured === true && h.done);
 		const bounty = {};
-		if (v21 && perkOn(f.day, "bounty")) for (const h of effortDone) {
+		if (v21 && !v22 && perkOn(f.day, "bounty")) for (const h of effortDone) {
 			const last = lastDone[h.tag];
 			const m = bountyMult(last === void 0 ? i : i - last - 1);
 			if (m > 1) bounty[h.tag] = m;
@@ -16571,6 +16725,7 @@ function foldGame$1(facts, opts = {}) {
 			v21,
 			tier,
 			effort: E,
+			pillars: p22 ? p22.done.length : E,
 			first: v21 && E > 0,
 			sleepBonus,
 			bounty
@@ -16592,6 +16747,17 @@ function foldGame$1(facts, opts = {}) {
 		if (v21 && !windowOn) if (E >= 2) slide = Math.min(MOMENTUM_STEPS.length - 1, slide + 1);
 		else if (restWeek !== weekOf(f.day)) restWeek = weekOf(f.day);
 		else slide = Math.max(0, slide - 1);
+		if (v22 && !v22Begun) {
+			v22Begun = true;
+			for (const piece of Object.keys(GEAR_FOR)) if ((inv[piece] ?? 0) > 0) {
+				tracks.fitness.kit.add(GEAR_FOR[piece]);
+				inv[piece] = 0;
+			}
+			for (const t of MARK_TAGS) {
+				if (t !== "fitness") tracks[t].pips = Math.min(6, Math.floor(wallet.marks[t] / 3));
+				wallet.marks[t] = 0;
+			}
+		}
 		const dry = days.length >= 2 && days.slice(-2).every((d) => d.pillars === 0);
 		if (v21) {
 			if (E > 0) {
@@ -16612,7 +16778,7 @@ function foldGame$1(facts, opts = {}) {
 		const base = f.habits.reduce((s, h) => s + h.worth * h.frac * (h.tag === "routine" ? 1 + flow : 1) * (h.pillar ? bounty[h.tag] ?? 1 : 1), 0);
 		const full = f.habits.reduce((s, h) => s + h.worth, 0);
 		const bondNow = perkLevel(f.day);
-		const xp = Math.round(base * mult * (v21 ? DAY_XP_MULT[tier] : 1) * (v13 && perkOn(f.day, "friends") ? FRIENDS_XP + STAR_FRIENDS * perkRank.friends : 1));
+		const xp = Math.round(base * mult * (v21 && !v22 ? DAY_XP_MULT[tier] : 1) * (v13 && perkOn(f.day, "friends") ? FRIENDS_XP + STAR_FRIENDS * perkRank.friends : 1));
 		let mine = raised.get(partner.uid);
 		if (!mine) raised.set(partner.uid, mine = emptyShare());
 		for (const h of f.habits) {
@@ -16631,14 +16797,17 @@ function foldGame$1(facts, opts = {}) {
 		for (const routine of f.marks?.gear ?? []) {
 			const piece = GEAR[routine];
 			if (!piece) continue;
-			inv[piece] = (inv[piece] ?? 0) + 1;
+			if (v22) {
+				if (tracks.fitness.kit.has(routine)) continue;
+				tracks.fitness.kit.add(routine);
+			} else inv[piece] = (inv[piece] ?? 0) + 1;
 			moments.push({
 				kind: "gear",
 				day: f.day,
 				item: piece
 			});
 		}
-		while (GEAR_ITEMS.every((g) => (inv[g] ?? 0) > 0)) {
+		while (!v22 && GEAR_ITEMS.every((g) => (inv[g] ?? 0) > 0)) {
 			for (const g of GEAR_ITEMS) inv[g]--;
 			bump("sets");
 			earn(0, GEMS.kit);
@@ -16672,12 +16841,35 @@ function foldGame$1(facts, opts = {}) {
 			bump(`days:${t}`);
 			runDay(t, f.day);
 			const n = bounty[t] ?? 1;
-			wallet.marks[t] += n;
-			wallet.marksToday[t] += n;
+			if (!v22) {
+				wallet.marks[t] += n;
+				wallet.marksToday[t] += n;
+			}
+		}
+		if (v22) for (const t of MARK_TAGS) {
+			const tr = tracks[t];
+			if (t === "fitness") tr.pips = tr.kit.size;
+			else if (unit[t]) tr.pips++;
+			if (tr.pips < 7) continue;
+			tr.pips = 0;
+			tr.kit.clear();
+			tr.n++;
+			bump("tracks");
+			const prize = trackPrize(t);
+			const title = `${t === "fitness" ? "Gym" : t === "code" ? "Code" : t === "arbor" ? "Arbor" : t === "guitar" ? "Guitar" : "Sleep"} track ${tr.n}`;
+			if (Array.isArray(prize)) holdChoice(`track:${t}:${tr.n}`, f.day, title, prize);
+			else hold(`track:${t}:${tr.n}`, f.day, title, prize.coins, prize.gems, prize.items);
+			moments.push({
+				kind: "track",
+				day: f.day,
+				tag: t,
+				n: tr.n
+			});
 		}
 		if (counts) runDay("work", f.day);
 		if (pillarTotal > 0 && pillars >= Math.min(3, pillarTotal)) runDay("work3", f.day);
 		const extra = (t, n) => {
+			if (v22) return;
 			wallet.marks[t] += n;
 			wallet.marksToday[t] += n;
 		};
@@ -16699,7 +16891,7 @@ function foldGame$1(facts, opts = {}) {
 		const prevDay = days[days.length - 1];
 		const streak = !v21 && pay > 0 && ticked >= PAY_STREAK.share && prevDay && prevDay.ticked >= PAY_STREAK.share ? PAY_STREAK.coins : 0;
 		hold(`pay:${f.day}`, f.day, streak ? "Showing up, again" : "Showing up", Math.round((pay + streak) * amulet), 0);
-		if (v21 && E > 0) earn(0, DAY_GEMS[tier] + FIRST_PILLAR.gems);
+		if (v21 && !v22 && E > 0) earn(0, DAY_GEMS[tier] + FIRST_PILLAR.gems);
 		const result = {
 			day: f.day,
 			base: Math.round(base),
@@ -16719,6 +16911,15 @@ function foldGame$1(facts, opts = {}) {
 			pay
 		};
 		days.push(result);
+		if (v22 && p22) {
+			const drops = [
+				...p22.effort.map((t) => BERRY_OF[t]),
+				...p22.sleep ? [BERRY_OF.sleep] : [],
+				...choreShare >= .75 ? [BERRY_OF.routine] : []
+			];
+			for (const b of drops) inv[b] = (inv[b] ?? 0) + 1;
+			if (drops.length) result.berries = drops;
+		}
 		gain(xp, f.day);
 		if (v13 && xp > 0) {
 			const v14d = v14On(f.day);
@@ -16770,7 +16971,7 @@ function foldGame$1(facts, opts = {}) {
 			const form = wishFor ?? roll(`wild:${f.day}`, want);
 			wishFor = null;
 			const rarity = rec(form).r ?? "C";
-			const wildHp = Math.round(WILD_HP[rarity] * (v14On(f.day) ? 1 - researchCut(research.rank) : 1));
+			const wildHp = v22 ? WILD_TICKS[rarity] : Math.round(WILD_HP[rarity] * (v14On(f.day) ? 1 - researchCut(research.rank) : 1));
 			wild = {
 				form,
 				rarity,
@@ -16789,8 +16990,8 @@ function foldGame$1(facts, opts = {}) {
 			});
 		}
 		const w = wild;
-		const charm = sigs && didWork("guitar", f.habits) ? Math.round(6 * sigs.guitar) : 0;
-		result.hit = perfect ? w.hp : Math.min(w.hp, Math.round(wildHit(ticked, BALL_MULT[ball]) * (v13 && partner.held === "quick-claw" ? 1.25 : 1)) + charm);
+		const charm = !v22 && sigs && didWork("guitar", f.habits) ? Math.round(6 * sigs.guitar) : 0;
+		result.hit = v22 ? perfect ? w.hp : Math.min(w.hp, done) : perfect ? w.hp : Math.min(w.hp, Math.round(wildHit(ticked, BALL_MULT[ball]) * (v13 && partner.held === "quick-claw" ? 1.25 : 1)) + charm);
 		if (!perfect && charm > 0) sigToday.charm = Math.min(charm, result.hit);
 		w.hp -= result.hit;
 		if (w.hp <= 0) {
@@ -16835,13 +17036,14 @@ function foldGame$1(facts, opts = {}) {
 			const pw = powerOf(v13, v14On(f.day), v16On(f.day), v21);
 			const common = pw.team + pw.bond + pw.mega + pw.item + pw.level + (v13 && megaDay ? MEGA_DAY : 0) + (v13 && edge && partner.held === "expert-belt" ? .2 : 0) + (partner.held && PLATES[partner.held]?.type === leader.type ? PLATE_BONUS : 0);
 			let strike = 0;
-			for (const h of f.habits) {
+			if (v22) strike = leaderHit(p22.done, weak, powerV22(leader.type));
+			else for (const h of f.habits) {
 				if (v21 && E === 0 && h.tag === "sleep") continue;
 				const d = pw.domain[h.tag];
 				strike += h.worth * h.frac * (weak.includes(h.tag) ? WEAK_MULT : 1) * (edge ? ADVANTAGE_MULT : 1) * (1 + common + d.held + d.mastery + d.nature + d.vitamin + d.sig + (boost[h.tag] ?? 0));
 			}
 			if (v13 && strike > 0) {
-				const chance = (perkOn(f.day, "focus") ? CRIT_BASE + STAR_FOCUS * perkRank.focus : 0) + (partner.held === "scope-lens" ? .1 : 0) + critAdd;
+				const chance = v22 ? 0 : (perkOn(f.day, "focus") ? CRIT_BASE + STAR_FOCUS * perkRank.focus : 0) + (partner.held === "scope-lens" ? .1 : 0) + critAdd;
 				if (chance > 0 && rng(`crit:${f.day}`)() < chance) {
 					strike *= CRIT_MULT;
 					result.crit = true;
@@ -16982,7 +17184,7 @@ function foldGame$1(facts, opts = {}) {
 			const type = rec(b.card.form).t;
 			const edges = members.filter((m) => beats(typesOf(m), type)).length;
 			b.strike = v21 ? 1 : strikeOf(party, b.card);
-			b.common = v21 ? megaPower() + BOSS_EDGE_V21 * edges + (partner.held === "rocky-helmet" ? .2 : 0) : pw.team + pw.bond + pw.mega + pw.item + TYPE_EDGE * edges + (v13 && partner.held === "rocky-helmet" ? .2 : 0);
+			b.common = v22 ? powerV22(type) * BOSS_POWER : v21 ? megaPower() + BOSS_EDGE_V21 * edges + (partner.held === "rocky-helmet" ? .2 : 0) : pw.team + pw.bond + pw.mega + pw.item + TYPE_EDGE * edges + (v13 && partner.held === "rocky-helmet" ? .2 : 0);
 			const work = cardWork(b.card, f.boss.p);
 			const moved = work - b.work;
 			if (v21 && !b.caught) {
@@ -17001,7 +17203,7 @@ function foldGame$1(facts, opts = {}) {
 				if ((b.p[k] ?? 0) < 1 || b.done.has(k)) return;
 				b.done.add(k);
 				const tag = BOSS_TAG[t.kind];
-				if (isMarkTag(tag)) {
+				if (isMarkTag(tag) && !v22) {
 					wallet.marks[tag] += 3;
 					wallet.marksToday[tag] += 3;
 				} else hold(`boss:${b.card.week}:task${k}`, f.day, "Boss task done", 60, 0);
@@ -17015,7 +17217,7 @@ function foldGame$1(facts, opts = {}) {
 				b.killed = true;
 				b.caught = true;
 				const shard = isMarkTag(BOSS_TAG[hardest(b.card).kind]) ? MARKS[BOSS_TAG[hardest(b.card).kind]].shard : void 0;
-				hold(`boss:${b.card.week}:kill`, f.day, "Boss beaten", 0, 20, shard ? [[shard, 1]] : []);
+				hold(`boss:${b.card.week}:kill`, f.day, "Boss beaten", 0, 20, shard && !v22 ? [[shard, 1]] : []);
 				const shiny = rng(`boss-shiny:${b.card.week}`)() < 1 / 5;
 				const mon = make(b.card.species, "catch", f.day, shiny);
 				const twin = twinOf(mon, f.day);
@@ -17275,6 +17477,18 @@ function foldGame$1(facts, opts = {}) {
 			"guitar"
 		]) {
 			if (!lastFacts.habits.some((h) => h.pillar && h.tag === t)) continue;
+			if (v22On(last.day)) {
+				const aim = aims[t] ?? (anyMega ? "egg" : "shard");
+				const waiting = [...held.keys()].some((k) => k.startsWith(`track:${t}:`));
+				out[t] = {
+					iconId: aim === "egg" || !MARKS[t].shard ? workEgg(t) : MARKS[t].shard,
+					fill: waiting ? 1 : tracks[t].pips / 7,
+					ready: waiting,
+					bountyActive: false,
+					bounty: 1
+				};
+				continue;
+			}
 			const iconId = (aims[t] ?? (anyMega ? "egg" : "shard")) === "egg" || !MARKS[t].shard ? workEgg(t) : MARKS[t].shard;
 			const doneToday = lastDone[t] === facts.length - 1;
 			const idle = lastDone[t] === void 0 ? facts.length : facts.length - 1 - lastDone[t] - 1;
@@ -17558,6 +17772,14 @@ function foldGame$1(facts, opts = {}) {
 		worked: Object.fromEntries(TAGS.map((t) => [t, didWork(t, lastFacts?.habits ?? [])])),
 		shelved: lastFacts?.live ? MARK_TAGS.filter((t) => !lastFacts.live.includes(t)) : [],
 		tier: dayTier,
+		v22: Boolean(last && v22On(last.day)),
+		tracks: Object.fromEntries(MARK_TAGS.map((t) => [t, {
+			pips: tracks[t].pips,
+			of: 7,
+			ready: [...held.keys()].some((k) => k.startsWith(`track:${t}:`)),
+			n: tracks[t].n,
+			kit: [...tracks[t].kit]
+		}])),
 		tiles: tilesNow()
 	};
 }
@@ -17586,15 +17808,6 @@ function statsOf$1(facts) {
 	};
 }
 const nameOf = (form) => SPECIES[form]?.n ?? form;
-//#endregion
-//#region src/game-core/fold.ts
-/**
-* The game. Days before V22_START are the legacy game; days from it are the new rules (not built yet: GAME-SPEC-V22.md section 12.5,
-* steps 2 to 7). Until they are, a start date reached early still folds by the legacy rules, so setting one by mistake cannot break the apps.
-*/
-function foldGame(facts, opts = {}) {
-	return foldGame$1(facts, opts);
-}
 //#endregion
 //#region src/game-core/strong.ts
 const parse$1 = (raw) => {

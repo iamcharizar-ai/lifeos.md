@@ -15,7 +15,7 @@ import type { ShedState } from '../woodshed-core/model.ts'
 import { isGym, leaderOf } from '../game-core/fold.ts'
 import { LEAGUES, lineup } from '../game-core/gyms.ts'
 import { itemName as shopName } from '../game-core/economy.ts'
-import { REGIONS } from '../game-core/rules.ts'
+import { REGIONS, v22On } from '../game-core/rules.ts'
 import type { GameLink } from './gameLink'
 
 // localhost is only a dev default: a production build without VITE_POKEDEX_URL must not point sprites
@@ -114,7 +114,9 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     case 'quest':
       return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
     case 'gear':
-      return { title: 'Training gear', line: `${itemName(m.item)} from a Strong workout. A full set of seven pays gems and Iron, and every third set a Red Shard.` }
+      return { title: 'Training gear', line: v22On(m.day) ? `${itemName(m.item)}: a new routine of your split, one pip on the Gym track.` : `${itemName(m.item)} from a Strong workout. A full set of seven pays gems and Iron, and every third set a Red Shard.` }
+    case 'track':
+      return { title: 'A track is full', line: 'Seven pips: its shard or its egg is waiting in the Pokedex, and you choose.' }
     case 'kit':
       return { title: 'Training kit complete', line: 'All seven pieces of Strong gear: gems and Iron are yours, and every third set a Red Shard.' }
     case 'boss':
