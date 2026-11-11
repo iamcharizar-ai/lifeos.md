@@ -1,6 +1,6 @@
 // Version 22's arithmetic (GAME-SPEC-V22.md), as small pure functions the fold calls. No state, no dates: the fold decides when they apply.
 import type { HabitFact } from './facts.ts'
-import { BERRY_FAVOURITE, BERRY_PLAIN, DAY_HIT_MULT, EFFORT_TAGS, MAX_DAY_CHORES, PILLAR_HIT, POWER_HEART, POWER_LEVEL, POWER_MEGA_X, POWER_PARTNER_X, POWER_TRAINER, POWER_TYPE_X, WEAK_HIT, trainerLevelV22, v22On, type Tag } from './rules.ts'
+import { BERRY_FAVOURITE, BERRY_PLAIN, DAY_HIT_MULT, EFFORT_TAGS, LAB_FINAL, LAB_SHINY, MAX_DAY_CHORES, PILLAR_HIT, POWER_HEART, POWER_LEVEL, POWER_MEGA_X, POWER_PARTNER_X, POWER_TRAINER, POWER_TYPE_X, WEAK_HIT, trainerLevelV22, v22On, type Tag } from './rules.ts'
 import { BERRY_HEARTS, BERRY_OF, FRIEND_BERRY } from './economy.ts'
 import { BERRY_DOMAIN_MULT, signatureOf } from './bond.ts'
 
@@ -27,10 +27,10 @@ export function tierOf(habits: HabitFact[]): number {
 }
 
 /** One member of the party, as party power reads it. */
-export interface Fighter { level: number; hearts: number; /** bond level, 0 to 5 */ bond: number; beats: boolean; mega: boolean; partner: boolean }
+export interface Fighter { level: number; hearts: number; /** bond level, 0 to 5 */ bond: number; beats: boolean; mega: boolean; partner: boolean; /** the partner holds an Expert Belt: a type that beats the foe counts three times, not two */ belt?: boolean }
 /** One member's share (5.3): level and bond, doubled for a type that beats the foe, doubled again for a Mega, the partner's counted twice. */
 export const shareOf = (m: Fighter): number =>
-  (m.level * POWER_LEVEL + m.bond * POWER_HEART) * (m.beats ? POWER_TYPE_X : 1) * (m.mega ? POWER_MEGA_X : 1) * (m.partner ? POWER_PARTNER_X : 1)
+  (m.level * POWER_LEVEL + m.bond * POWER_HEART) * (m.beats ? (m.belt ? POWER_TYPE_X + 1 : POWER_TYPE_X) : 1) * (m.mega ? POWER_MEGA_X : 1) * (m.partner ? POWER_PARTNER_X : 1)
 /** Party power: the sum of the six, plus the Trainer's levels. */
 export const partyPower = (party: Fighter[], trainerHearts: number): number => party.reduce((n, m) => n + shareOf(m), 0) + POWER_TRAINER * trainerLevelV22(trainerHearts)
 
@@ -40,6 +40,8 @@ export const partyPower = (party: Fighter[], trainerHearts: number): number => p
  */
 export const leaderHit = (pillars: Tag[], weak: Tag[], power: number): number =>
   pillars.reduce((n, t) => n + (weak.includes(t) ? WEAK_HIT : PILLAR_HIT), 0) * (1 + power)
+/** What a Pokemon is worth to the Lab (spec 5.4): its level (to 50), LAB_FINAL more in its last form, half as much again when shiny. */
+export const labWorth = (level: number, final: boolean, shiny: boolean): number => (Math.min(level, 50) + (final ? LAB_FINAL : 0)) * (shiny ? LAB_SHINY : 1)
 export const tierHit = (tier: number): number => DAY_HIT_MULT[tier] ?? 1
 
 /**

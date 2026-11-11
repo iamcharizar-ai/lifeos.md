@@ -46,3 +46,7 @@ export const TRACK_LEN = 7
 /** A berry fed to a Pokemon whose favourite it is (the berry of its first type's kind of work) gives this; any other berry of the six gives BERRY_PLAIN. */
 export const BERRY_PLAIN = 2
 export const BERRY_FAVOURITE = 5
+/** The Lab (spec 5.4): a Pokemon is worth its level, LAB_FINAL more in its last form, half as much again when shiny; a day's research is the pillars done times (LAB_BASE + the Lab's strength). */
+export const LAB_BASE = 20
+export const LAB_FINAL = 10
+export const LAB_SHINY = 1.5

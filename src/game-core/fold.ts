@@ -19,11 +19,11 @@ import {
   TEAM_BONUS, TEAM_HOLE, TEAM_NATURE, TEAM_OPEN_FROM, TEAM_SIZE, WEAK_MULT, WEEK_DAYS, WILD_HP, WILD_STAY, ballFor, bondLevel, evolveAt, graduateAt, levelOf, momentumMult, regionsOpen, wildHit, xpForLevel,
   type BondPerk, V13_START, V14_START, V15_START, V16_START, V20_START, BOND_PERKS,
   V21_START, V21_FIX, MOMENTUM_WINDOW_STEPS, MOMENTUM_OLD_STEPS, momentumWindow, EFFORT_TAGS, MAX_DAY_CHORES, DAY_XP_MULT, DAY_HIT_MULT, DAY_HEARTS, DAY_RESEARCH, DAY_GEMS, DAY_COINS, CHORE_COINS, FIRST_PILLAR, SLEEP_BONUS, bountyMult, MOMENTUM_STEPS, MOMENTUM_PILLARS, RANK_V21, DESK_BONUS, LEADER_GEMS_V21, MEGA_PER_BOND, DUPE_HEARTS, RIBBON_EVERY, RESEARCH_PARTY, MILESTONE_EVERY, HEART_CAP, MAX_LEVEL, RESEARCH_SLOTS, researchCost, researchCut, studyPoints, leaderHp, LEVEL_POWER, TEAM_LEVEL, MEGA_BOND, MEGA_DAY, hasPerk, PICKUP_BASE, PICKUP_STEP, ENDURE_DAYS, CRIT_BASE, CRIT_MULT, FRIENDS_XP, SHARE_XP, DYNAMAX, GIGANTAMAX,
-  v22On, BOSS_POWER, WILD_TICKS, SLIP_WILD_TICKS, TRACK_LEN,
+  v22On, BOSS_POWER, LAB_BASE, TRAINER_HEARTS, trainerLevelV22, WILD_TICKS, SLIP_WILD_TICKS, TRACK_LEN,
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
-import { berryGain, leaderHit, partyPower, pillarsOf, tierOf, type Fighter } from './v22.ts'
-import { BERRY_OF, trackPrize, milestoneOptionsV22, GEAR_FOR, COUNTER_V21, EGG_WAIT_MAX, researchRewardV21, ribbonOptions, workEgg, BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
+import { berryGain, labWorth, leaderHit, partyPower, pillarsOf, tierOf, type Fighter } from './v22.ts'
+import { BERRY_OF, trackPrize, milestoneOptionsV22, labReward, labCost, trainerOptions, convertV22, keptV22, pickupFindV22, PICKUP_COINS, FORGE_COINS, NURSERY_PLACE, NURSERY_IDS, inNursery, HELD_V22, MART_V22, GEAR_FOR, COUNTER_V21, EGG_WAIT_MAX, researchRewardV21, ribbonOptions, workEgg, BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
 import { FACILITIES, GOLD_BP, GOLD_GEMS, REMATCH_BP, SILVER_BP, SILVER_GEMS, bpFor } from './frontier.ts'
 import {
   BOSS_EDGE_V21, EFFORT_TASKS, MAX_DAY_BOSS, BOSS_MILESTONES_V21, BOSS_WIN_GEMS_V21, BOSS_CATCH_GEMS, BOSS_HEAL, BOSS_HP_PER_LEVEL, BOSS_KILL_GEMS, BOSS_MILESTONES, BOSS_SHINY, BOSS_TAG, BOSS_TASK_COINS, BOSS_TASK_MARKS, KILL_CAP, THROWS, THROW_AT, TYPE_EDGE,
@@ -431,6 +431,12 @@ export interface Game {
   v22: boolean
   /** version 22: each pillar's track: pips toward its prize, whether a prize waits in Collect, tracks filled for life, and for the Gym the routines of Strong's split done so far */
   tracks: Record<MarkTag, { pips: number; of: number; ready: boolean; n: number; kit: string[] }>
+  /** version 22: the Lab: everyone not in the party researches (strength), the rank, points toward the next, what today added, and what the next three ranks pay */
+  lab: { strength: number; members: number; rank: number; points: number; need: number; today: number; next: string[] }
+  /** version 22: the second Nursery place, when bought */
+  egg2: Game['egg']
+  /** version 22: party power against the leader who is up (spec 5.3): the one number every strike and the boss are raised by */
+  partyPower: number
   /**
    * version 21: each effortful pillar on the Life OS list, as its tile shows it: the icon its counter reaches for (its shard until a
    * Mega Stone is forged, then its egg, unless aimed by hand), how full the counter is (0 to 1), a choice ready, and a neglect bounty
@@ -477,6 +483,8 @@ const emptyDay = (f: DayFacts): boolean => {
 export function canCandy(g: Pick<Game, 'partner' | 'queue' | 'graduates'>, uid: string, day: string): boolean {
   if (day < V13_START) return false
   const inBox = g.queue.find((m) => m.uid === uid), trained = g.graduates.find((m) => m.uid === uid)
+  // version 22: level 50 is the end, so a candy is for whoever is not fully trained
+  if (v22On(day)) { const m = g.partner.uid === uid ? g.partner : inBox; return Boolean(m) && !m!.graduated && levelOf(m!.xp) < graduateAt(SPECIES[m!.base]?.x ?? 1) }
   if (day >= V21_FIX) {
     const m = g.partner.uid === uid ? g.partner : inBox ?? trained
     if (!m) return false
@@ -524,7 +532,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   let dayTier: Game['tier'] = { v21: false, tier: 0, effort: 0, pillars: 0, first: false, sleepBonus: false, bounty: {} }
   /** version 22: each pillar's track, begun on the first day (marks and kit pieces turn into pips) */
   const tracks: Record<MarkTag, { pips: number; n: number; kit: Set<string> }> = Object.fromEntries(MARK_TAGS.map((t) => [t, { pips: 0, n: 0, kit: new Set<string>() }])) as never
-  let v22Begun = false
+  let v22Begun = false, trainerLevelsGiven = 0
+  /** version 22: a second Nursery place, bought with coins (7, 9.1) */
+  let egg2: { kind: string; have: number; since: string; today?: number } | null = null
   /** version 16: the trainer's bond: every heart across every Pokemon owned, kept at its highest */
   let trainerHearts = 0
   /** version 16: Trainer stars handed out, and how far each perk has been ranked up by them */
@@ -536,7 +546,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   let dayHabits: HabitFact[] = []
   let sigToday: Game['sigToday'] = { insight: 0, charm: 0, forage: null, dream: 0 }
   const heartsOf = (m: Mon): number => (m.together ?? 0) + (m.fed ?? 0)
-  const bpEarn = (n: number) => { wallet.bp += n; wallet.bpToday += n }
+  const bpEarn = (n: number) => { if (v22On(teamDay)) return; wallet.bp += n; wallet.bpToday += n } // version 22: no Battle Points
   const inv: Record<string, number> = {}
   const sold = new Set<string>()
   const runs: Record<string, { cur: number; best: number; last: string }> = {}
@@ -582,9 +592,14 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const credit = (h: Held, day: string) => {
     wallet.coins += h.coins; wallet.gems += h.gems
     if (h.perk && h.perk in perkRank && perkRank[h.perk as BondPerk] < STAR_MAX) perkRank[h.perk as BondPerk]++
-    for (const [id, n] of h.items) {
-      inv[id] = (inv[id] ?? 0) + n
-      if (id === 'key-stone' && !keyStone) { keyStone = day; moments.push({ kind: 'key', day }) }
+    for (const [id0, n0] of h.items) {
+      // version 22: an item the game no longer has is paid back (a Great Ball for a ball, its price for the rest)
+      const conv = v22On(day) ? convertV22(id0, n0) : { items: [[id0, n0]] as [string, number][], coins: 0, gems: 0 }
+      wallet.coins += conv.coins; wallet.gems += conv.gems
+      for (const [id, n] of conv.items) {
+        inv[id] = (inv[id] ?? 0) + n
+        if (id === 'key-stone' && !keyStone) { keyStone = day; moments.push({ kind: 'key', day }) }
+      }
     }
   }
   const release = (key: string, day: string, pick = 0) => {
@@ -635,6 +650,11 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   /** version 16: the trainer's hearts can only rise: a Pokemon sent away does not take its share back */
   const noteHearts = (day: string) => {
     trainerHearts = Math.max(trainerHearts, [partner, ...queue, ...graduates].reduce((n, m) => n + heartsOf(m), 0))
+    // version 22 (8): every TRAINER_HEARTS Trainer hearts is a Trainer level, with no last one; each pays a choice of two (and adds to party power for good)
+    if (v22On(day)) {
+      while (trainerLevelsGiven < trainerLevelV22(trainerHearts)) { trainerLevelsGiven++; holdChoice(`trainer:${trainerLevelsGiven}`, day, `Trainer level ${trainerLevelsGiven}`, trainerOptions(trainerLevelsGiven)) }
+      return
+    }
     // past the last trainer level, every STAR_EVERY hearts a Trainer star: a choice of two perks to rank up
     // version 21: no more Trainer stars. Once the whole party is at the last bond level, every RIBBON_EVERY hearts is a Ribbon
     if (v21On(day)) {
@@ -655,7 +675,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const perkLevel = (day: string): number => (v16On(day) ? trainerLevel(trainerHearts) : bondLevel(heartsOf(partner)))
   /** Is this perk on today? Version 21 has its own ladder (bond.ts PERKS_V21): Focus and Exp. Share are gone, the bounty and Sharing are new. */
   const perkOn = (day: string, p: BondPerk | PerkV21): boolean =>
-    v21On(day) ? (PERKS_V21 as readonly string[]).includes(p) && hasPerkV21(trainerLevel(trainerHearts), p as PerkV21) : (BOND_PERKS as readonly string[]).includes(p) && hasPerk(perkLevel(day), p as BondPerk)
+    // version 22 (8): three perks on the Trainer's hearts: Pickup at 10, Endure at 100, Close bond (+10% XP) at 300
+    v22On(day) ? (p === 'pickup' ? trainerHearts >= 10 : p === 'endure' ? trainerHearts >= TRAINER_HEARTS : p === 'friends' ? trainerHearts >= 3 * TRAINER_HEARTS : false) : v21On(day) ? (PERKS_V21 as readonly string[]).includes(p) && hasPerkV21(trainerLevel(trainerHearts), p as PerkV21) : (BOND_PERKS as readonly string[]).includes(p) && hasPerk(perkLevel(day), p as BondPerk)
   /** Hearts for one Pokemon. With Sharing (version 21), what it cannot take past the last bond level goes to the party member with the fewest. */
   const heartsTo = (m: Mon, n: number, day: string) => {
     if (n <= 0) return
@@ -696,10 +717,19 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const deskBonus = (): number => deskNow().reduce((n, m) => n + DESK_BONUS[(rec(m.form).r ?? 'C') as Rarity] * (m.shiny ? 1.5 : 1), 0)
   const rankCost = (day: string): number => (v21On(day) ? RANK_V21 : researchCost(research.rank))
   const studyOf = (desk: Mon[]): number => desk.reduce((n, m) => n + studyPoints(levelOf(m.xp), (rec(m.form).r ?? 'C') as Rarity, m.shiny), 0)
+  /** version 22 (5.1): the Lab is everyone you own who is not the partner and not in the party */
+  const labMembers = (): Mon[] => {
+    const party = new Set([partner.uid, ...teamNow().map((m) => m.uid)])
+    return [...queue, ...graduates].filter((m) => !party.has(m.uid))
+  }
+  /** version 22 (5.4): what each is worth to the Lab: its level, more in its last form, half as much again when shiny */
+  const labStrength = (): number => labMembers().reduce((n, m) => n + labWorth(levelOf(m.xp), (rec(m.form).e?.length ?? 0) === 0, m.shiny), 0)
+  /** the Old Charm: always on before version 22, a held item from it (9.4) */
+  const oldCharm = (day: string): boolean => (v22On(day) ? partner.held === 'old-charm' : Boolean(inv['old-charm']))
   /** Fully trained Pokemon, counting a partner that was fully trained and leads again (version 14) */
   const trainedCount = (): number => graduates.length + (partner.graduated ? 1 : 0)
   /** the types the partner fights with: its own, and the TMs it carries */
-  const typesOf = (m: Mon): (string | undefined)[] => [rec(m.form).t, rec(m.form).t2, ...(m.moves ?? []).map((id) => tmType(id) ?? undefined)]
+  const typesOf = (m: Mon): (string | undefined)[] => [rec(m.form).t, rec(m.form).t2, ...(v22On(teamDay) ? [] : (m.moves ?? []).map((id) => tmType(id) ?? undefined))]
   const notes: Notes = { codeDays: 0, arborDays: 0, guitarDays: 0, workouts: 0, records: 0, clean: 0, owned: 0, steps: 0, stepDays: 0 }
   /** how each Pokemon did on each tag over all its days as the partner: its nature */
   const raised = new Map<string, Share>()
@@ -804,8 +834,14 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
 
   /** The partner has stepped aside: the one chosen, else the oldest in the Box, else an egg so the loop never stalls. `over` is the XP it had past the line. */
   const nextPartner = (day: string, over: number) => {
+    // version 22 (5.2): the first of the party still being raised steps up, else the oldest in the Lab; its place in the party is left open
+    const fromParty = v22On(day) ? teamNow().find((m) => !m.graduated && queue.some((q) => q.uid === m.uid)) : undefined
+    if (fromParty) {
+      queue.splice(queue.findIndex((q) => q.uid === fromParty.uid), 1)
+      if (teamPick) teamPick = teamPick.map((u) => (u === fromParty.uid ? TEAM_HOLE : u))
+    }
     const at = chosenNext ? queue.findIndex((m) => m.uid === chosenNext) : -1
-    partner = (at >= 0 ? queue.splice(at, 1)[0] : queue.shift()) ?? make(roll(`egg:${day}:${graduates.length}`, 'any'), 'starter', day)
+    partner = fromParty ?? (at >= 0 ? queue.splice(at, 1)[0] : queue.shift()) ?? make(roll(`egg:${day}:${graduates.length}`, 'any'), 'starter', day)
     chosenNext = null
     partner.started = day
     partner.xp += over
@@ -933,7 +969,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         const hit = offerFor(named, item, day, dealsFor(inv))
         if (!hit) return
         const { shop, offer } = hit
-        if (shop === 'mart' && sold.has(`${day}:${item}`)) return
+        if (shop === 'mart' && !v22On(day) && sold.has(`${day}:${item}`)) return
         if (ONCE.has(item) && (inv[item] || partner.held === item)) return
         const marks = isMarkTag(shop) ? wallet.marks[shop] : shop === 'bp' ? wallet.bp : 0
         if ((offer.coins ?? 0) > wallet.coins || (offer.gems ?? 0) > wallet.gems || (offer.marks ?? 0) > marks) return
@@ -965,9 +1001,12 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       }
       case 'warm': {
         // version 19: with two kinds of egg waiting, the one to put in the Nursery is chosen; its steps count from the next day
-        if (day < V19_START || egg || !isEgg(item) || !(inv[item] > 0)) return
+        if (day < V19_START || !(inv[item] > 0) || !(v22On(day) ? inNursery(item) : isEgg(item))) return
+        // version 22: a fossil goes in like an egg, and a second place can be bought
+        if (egg && !(v22On(day) && inv[NURSERY_PLACE] && !egg2)) return
         inv[item]--
-        egg = { kind: item, have: 0, since: day }
+        if (egg) egg2 = { kind: item, have: 0, since: day }
+        else egg = { kind: item, have: 0, since: day }
         return
       }
       case 'throw': {
@@ -1040,7 +1079,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       }
       case 'hold': {
         const to = u.to ?? ''
-        if (to && !(HELD[to] && (inv[to] || partner.held === to))) return
+        if (to && !((v22On(day) ? to in HELD_V22 : HELD[to]) && (inv[to] || partner.held === to))) return
         if (partner.held) { inv[partner.held] = (inv[partner.held] ?? 0) + 1; delete partner.held }
         if (to) { inv[to]--; partner.held = to }
         return
@@ -1054,6 +1093,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       case 'forge': {
         const m = [partner, ...queue, ...graduates].find((x) => x.uid === u.uid)
         if (!keyStone || !m || !u.to) return
+        // version 22 (6.2): a fully trained Best Friend, three shards of three colours and the Forge's fee in coins
+        if (v22On(day) && (!m.graduated || heartsOf(m) < HEART_CAP || wallet.coins < FORGE_COINS)) return
         const megas = rec(m.form).m ?? []
         if (!megas.includes(u.to) || m.megas?.includes(u.to)) return
         if (v13On(day)) {
@@ -1061,6 +1102,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
           const use = forgeFair(inv, u.item || undefined)
           if (!use) return
           for (const id of use) inv[id]--
+          if (v22On(day)) wallet.coins -= FORGE_COINS
         } else {
           const shard = forgeShard(megas.length, megas.indexOf(u.to), m.nature?.up, inv)
           if (!shard) return
@@ -1178,7 +1220,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       }
       case 'fossil': {
         const f = FOSSILS[item]
-        if (!v13On(day) || !f || !inv[item] || wallet.coins < REVIVE_COST || !SPECIES[f.species]) return
+        if (v22On(day) || !v13On(day) || !f || !inv[item] || wallet.coins < REVIVE_COST || !SPECIES[f.species]) return
         inv[item]--
         wallet.coins -= REVIVE_COST
         const mon = make(f.species, 'fossil', day)
@@ -1228,7 +1270,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       }
       case 'sell': {
         const t = TREASURE[item]
-        if (!v13On(day) || !t || !inv[item]) return
+        if (v22On(day) || !v13On(day) || !t || !inv[item]) return
         const n = Math.max(1, Math.min(inv[item], Number.parseInt(u.to ?? '1', 10) || 1))
         inv[item] -= n
         // version 14: the Collector pays double for what is on today's wanted list
@@ -1248,7 +1290,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       case 'lead': {
         const i = queue.findIndex((x) => x.uid === u.uid)
         // version 14: a fully trained Pokemon can lead again, to go on to the last level
-        const g = i < 0 && v14On(day) ? graduates.findIndex((x) => x.uid === u.uid && levelOf(x.xp) < MAX_LEVEL) : -1
+        const g = i < 0 && v14On(day) && !v22On(day) ? graduates.findIndex((x) => x.uid === u.uid && levelOf(x.xp) < MAX_LEVEL) : -1
         if (i < 0 && g < 0) return
         const [next] = i >= 0 ? queue.splice(i, 1) : graduates.splice(g, 1)
         if (partner.graduated) graduates.push(partner)
@@ -1302,7 +1344,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
 
   /** version 22: party power against a foe of this type (spec 5.3): the six, the Trainer's levels */
   const powerV22 = (foeType: string): number => partyPower([partner, ...teamNow().filter((m) => m.uid !== partner.uid)].map((m): Fighter => ({
-    level: levelOf(m.xp), hearts: heartsOf(m), bond: bondLevel(heartsOf(m)), beats: beats(typesOf(m), foeType), mega: Boolean(m.megas?.length), partner: m.uid === partner.uid,
+    level: Math.min(levelOf(m.xp), 50), hearts: heartsOf(m), bond: bondLevel(heartsOf(m)), beats: beats(typesOf(m), foeType), mega: Boolean(m.megas?.length), partner: m.uid === partner.uid, belt: m.uid === partner.uid && partner.held === 'expert-belt',
   })), trainerHearts)
 
   let display = partner.form
@@ -1416,11 +1458,26 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       v22Begun = true
       for (const piece of Object.keys(GEAR_FOR)) if ((inv[piece] ?? 0) > 0) { tracks.fitness.kit.add(GEAR_FOR[piece]); inv[piece] = 0 }
       for (const t of MARK_TAGS) { if (t !== 'fitness') tracks[t].pips = Math.min(TRACK_LEN - 1, Math.floor(wallet.marks[t] / 3)); wallet.marks[t] = 0 }
+      // everything the game no longer has is paid back: a Great Ball for a ball, a Tamato Berry for a berry, its price for the rest (the partner's held item too)
+      const back = (id: string, n: number) => { const c = convertV22(id, n); wallet.coins += c.coins; wallet.gems += c.gems; for (const [i, k] of c.items) inv[i] = (inv[i] ?? 0) + k }
+      if (partner.held && !(partner.held in HELD_V22)) { const h = partner.held; delete partner.held; back(h, 1) }
+      for (const id of Object.keys(inv)) { const n = inv[id]; if (!n || keptV22(id)) continue; delete inv[id]; back(id, n) }
+      for (const m of [partner, ...queue, ...graduates]) delete m.moves
+      // Battle Points are gone: two gems each. The Lab starts its points again (the rank is kept); the Trainer's levels begin where the hearts already are
+      wallet.gems += wallet.bp * 2; wallet.bp = 0
+      // the Lab keeps its rank and its share of the way to the next one (904 of 1,500 is 60% of a rank, whatever a rank now costs)
+      research.points = Math.round((research.points / RANK_V21) * labCost(research.rank))
+      trainerLevelsGiven = trainerLevelV22(trainerHearts)
+      // the wild Pokemon in front of you keeps the same share of its HP, now counted in ticks
+      if (wild && !wild.caught) { const left = wild.hp / wild.max; wild.max = WILD_TICKS[wild.rarity]; wild.hp = Math.max(1, Math.round(wild.max * left)) }
     }
 
     // dozing: nothing at all on the last two days, and nothing yet today
     const dry = days.length >= SLEEP_AFTER && days.slice(-SLEEP_AFTER).every((d) => d.pillars === 0)
-    if (v21) {
+    if (v22) {
+      // version 22 (6.1): a work day is one heart for the partner (two with a Soothe Bell); berries, a Trail Egg and a duplicate are the rest
+      if (E > 0) { partner.together = (partner.together ?? 0) + 1; if (partner.held === 'soothe-bell') heartsTo(partner, 1, f.day) }
+    } else if (v21) {
       // version 21: the partner's hearts are the tier's, the first pillar's, and a good night's (the day together is one of them)
       if (E > 0) {
         partner.together = (partner.together ?? 0) + 1
@@ -1432,12 +1489,12 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       if (v13 && pillars > 0) partner.fed = (partner.fed ?? 0) + (pillars - 1) + (partner.held === 'shell-bell' ? 1 : 0)
     }
     // version 16: a party member grows closer on a day that counts and did its own kind of work
-    if (v16On(f.day) && pillars > 0) for (const m of teamNow()) if (m.uid !== partner.uid && heartsOf(m) < HEART_CAP && didWork(signatureOf(m.form).tag, f.habits)) m.fed = (m.fed ?? 0) + 1
+    if (v16On(f.day) && !v22 && pillars > 0) for (const m of teamNow()) if (m.uid !== partner.uid && heartsOf(m) < HEART_CAP && didWork(signatureOf(m.form).tag, f.habits)) m.fed = (m.fed ?? 0) + 1
     noteHearts(f.day)
     asleep = dry && pillars === 0
 
     // version 16: the signatures as they stand today; Flow pays routine habits more
-    const sigs = v16On(f.day) ? sigsNow() : null
+    const sigs = v16On(f.day) && !v22 ? sigsNow() : null
     const flow = sigs ? SIG_FLOW * sigs.routine : 0
     const base = f.habits.reduce((s, h) => s + h.worth * h.frac * (h.tag === 'routine' ? 1 + flow : 1) * (h.pillar ? (bounty[h.tag] ?? 1) : 1), 0)
     const full = f.habits.reduce((s, h) => s + h.worth, 0)
@@ -1524,7 +1581,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
 
     const share = full > 0 ? base / full : 0
     const ball = ballFor(ticked)
-    const amulet = inv['amulet-coin'] ? AMULET_MULT : 1
+    const amulet = (v22 ? partner.held === 'amulet-coin' : inv['amulet-coin']) ? AMULET_MULT : 1
     // coins for showing up: the best bar the day's ticks reached
     const pay = v21 ? (tier > 0 ? DAY_COINS[tier] : (CHORE_COINS.find((c) => choreShare >= c.share)?.coins ?? 0)) : [...DAILY_PAY].reverse().find((t) => ticked >= t.share)?.coins ?? 0
     // two days running at the streak bar adds a little on top
@@ -1557,6 +1614,20 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     research.today = 0
     research.counts = (v21 ? E > 0 : pillars > 0) ? 'pillar' : doneAll.some((h) => h.tag === 'sleep') ? 'sleep' : 'none'
     const study = () => {
+      if (v22) {
+        // version 22 (5.4): a day's research is the pillars done times (the base and the Lab's strength); every rank pays, and there is no last one
+        research.today = p22!.done.length > 0 ? Math.round(p22!.done.length * (LAB_BASE + labStrength())) : 0
+        research.points += research.today
+        while (research.points >= labCost(research.rank)) {
+          research.points -= labCost(research.rank)
+          research.rank++
+          const r = labReward(research.rank)
+          const key = `research:${research.rank}`, title = `Research rank ${research.rank}`
+          if (r.choice) { holdChoice(key, f.day, title, r.choice); hold(`${key}:more`, f.day, title, 0, 0, r.items) } else hold(key, f.day, title, r.coins, 0, r.items)
+          moments.push({ kind: 'research', day: f.day, rank: research.rank })
+        }
+        return
+      }
       if (!(v14On(f.day) && (v21 ? E > 0 : pillars > 0))) return
       // version 15: the party studies too, at a share of a desk place, so research runs before there is anyone to spare for the desk
       // version 21: the day's tier decides it, the first pillar adds, the desk adds by rarity and a good night a share more
@@ -1605,7 +1676,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     if (!perfect && charm > 0) sigToday.charm = Math.min(charm, result.hit)
     w.hp -= result.hit
     if (w.hp <= 0) {
-      const shiny = perfect ? rng(`shiny:${f.day}`)() < 1 / SHINY_ODDS : rng(`shiny-worn:${f.day}`)() < 1 / (inv['lucky-egg'] ? SHINY_ODDS_WORN / 2 : SHINY_ODDS_WORN)
+      const shiny = perfect ? rng(`shiny:${f.day}`)() < 1 / SHINY_ODDS : rng(`shiny-worn:${f.day}`)() < 1 / ((v22 ? partner.held === 'lucky-egg' : inv['lucky-egg']) ? SHINY_ODDS_WORN / 2 : SHINY_ODDS_WORN)
       catchWild(w, f.day, shiny, ball, perfect ? 'perfect' : 'worn') // the next one appears tomorrow morning
     }
     if (perfect) { perfectDays++; earn(0, GEMS.perfect) }
@@ -1743,7 +1814,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       const edges = members.filter((m) => beats(typesOf(m), type)).length
       // version 21: the card is its HP. Power (a Mega by bond, a type edge, the Rocky Helmet) multiplies the work, and a Max day's counts more
       b.strike = v21 ? 1 : strikeOf(party, b.card)
-      b.common = v22 ? powerV22(type) * BOSS_POWER : v21 ? megaPower() + BOSS_EDGE_V21 * edges + (partner.held === 'rocky-helmet' ? 0.2 : 0) : pw.team + pw.bond + pw.mega + pw.item + TYPE_EDGE * edges + (v13 && partner.held === 'rocky-helmet' ? 0.2 : 0)
+      b.common = v22 ? powerV22(type) * BOSS_POWER + (partner.held === 'rocky-helmet' ? 0.1 : 0) : v21 ? megaPower() + BOSS_EDGE_V21 * edges + (partner.held === 'rocky-helmet' ? 0.2 : 0) : pw.team + pw.bond + pw.mega + pw.item + TYPE_EDGE * edges + (v13 && partner.held === 'rocky-helmet' ? 0.2 : 0)
       const work = cardWork(b.card, f.boss.p)
       const moved = work - b.work
       if (v21 && !b.caught) {
@@ -1815,15 +1886,15 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       }
     }
     // ── version 13: Pickup, and the Battle Frontier ──
-    if (v13 && pillars > 0 && perkOn(f.day, 'pickup')) {
-      const chance = Math.min(0.95, (PICKUP_BASE + PICKUP_STEP * (bondNow - 1) + STAR_PICKUP * perkRank.pickup) * (partner.held === 'lucky-punch' ? 2 : 1))
+    if (v13 && (v22 ? p22!.effort.length > 0 : pillars > 0) && perkOn(f.day, 'pickup')) {
+      const chance = v22 ? Math.min(0.9, (0.3 + 0.05 * trainerLevelV22(trainerHearts)) * (partner.held === 'lucky-punch' ? 2 : 1)) : Math.min(0.95, (PICKUP_BASE + PICKUP_STEP * (bondNow - 1) + STAR_PICKUP * perkRank.pickup) * (partner.held === 'lucky-punch' ? 2 : 1))
       if (rng(`pickup:${f.day}`)() < chance) {
         const tier = Math.min(PICKUP_TIERS, Math.floor(lg.index / 2) + lg.lap)
-        const found = pickupFind(`pickup-item:${f.day}`, tier)
-        inv[found] = (inv[found] ?? 0) + 1
-        result.find = found
+        const found = v22 ? pickupFindV22(`pickup-item:${f.day}`, tier) : pickupFind(`pickup-item:${f.day}`, tier)
+        // version 22 (9.3): a find is coins, or something that is used as it is
+        if (found === 'coins') { earn(PICKUP_COINS[tier], 0); result.find = 'coin' } else { inv[found] = (inv[found] ?? 0) + 1; result.find = found }
         bump('pickups')
-        moments.push({ kind: 'pickup', day: f.day, item: found, form: partner.form })
+        moments.push({ kind: 'pickup', day: f.day, item: result.find ?? found, form: partner.form })
       }
     }
     // version 16: Forage finds a berry on an Arbor morning; Dream gives the party hearts after a good night
@@ -1890,22 +1961,41 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     // an egg: one kept warm at a time. Before version 19 only the Mystery Egg existed and went in at once; now a lone kind goes in at once,
     // and with two kinds waiting the player chooses (`warm`). An egg put in today does not count today's steps.
     const v19day = f.day >= V19_START
-    const waiting = EGG_IDS.filter((k) => (inv[k] ?? 0) > 0)
-    const lone = v19day ? (waiting.length === 1 ? waiting[0] : null) : (inv['rare-egg'] ? 'rare-egg' : null)
-    if (!egg && lone) { inv[lone]--; egg = { kind: lone, have: 0, since: f.day } }
-    else if (egg && egg.since !== f.day) { egg.today = Math.max(0, v19day ? (f.body?.steps ?? 0) : Math.min(STEPS_GOAL, f.body?.steps ?? 0)); egg.have += egg.today }
-    if (egg && egg.have >= eggNeed(egg.kind, egg.since, Boolean(inv['old-charm']))) {
+    // version 22 (7): a fossil goes in the Nursery like an egg, and a second place can be bought. A lone kind waiting goes in at once; with two kinds the player chooses (`warm`).
+    const nurseryIds = v22 ? NURSERY_IDS : EGG_IDS
+    const loneKind = (): string | null => {
+      const waiting = nurseryIds.filter((k) => (inv[k] ?? 0) > 0)
+      return v19day ? (waiting.length === 1 ? waiting[0] : null) : (inv['rare-egg'] ? 'rare-egg' : null)
+    }
+    /** one place: fill it, or count today's steps, or hatch what is in it (an egg put in today does not count today's steps) */
+    const tendNursery = (slot: typeof egg): typeof egg => {
+      if (!slot) { const lone = loneKind(); if (!lone) return null; inv[lone]--; return { kind: lone, have: 0, since: f.day } }
+      if (slot.since !== f.day) { slot.today = Math.max(0, v19day ? (f.body?.steps ?? 0) : Math.min(STEPS_GOAL, f.body?.steps ?? 0)); slot.have += slot.today }
+      if (slot.have < eggNeed(slot.kind, slot.since, oldCharm(f.day))) return slot
+      const fossil = FOSSILS[slot.kind]
+      if (fossil) {
+        // version 22: walking brings a fossil back to life
+        const mon = make(fossil.species, 'fossil', f.day)
+        queue.push(mon)
+        see(mon.form, f.day, false)
+        bump('fossils')
+        moments.push({ kind: 'fossil', day: f.day, uid: mon.uid, form: mon.form, item: slot.kind })
+        return null
+      }
       bump('hatched')
-      const kind = EGG_KINDS[egg.kind] ?? EGG_KINDS['rare-egg']
-      const want = kind.want === 'mix' ? (rng(`${egg.kind}:rarity:${f.day}`)() < WORK_EGG_RARE ? 'R' : 'U') : kind.want
-      const mon = make(roll(egg.kind === 'rare-egg' ? `rare-egg:${f.day}` : `${egg.kind}:${f.day}`, want, kind.work ?? null), 'egg', f.day)
+      const kind = EGG_KINDS[slot.kind] ?? EGG_KINDS['rare-egg']
+      const want = kind.want === 'mix' ? (rng(`${slot.kind}:rarity:${f.day}`)() < WORK_EGG_RARE ? 'R' : 'U') : kind.want
+      const mon = make(roll(slot.kind === 'rare-egg' ? `rare-egg:${f.day}` : `${slot.kind}:${f.day}`, want, kind.work ?? null), 'egg', f.day)
       if (kind.hearts && v19day) mon.fed = (mon.fed ?? 0) + kind.hearts
       const twin = twinOf(mon, f.day)
       if (!twin) queue.push(mon)
       see(mon.form, f.day, false)
-      moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form, egg: egg.kind, ...(twin ? { dupe: twin.uid } : {}) })
-      egg = null
+      moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form, egg: slot.kind, ...(twin ? { dupe: twin.uid } : {}) })
+      return null
     }
+    egg = tendNursery(egg)
+    if (v22 && inv[NURSERY_PLACE]) egg2 = tendNursery(egg2)
+    if (!egg && egg2) { egg = egg2; egg2 = null }
 
     payQuests()
     // feats last, so everything the day did is counted
@@ -2071,7 +2161,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     })(),
     egg: egg ? (() => {
       const e = egg as { kind: string; since: string; today?: number; have: number }
-      const need = eggNeed(e.kind, e.since, Boolean(inv['old-charm']))
+      const need = eggNeed(e.kind, e.since, oldCharm(last?.day ?? e.since))
       const recent = stepLog.slice(-14)
       return { kind: e.kind, since: e.since, today: e.today ?? 0, have: Math.min(e.have, need), need, pace: recent.length ? Math.round(recent.reduce((n, x) => n + x, 0) / recent.length) : 0 }
     })() : null,
@@ -2081,7 +2171,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       const h = lastFacts?.habits.find((x) => x.id === SLEEP_HABIT && x.tag === 'sleep')
       return { band: facts.some((f) => f.habits.some((x) => x.measured) || typeof f.body?.sleepScore === 'number'), state: h?.measured ? 'measured' as const : h?.selfReported ? 'self' as const : 'off' as const, score: typeof lastFacts?.body?.sleepScore === 'number' ? lastFacts.body.sleepScore : null, xp: h ? Math.round(h.worth * h.frac) : 0 }
     })(),
-    mart: { deals: last ? martDeals(last.day, dealsFor(inv)) : [], bought: last ? [...sold].filter((k) => k.startsWith(last.day + ':')).map((k) => k.slice(11)) : [], standing: STANDING },
+    mart: last && v22On(last.day) ? { deals: [], bought: [], standing: MART_V22 } : { deals: last ? martDeals(last.day, dealsFor(inv)) : [], bought: last ? [...sold].filter((k) => k.startsWith(last.day + ':')).map((k) => k.slice(11)) : [], standing: STANDING },
     mastery: { ...mastery },
     bond: { level: bondLvl, mult: 1 + BOND_STEP * bondLvl },
     runs: Object.fromEntries(Object.entries(runs).map(([k, r]) => [k, { cur: last && dayGap(r.last, last.day) <= 2 ? r.cur : 0, best: r.best }])),
@@ -2109,15 +2199,22 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     endure: { ready: !lastEndure || !last || dayGap(lastEndure, last.day) >= endureDays(), from: lastEndure ? addDays(lastEndure, endureDays()) : null },
     v13: Boolean(last && v13On(last.day)),
     v14: Boolean(last && v14On(last.day)),
-    research: { rank: research.rank, points: research.points, need: last && v21On(last.day) ? RANK_V21 : researchCost(research.rank), desk: deskNow(), chosen: deskPick !== null, perDay: studyOf(deskNow()) + (last && v15On(last.day) ? partyStudy() : 0), today: research.today, cut: researchCut(research.rank), counts: research.counts, parts: { desk: studyOf(deskNow()), party: last && v15On(last.day) ? partyStudy() : 0, insight: last && v16On(last.day) ? Math.round(SIG_INSIGHT * sigsNow().code) : 0 } },
+    research: { rank: research.rank, points: research.points, need: last && v22On(last.day) ? labCost(research.rank) : last && v21On(last.day) ? RANK_V21 : researchCost(research.rank), desk: last && v22On(last.day) ? [] : deskNow(), chosen: deskPick !== null, perDay: studyOf(deskNow()) + (last && v15On(last.day) ? partyStudy() : 0), today: research.today, cut: last && v22On(last.day) ? 0 : researchCut(research.rank), counts: research.counts, parts: { desk: studyOf(deskNow()), party: last && v15On(last.day) ? partyStudy() : 0, insight: last && v16On(last.day) ? Math.round(SIG_INSIGHT * sigsNow().code) : 0 } },
     v16: Boolean(last && v16On(last.day)),
-    trainer: { hearts: trainerHearts, level: trainerLevel(trainerHearts), next: TRAINER_LEVELS.find((n) => trainerHearts < n) ?? null, stars: starsGiven, nextStar: nextStarAt(trainerHearts), ranks: { ...perkRank } },
+    trainer: { hearts: trainerHearts, level: last && v22On(last.day) ? trainerLevelV22(trainerHearts) : trainerLevel(trainerHearts), next: last && v22On(last.day) ? (trainerLevelV22(trainerHearts) + 1) * TRAINER_HEARTS : TRAINER_LEVELS.find((n) => trainerHearts < n) ?? null, stars: starsGiven, nextStar: nextStarAt(trainerHearts), ranks: { ...perkRank } },
     sigs: sigsNow(),
     sigToday,
     worked: Object.fromEntries(TAGS.map((t) => [t, didWork(t, lastFacts?.habits ?? [])])) as Record<Tag, boolean>,
     shelved: lastFacts?.live ? MARK_TAGS.filter((t) => !lastFacts.live!.includes(t)) : [],
     tier: dayTier,
     v22: Boolean(last && v22On(last.day)),
+    partyPower: powerV22(leaderNow?.type ?? ''),
+    lab: { strength: labStrength(), members: labMembers().length, rank: research.rank, points: research.points, need: labCost(research.rank), today: research.today, next: [1, 2, 3].map((k) => labReward(research.rank + k).title) },
+    egg2: egg2 ? (() => {
+      const e = egg2 as { kind: string; since: string; today?: number; have: number }
+      const need = eggNeed(e.kind, e.since, oldCharm(last?.day ?? e.since))
+      return { kind: e.kind, since: e.since, today: e.today ?? 0, have: Math.min(e.have, need), need, pace: 0 }
+    })() : null,
     tracks: Object.fromEntries(MARK_TAGS.map((t) => [t, { pips: tracks[t].pips, of: TRACK_LEN, ready: [...held.keys()].some((k) => k.startsWith(`track:${t}:`)), n: tracks[t].n, kit: [...tracks[t].kit] }])) as Game['tracks'],
     tiles: tilesNow(),
   }
