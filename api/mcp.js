@@ -125,7 +125,7 @@ function settled(events) {
 	});
 }
 //#endregion
-//#region src/game-core/rules.ts
+//#region src/game-core/legacy/rules.ts
 /** Days before this are not part of the game. */
 const GAME_START = "2026-10-03";
 /** The first day stakes apply: brought forward from 23 Oct to 12 Oct 2026. Never earlier than a day already lived, or old empty days would be punished after the fact. */
@@ -701,7 +701,7 @@ function weakDomains(type) {
 	return [...score.entries()].map(([d, n]) => [d, n / size.get(d)]).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 2).map(([d]) => d);
 }
 //#endregion
-//#region src/game-core/economy.ts
+//#region src/game-core/legacy/economy.ts
 /** seeded randomness: the same seed always gives the same run of numbers */
 function rng(seed) {
 	let h = 1779033703 ^ seed.length;
@@ -15016,7 +15016,7 @@ const SPECIES = {
 	}
 };
 //#endregion
-//#region src/game-core/bond.ts
+//#region src/game-core/legacy/bond.ts
 /** Trainer bond levels: hearts across every Pokemon owned. Each level unlocks the next perk in BOND_PERKS. */
 const TRAINER_LEVELS = [
 	10,
@@ -15200,7 +15200,7 @@ const PERKS_V21 = [
 ];
 const hasPerkV21 = (level, perk) => level >= PERKS_V21.indexOf(perk) + 1;
 //#endregion
-//#region src/game-core/frontier.ts
+//#region src/game-core/legacy/frontier.ts
 const FACILITIES = [
 	{
 		id: "tower",
@@ -15300,7 +15300,7 @@ const FACILITIES = [
 */
 const bpFor = (run, counted = false) => counted ? 3 : run <= 0 ? 0 : 1 + (run % 7 === 0 ? Math.min(35, run) : 0);
 //#endregion
-//#region src/game-core/fold.ts
+//#region src/game-core/legacy/fold.ts
 const emptyShare = () => Object.fromEntries(TAGS.map((t) => [t, {
 	got: 0,
 	max: 0
@@ -15350,7 +15350,7 @@ function canCandy(g, uid, day) {
 	const m = (day >= V21_START ? void 0 : inBox) ?? (day >= "2026-10-19" ? trained : void 0);
 	return m !== void 0 && levelOf(m.xp) < 100;
 }
-function foldGame(facts, opts = {}) {
+function foldGame$1(facts, opts = {}) {
 	const moments = [];
 	const dex = {};
 	const queue = [];
@@ -17586,6 +17586,15 @@ function statsOf$1(facts) {
 	};
 }
 const nameOf = (form) => SPECIES[form]?.n ?? form;
+//#endregion
+//#region src/game-core/fold.ts
+/**
+* The game. Days before V22_START are the legacy game; days from it are the new rules (not built yet: GAME-SPEC-V22.md section 12.5,
+* steps 2 to 7). Until they are, a start date reached early still folds by the legacy rules, so setting one by mistake cannot break the apps.
+*/
+function foldGame(facts, opts = {}) {
+	return foldGame$1(facts, opts);
+}
 //#endregion
 //#region src/game-core/strong.ts
 const parse$1 = (raw) => {
