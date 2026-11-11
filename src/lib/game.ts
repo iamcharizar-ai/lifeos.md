@@ -56,7 +56,8 @@ function loadSeen(): Set<string> | null {
  */
 export function freshMoments(game: Game, today: string): Moment[] {
   const seen = loadSeen()
-  const mine = game.moments.filter((m) => m.day === today)
+  // choosing who leads is the player's own tap in the Pokedex, so it is never announced (a branch choice still is)
+  const mine = game.moments.filter((m) => m.day === today && !(m.kind === 'use' && m.what === 'lead'))
   const fresh = seen ? mine.filter((m) => !seen.has(momentKey(m))) : []
   if (!seen || fresh.length) {
     // only today's keys are worth keeping
