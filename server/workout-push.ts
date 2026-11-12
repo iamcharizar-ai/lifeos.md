@@ -6,6 +6,8 @@
 //
 // Needs the Google sign-in to include the write scope (ghealth auth login with activity_and_fitness as well as the read-only
 // ones); GOOGLE_REFRESH_TOKEN is the same one the health sync uses. Settings are in server/health-shared.ts.
+// A redeploy of an unchanged commit is skipped by vercel.json's ignoreCommand, so after changing that variable push a real
+// change to server/ (or bridge/) to make Vercel build again.
 import { PUSH_DAYS, PUSH_DEVICE, PUSH_TYPE, claimId, exerciseBody, pendingWorkouts } from '../bridge/exercise.ts'
 import { addDays, HEALTH_BASE } from '../bridge/health.ts'
 import type { LedgerEvent } from '../bridge/model.ts'
