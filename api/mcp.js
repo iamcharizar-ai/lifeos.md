@@ -523,8 +523,8 @@ const MOMENTUM_OLD_STEPS = [
 ];
 //#endregion
 //#region src/game-core/rules.ts
-/** The first day of version 22: the day it deploys. A placeholder far in the future until the owner approves. A `let` only so a test can set it. */
-let V22_START = "2099-01-01";
+/** The first day of version 22: the day it deployed, 12 Nov 2026 (the owner approved it that morning). Days before it fold by the frozen rules. A `let` only so a test of the old rules can set it (setV22Start). */
+let V22_START = "2026-11-12";
 const v22On = (day) => day >= V22_START;
 /**
 * The wild Pokemon: every habit ticked takes one HP off, nothing multiplies it (3.3). Its HP is a fixed number of ticks by rarity, set from the owner's

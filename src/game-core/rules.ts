@@ -6,8 +6,8 @@ export * from './legacy/rules.ts'
 // ══ version 22 (GAME-SPEC-V22.md) ══════════════════════════════════════════════
 // Built in steps; this is where its rules live. The live fold (core/fold.ts) is the engine, a copy of the frozen one in legacy/ with these
 // rules switched on from V22_START. core/oracle.test.ts proves it folds every earlier day exactly as legacy/fold.ts does.
-/** The first day of version 22: the day it deploys. A placeholder far in the future until the owner approves. A `let` only so a test can set it. */
-export let V22_START = '2099-01-01'
+/** The first day of version 22: the day it deployed, 12 Nov 2026 (the owner approved it that morning). Days before it fold by the frozen rules. A `let` only so a test of the old rules can set it (setV22Start). */
+export let V22_START = '2026-11-12'
 export const setV22Start = (day: string): void => { V22_START = day }
 export const v22On = (day: string): boolean => day >= V22_START
 
