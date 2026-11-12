@@ -228,6 +228,10 @@ async function handle(req) {
 		status: 204,
 		headers: HEADERS
 	});
+	if (process.env.WORKOUT_PUSH !== "on") return json(200, {
+		disabled: true,
+		note: "set WORKOUT_PUSH=on to send Strong workouts to Google Health"
+	});
 	if (!cfg.refresh || !cfg.clientId) return json(503, { error: "Google sign-in is not configured here" });
 	try {
 		running ??= pass().finally(() => {

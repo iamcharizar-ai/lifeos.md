@@ -1,4 +1,5 @@
 // POST /api/workout-push: send Strong's finished workouts to Google Health.
+// Switched off by default (see handle): set WORKOUT_PUSH=on, put the cron back in vercel.json and set VITE_HEALTH_PUSH=1 in Strong to use it.
 // Strong pings it when a workout is finished; a daily run (vercel.json crons) is the safety net for a ping that never arrived.
 // It reads the recent `workout` events from the ledger, and for each one not yet sent writes a `health_push` row (the claim,
 // made first so two runs at once cannot both send it) and then creates a strength-training session in Google Health.
@@ -73,6 +74,8 @@ async function pass(): Promise<Result> {
 
 async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: HEADERS })
+  // Off unless WORKOUT_PUSH=on: the Fitbit Air already logs each workout in Google Health, so Strong's copy would be a duplicate.
+  if (process.env.WORKOUT_PUSH !== 'on') return json(200, { disabled: true, note: 'set WORKOUT_PUSH=on to send Strong workouts to Google Health' })
   if (!cfg.refresh || !cfg.clientId) return json(503, { error: 'Google sign-in is not configured here' })
   try {
     running ??= pass().finally(() => { running = null })
