@@ -115,8 +115,16 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
       return { title: 'Quest done', line: `${m.name}: ${m.coins ? `+${m.coins} coins` : `+${m.gems} gems`}.` }
     case 'gear':
       return { title: 'Training gear', line: v22On(m.day) ? `${itemName(m.item)}: a new routine of your split, one pip on the Gym track.` : `${itemName(m.item)} from a Strong workout. A full set of seven pays gems and Iron, and every third set a Red Shard.` }
-    case 'track':
-      return { title: 'A track is full', line: 'Seven pips: its shard or its egg is waiting in the Pokedex, and you choose.' }
+    case 'track': {
+      // it must say which track: the Gym, Sleep and the rest each fill their own
+      const name = { code: 'Code', fitness: 'Gym', guitar: 'Guitar', arbor: 'Arbor', sleep: 'Sleep' }[m.tag]
+      return {
+        title: `${name} track is full`,
+        line: m.tag === 'sleep' ? 'Seven good nights: a Sleep Egg is waiting in Collect in the Pokedex.'
+          : m.tag === 'fitness' ? 'Seven routines of your split: a Red Shard or a Gym Egg is waiting in Collect in the Pokedex, and you choose.'
+          : `Seven ${name} days: its shard or its egg is waiting in Collect in the Pokedex, and you choose.`,
+      }
+    }
     case 'kit':
       return { title: 'Training kit complete', line: 'All seven pieces of Strong gear: gems and Iron are yours, and every third set a Red Shard.' }
     case 'boss':
@@ -154,7 +162,7 @@ export function momentText(m: Moment): { title: string; line: string; form?: str
     case 'lap':
       return { title: `Rematch rank ★${m.lap + 1}`, line: 'Every league is beaten: they are all back, stronger.' }
     case 'research':
-      return { title: `Research rank ${m.rank}`, line: 'The Professor learnt more from his desk: wild Pokemon come weaker, and a gift waits in the Pokedex.' }
+      return { title: `Research rank ${m.rank}`, line: v22On(m.day) ? 'The Professor learnt more from the Lab: his gift is waiting in Collect in the Pokedex.' : 'The Professor learnt more from his desk: wild Pokemon come weaker, and a gift waits in the Pokedex.' }
     case 'master':
       return { title: 'Level 100', line: `${nameOf(m.form)} reached level 100 and stepped aside for the next partner.`, form: m.form }
   }

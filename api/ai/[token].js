@@ -15342,6 +15342,11 @@ function throwHp(ball, wild, day) {
 }
 /** The berry each kind of work drops: one per pillar done (4.2). */
 const BERRY_OF = Object.fromEntries(Object.entries(FRIEND_BERRY).map(([id, tag]) => [tag, id]));
+for (const [id, tag] of Object.entries(FRIEND_BERRY)) {
+	const item = ITEMS$1[id];
+	const types = Object.keys(TYPE_DOMAIN).filter((t) => TYPE_DOMAIN[t] === tag).join(", ");
+	if (item) item.text = `Feed a Pokemon: 5 hearts to ${types} types (by their first type), 2 to the rest.`;
+}
 const TRACK_NAME = {
 	code: "Code",
 	fitness: "Gym",
@@ -16147,7 +16152,7 @@ function foldGame(facts, opts = {}) {
 			gems,
 			items
 		};
-		if (opts.instant || claimedEarly.delete(key) || v22On(day)) credit(h, day);
+		if (opts.instant || claimedEarly.delete(key)) credit(h, day);
 		else held.set(key, h);
 	};
 	/** the three the wild Pokemon after this one can be chosen from: of any type, or of one domain's types for a domain incense */

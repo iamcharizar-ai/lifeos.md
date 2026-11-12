@@ -621,8 +621,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     if (coins <= 0 && gems <= 0 && !items.length) return
     wallet.coinsToday += coins; wallet.gemsToday += gems
     const h: Held = { key, day, title, coins, gems, items }
-    // version 22 (10.6): a reward is paid at once and told as news; only a choice (holdChoice) waits in Collect
-    if (opts.instant || claimedEarly.delete(key) || v22On(day)) credit(h, day)
+    // version 22 (10.6, reversed 12 Nov 2026 at the owner's word): everything waits in Collect again, so there is always something to collect
+    // and a reward is never found already sitting in the Bag. Unclaimed, it pays itself after CLAIM_AUTO days, as before.
+    if (opts.instant || claimedEarly.delete(key)) credit(h, day)
     else held.set(key, h)
   }
   /** the three the wild Pokemon after this one can be chosen from: of any type, or of one domain's types for a domain incense */
