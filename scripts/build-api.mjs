@@ -14,6 +14,7 @@ const ROOT = path.resolve(import.meta.dirname, '..')
 const ROUTES = {
   'health-webhook': ['health-webhook'],
   'health-check': ['health-check'],
+  'workout-push': ['workout-push'],
   ai: ['ai', 'ai/[token]'],
   mcp: ['mcp', 'mcp/[token]'],
 }

@@ -32,7 +32,7 @@ export const cfg = {
 export const today = (): string => new Intl.DateTimeFormat('en-CA', { timeZone: cfg.tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).slice(0, 10)
 
 let access: { token: string; until: number } | null = null
-async function accessToken(): Promise<string> {
+export async function accessToken(): Promise<string> {
   if (access && Date.now() < access.until) return access.token
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
