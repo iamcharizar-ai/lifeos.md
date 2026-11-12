@@ -166,3 +166,32 @@ export function trainerOptions(n: number): [Option, Option] {
   const a = Math.floor(r() * pool.length), b = (a + 1 + Math.floor(r() * (pool.length - 1))) % pool.length
   return [pool[a], pool[b]]
 }
+
+// ── version 22, step 6: feats, and every legend one deed (spec section 10) ──
+import { FACILITIES } from './frontier.ts'
+import { LEAGUES } from './gyms.ts'
+import { FEATS as LEGACY_FEATS, REMATCH_KEYS, type Feat, type Reward } from './legacy/economy.ts'
+
+/** From version 22 the feats are milestones: every run (7, 30, 100 in a row) goes, because the Battle Frontier is the one streak system. The week running that pays the Key Stone stays. */
+export const featLive = (f: Feat, day: string): boolean => !v22On(day) || f.group !== 'run' || f.id === 'work7'
+/** What a feat pays from version 22: shards come from tracks and nowhere else, so a feat pays gems and its other things. */
+export function featReward(f: Feat, day: string): Reward {
+  if (!v22On(day) || !f.reward.items) return f.reward
+  const items = Object.fromEntries(Object.entries(f.reward.items).filter(([id]) => !(SHARDS as readonly string[]).includes(id)))
+  return { ...f.reward, items }
+}
+export const FEATS_LIVE = (day: string): Feat[] => LEGACY_FEATS.filter((f) => featLive(f, day))
+
+/**
+ * Where each Legend key comes from (10.3): a Gold Symbol at a Frontier facility (seven keys), or the Champion of a league (ten on the first lap, then
+ * each Rematch lap's, in REMATCH_KEYS order). A key with neither has no deed and is not listed; nothing buys one any more.
+ */
+export type LegendDeed = { kind: 'symbol'; facility: string } | { kind: 'champion'; league: number; lap: number }
+export const LEGEND_DEEDS: Record<string, LegendDeed> = (() => {
+  const out: Record<string, LegendDeed> = {}
+  for (const f of FACILITIES) out[f.goldKey] = { kind: 'symbol', facility: f.id }
+  REMATCH_KEYS.forEach((key, i) => { if (!out[key]) out[key] = { kind: 'champion', league: i % LEAGUES.length, lap: Math.floor(i / LEAGUES.length) } })
+  return out
+})()
+/** The Champion's key on a lap (the same on every device): the Champions come round in REMATCH_KEYS order, ten to a lap. */
+export const championKey = (lap: number, league: number): string => REMATCH_KEYS[(lap * LEAGUES.length + league) % REMATCH_KEYS.length]

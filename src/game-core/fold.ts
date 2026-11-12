@@ -23,7 +23,7 @@ import {
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { berryGain, labWorth, leaderHit, partyPower, pillarsOf, tierOf, type Fighter } from './v22.ts'
-import { BERRY_OF, trackPrize, milestoneOptionsV22, labReward, labCost, trainerOptions, convertV22, keptV22, pickupFindV22, PICKUP_COINS, FORGE_COINS, NURSERY_PLACE, NURSERY_IDS, inNursery, HELD_V22, MART_V22, GEAR_FOR, COUNTER_V21, EGG_WAIT_MAX, researchRewardV21, ribbonOptions, workEgg, BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
+import { featLive, featReward, championKey, BERRY_OF, trackPrize, milestoneOptionsV22, labReward, labCost, trainerOptions, convertV22, keptV22, pickupFindV22, PICKUP_COINS, FORGE_COINS, NURSERY_PLACE, NURSERY_IDS, inNursery, HELD_V22, MART_V22, GEAR_FOR, COUNTER_V21, EGG_WAIT_MAX, researchRewardV21, ribbonOptions, workEgg, BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
 import { FACILITIES, GOLD_BP, GOLD_GEMS, REMATCH_BP, SILVER_BP, SILVER_GEMS, bpFor } from './frontier.ts'
 import {
   BOSS_EDGE_V21, EFFORT_TASKS, MAX_DAY_BOSS, BOSS_MILESTONES_V21, BOSS_WIN_GEMS_V21, BOSS_CATCH_GEMS, BOSS_HEAL, BOSS_HP_PER_LEVEL, BOSS_KILL_GEMS, BOSS_MILESTONES, BOSS_SHINY, BOSS_TAG, BOSS_TASK_COINS, BOSS_TASK_MARKS, KILL_CAP, THROWS, THROW_AT, TYPE_EDGE,
@@ -621,7 +621,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     if (coins <= 0 && gems <= 0 && !items.length) return
     wallet.coinsToday += coins; wallet.gemsToday += gems
     const h: Held = { key, day, title, coins, gems, items }
-    if (opts.instant || claimedEarly.delete(key)) credit(h, day)
+    // version 22 (10.6): a reward is paid at once and told as news; only a choice (holdChoice) waits in Collect
+    if (opts.instant || claimedEarly.delete(key) || v22On(day)) credit(h, day)
     else held.set(key, h)
   }
   /** the three the wild Pokemon after this one can be chosen from: of any type, or of one domain's types for a domain incense */
@@ -948,11 +949,12 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     cn.dex = Object.keys(dex).filter((id) => dex[id].own && !SPECIES[id]?.f).length
     cn.hearts = Math.max(0, ...[partner, ...queue, ...graduates].map((m) => (m.together ?? 0) + (m.fed ?? 0)))
     for (const ft of FEATS) {
-      if (gotFeat.has(ft.id) || (cn[ft.key] ?? 0) < ft.n) continue
+      if (gotFeat.has(ft.id) || !featLive(ft, day) || (cn[ft.key] ?? 0) < ft.n) continue
       gotFeat.add(ft.id)
       feats.push({ id: ft.id, day })
-      grant(ft.reward, day, `feat:${ft.id}`, ft.name)
-      moments.push({ kind: 'feat', day, id: ft.id, name: ft.name, coins: ft.reward.coins ?? 0, gems: ft.reward.gems ?? 0, items: Object.keys(ft.reward.items ?? {}) })
+      const reward = featReward(ft, day)
+      grant(reward, day, `feat:${ft.id}`, ft.name)
+      moments.push({ kind: 'feat', day, id: ft.id, name: ft.name, coins: reward.coins ?? 0, gems: reward.gems ?? 0, items: Object.keys(reward.items ?? {}) })
     }
   }
 
@@ -1745,19 +1747,20 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         // a badge is won once; a Rematch win pays Battle Points instead, and a Rematch Champion a Legend key
         if (gym && lg.lap === 0) bump('badges')
         // the Elite Four and the Champions hand over a Type Plate, once each, never a badge
-        if (!gym && lg.lap === 0) {
+        if (!gym && lg.lap === 0 && !v22) {
           const plate = plateFor(`${lg.index}:${lg.slot}`, platesGot)
           if (plate) {
             platesGot.add(plate)
             hold(`elite:${lg.index}:${lg.slot}`, f.day, `${lineup(l)[lg.slot].name}: ${PLATES[plate].name}`, 0, 0, [[plate, 1]])
           }
         }
-        if (lg.lap > 0) {
+        // version 22 (10.1): every Champion hands over a Legend key, on the first lap as well as on the Rematch
+        if (lg.lap > 0 || (v22 && champ)) {
           bpEarn(REMATCH_BP * (champ ? 5 : 1))
           if (champ) {
-            const key = REMATCH_KEYS[((lg.lap - 1) * LEAGUES.length + lg.index) % REMATCH_KEYS.length]
-            hold(`rematch:${lg.lap}:${lg.index}`, f.day, `Rematch: ${l.name} Champion`, 0, 0, [[key, 1]])
-            bump('rematch')
+            const key = v22 ? championKey(lg.lap, lg.index) : REMATCH_KEYS[((lg.lap - 1) * LEAGUES.length + lg.index) % REMATCH_KEYS.length]
+            hold(`rematch:${lg.lap}:${lg.index}`, f.day, lg.lap > 0 ? `Rematch: ${l.name} Champion` : `${l.name} Champion`, 0, 0, [[key, 1]])
+            if (lg.lap > 0) bump('rematch')
           }
         }
         moments.push({ kind: 'gym', day: f.day, league: lg.index, slot: lg.slot })
@@ -1789,7 +1792,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     // the season: every SEASON_STEP XP of the month's work is a step, and the step hands something over
     const ym = f.day.slice(0, 7)
     monthXp[ym] = (monthXp[ym] ?? 0) + Math.round(base)
-    while ((monthStep[ym] ?? 0) < Math.floor(monthXp[ym] / SEASON_STEP)) {
+    while (!v22 && (monthStep[ym] ?? 0) < Math.floor(monthXp[ym] / SEASON_STEP)) { // version 22: the level milestones are the ladder
       const step = (monthStep[ym] = (monthStep[ym] ?? 0) + 1)
       const r = seasonReward(step)
       hold(`season:${ym}:${step}`, f.day, `Season step ${step}`, r.coins ?? 0, r.gems ?? 0, r.item ? [[r.item, 1]] : [])
@@ -1876,6 +1879,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
 
     /** the week's quests, paid as soon as they are met: before the day's own actions as well as after, so what was won this evening can be collected this evening */
     const payQuests = () => {
+      if (v22) return // version 22: the boss card is the week's quest
       const met: Record<string, boolean> = { 'five-days': (weekDays[wk] ?? 0) >= WEEK_DAYS, catch: (weekCatch[wk] ?? 0) >= 1 }
       for (const q of WEEKLY_QUESTS) {
         if (!met[q.id] || paid.has(`${wk}:${q.id}`)) continue
@@ -1913,7 +1917,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       noteHearts(f.day)
     }
     if (v13) {
-      const won: Record<string, boolean> = { tower: counts, code: unit.code, fitness: unit.fitness, guitar: unit.guitar, arbor: unit.arbor, sleep: unit.sleep, perfect }
+      const won: Record<string, boolean> = { tower: counts, code: unit.code, fitness: unit.fitness, guitar: unit.guitar, arbor: unit.arbor, sleep: unit.sleep, perfect: v22 ? tier === 4 : perfect }
       for (const fac of FACILITIES) {
         if (!won[fac.win]) continue
         const r = fr[fac.id]

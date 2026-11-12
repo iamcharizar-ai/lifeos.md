@@ -15,6 +15,7 @@ import { PartnerStrip } from '../components/PartnerStrip'
 import { nameOf, type Game } from '../game-core/fold.ts'
 import { SLEEP_HABIT, TAGS, tierXp, type Tag } from '../game-core/rules.ts'
 import { ArborHead, ArborSkills, GuitarTile, PillarTile, SleepTile, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { TrackMark, trackMarkFor, type TrackMarkData } from '../components/TrackMark'
 import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
 import { practicedOn } from '../arbor-core/model.ts'
@@ -238,6 +239,7 @@ function ChecklistRow({
   tickCount,
   actions,
   linked,
+  mark,
 }: {
   habit: Habit
   ticks: Ticks
@@ -249,6 +251,8 @@ function ChecklistRow({
   tickCount: number
   actions: HabitActions
   linked: LinkedCtx
+  /** version 22: the pillar's track and the leader's mark, drawn on the tile with no words */
+  mark?: TrackMarkData
 }) {
   const controls = useDragControls()
   const ticked = Boolean(ticks[today]?.[habit.id])
@@ -302,6 +306,7 @@ function ChecklistRow({
         } ${open ? 'mb-0' : ''}`}
         data-tag={pillar ? domainOf(habit) : undefined}
       >
+        {mark && !arranging && <TrackMark {...mark} />}
         {arranging ? (
           <Grip
             label={habit.name}
@@ -773,6 +778,7 @@ export function HabitsScreen({
               tickCount={tickCounts[h.id] ?? 0}
               actions={arranging ? idle : actions}
               linked={linked}
+              mark={trackMarkFor(game, h)}
             />
           ))}
           </AnimatePresence>

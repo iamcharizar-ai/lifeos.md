@@ -15230,6 +15230,106 @@ const PERKS_V21 = [
 ];
 const hasPerkV21 = (level, perk) => level >= PERKS_V21.indexOf(perk) + 1;
 //#endregion
+//#region src/game-core/legacy/frontier.ts
+const FACILITIES = [
+	{
+		id: "tower",
+		name: "Battle Tower",
+		brain: "Palmer",
+		icon: "rainbow-pass",
+		win: "tower",
+		what: "a day with two pillars",
+		gap: 2,
+		silver: 14,
+		gold: 35,
+		goldKey: "old-sea-map",
+		silverItem: "rare-candy"
+	},
+	{
+		id: "factory",
+		name: "Battle Factory",
+		brain: "Noland",
+		icon: "scanner",
+		win: "code",
+		what: "a code day",
+		gap: 3,
+		silver: 10,
+		gold: 30,
+		goldKey: "meteorite",
+		silverItem: "up-grade"
+	},
+	{
+		id: "arena",
+		name: "Battle Arena",
+		brain: "Greta",
+		icon: "black-belt",
+		win: "fitness",
+		what: "a gym day",
+		gap: 3,
+		silver: 10,
+		gold: 30,
+		goldKey: "red-orb",
+		silverItem: "razor-claw"
+	},
+	{
+		id: "palace",
+		name: "Battle Palace",
+		brain: "Spenser",
+		icon: "gb-sounds",
+		win: "guitar",
+		what: "a guitar day",
+		gap: 3,
+		silver: 10,
+		gold: 30,
+		goldKey: "soul-dew",
+		silverItem: "shiny-stone"
+	},
+	{
+		id: "dome",
+		name: "Battle Dome",
+		brain: "Tucker",
+		icon: "growth-mulch",
+		win: "arbor",
+		what: "an Arbor morning",
+		gap: 3,
+		silver: 10,
+		gold: 30,
+		goldKey: "gracidea",
+		silverItem: "leaf-stone"
+	},
+	{
+		id: "pike",
+		name: "Battle Pike",
+		brain: "Lucy",
+		icon: "moon-stone",
+		win: "sleep",
+		what: "a good night (80 or more)",
+		gap: 2,
+		silver: 7,
+		gold: 21,
+		goldKey: "member-card",
+		silverItem: "dusk-stone"
+	},
+	{
+		id: "pyramid",
+		name: "Battle Pyramid",
+		brain: "Brandon",
+		icon: "relic-statue",
+		win: "perfect",
+		what: "a perfect day",
+		gap: 0,
+		silver: 5,
+		gold: 15,
+		goldKey: "jade-orb",
+		silverItem: "relic-gold"
+	}
+];
+/**
+* Battle Points a win pays: one for every win, and at every seventh win in a row a bonus of 7 at seven, 14 at fourteen, and so on up to 35.
+* The Pyramid, which is not a run, pays 3 for every perfect day.
+*/
+const bpFor = (run, counted = false) => counted ? 3 : run <= 0 ? 0 : 1 + (run % 7 === 0 ? Math.min(35, run) : 0);
+//#endregion
 //#region src/game-core/economy.ts
 /** What a thrown ball takes off the wild Pokemon. From V22_START the wild Pokemon's HP is counted in ticks, so a ball's HP is too (TICKS_PER_HP); a Master Ball still catches anything. */
 function throwHp(ball, wild, day) {
@@ -15700,6 +15800,34 @@ function trainerOptions(n) {
 	const a = Math.floor(r() * pool.length), b = (a + 1 + Math.floor(r() * (pool.length - 1))) % pool.length;
 	return [pool[a], pool[b]];
 }
+/** From version 22 the feats are milestones: every run (7, 30, 100 in a row) goes, because the Battle Frontier is the one streak system. The week running that pays the Key Stone stays. */
+const featLive = (f, day) => !v22On(day) || f.group !== "run" || f.id === "work7";
+/** What a feat pays from version 22: shards come from tracks and nowhere else, so a feat pays gems and its other things. */
+function featReward(f, day) {
+	if (!v22On(day) || !f.reward.items) return f.reward;
+	const items = Object.fromEntries(Object.entries(f.reward.items).filter(([id]) => !SHARDS.includes(id)));
+	return {
+		...f.reward,
+		items
+	};
+}
+(() => {
+	const out = {};
+	for (const f of FACILITIES) out[f.goldKey] = {
+		kind: "symbol",
+		facility: f.id
+	};
+	REMATCH_KEYS.forEach((key, i) => {
+		if (!out[key]) out[key] = {
+			kind: "champion",
+			league: i % LEAGUES.length,
+			lap: Math.floor(i / LEAGUES.length)
+		};
+	});
+	return out;
+})();
+/** The Champion's key on a lap (the same on every device): the Champions come round in REMATCH_KEYS order, ten to a lap. */
+const championKey = (lap, league) => REMATCH_KEYS[(lap * LEAGUES.length + league) % REMATCH_KEYS.length];
 //#endregion
 //#region src/game-core/v22.ts
 const done = (h) => h.done || h.frac >= 1;
@@ -15745,106 +15873,6 @@ function berryGain(item, form, day, workedToday) {
 	if (v22On(day) && FRIEND_BERRY[item]) return BERRY_OF[signatureOf(form).tag] === item ? 5 : 2;
 	return (BERRY_HEARTS[item] ?? 0) * (workedToday ? 2 : 1);
 }
-//#endregion
-//#region src/game-core/legacy/frontier.ts
-const FACILITIES = [
-	{
-		id: "tower",
-		name: "Battle Tower",
-		brain: "Palmer",
-		icon: "rainbow-pass",
-		win: "tower",
-		what: "a day with two pillars",
-		gap: 2,
-		silver: 14,
-		gold: 35,
-		goldKey: "old-sea-map",
-		silverItem: "rare-candy"
-	},
-	{
-		id: "factory",
-		name: "Battle Factory",
-		brain: "Noland",
-		icon: "scanner",
-		win: "code",
-		what: "a code day",
-		gap: 3,
-		silver: 10,
-		gold: 30,
-		goldKey: "meteorite",
-		silverItem: "up-grade"
-	},
-	{
-		id: "arena",
-		name: "Battle Arena",
-		brain: "Greta",
-		icon: "black-belt",
-		win: "fitness",
-		what: "a gym day",
-		gap: 3,
-		silver: 10,
-		gold: 30,
-		goldKey: "red-orb",
-		silverItem: "razor-claw"
-	},
-	{
-		id: "palace",
-		name: "Battle Palace",
-		brain: "Spenser",
-		icon: "gb-sounds",
-		win: "guitar",
-		what: "a guitar day",
-		gap: 3,
-		silver: 10,
-		gold: 30,
-		goldKey: "soul-dew",
-		silverItem: "shiny-stone"
-	},
-	{
-		id: "dome",
-		name: "Battle Dome",
-		brain: "Tucker",
-		icon: "growth-mulch",
-		win: "arbor",
-		what: "an Arbor morning",
-		gap: 3,
-		silver: 10,
-		gold: 30,
-		goldKey: "gracidea",
-		silverItem: "leaf-stone"
-	},
-	{
-		id: "pike",
-		name: "Battle Pike",
-		brain: "Lucy",
-		icon: "moon-stone",
-		win: "sleep",
-		what: "a good night (80 or more)",
-		gap: 2,
-		silver: 7,
-		gold: 21,
-		goldKey: "member-card",
-		silverItem: "dusk-stone"
-	},
-	{
-		id: "pyramid",
-		name: "Battle Pyramid",
-		brain: "Brandon",
-		icon: "relic-statue",
-		win: "perfect",
-		what: "a perfect day",
-		gap: 0,
-		silver: 5,
-		gold: 15,
-		goldKey: "jade-orb",
-		silverItem: "relic-gold"
-	}
-];
-/**
-* Battle Points a win pays: one for every win, and at every seventh win in a row a bonus of 7 at seven, 14 at fourteen, and so on up to 35.
-* The Pyramid, which is not a run, pays 3 for every perfect day.
-*/
-const bpFor = (run, counted = false) => counted ? 3 : run <= 0 ? 0 : 1 + (run % 7 === 0 ? Math.min(35, run) : 0);
 //#endregion
 //#region src/game-core/fold.ts
 const emptyShare = () => Object.fromEntries(TAGS.map((t) => [t, {
@@ -16119,7 +16147,7 @@ function foldGame(facts, opts = {}) {
 			gems,
 			items
 		};
-		if (opts.instant || claimedEarly.delete(key)) credit(h, day);
+		if (opts.instant || claimedEarly.delete(key) || v22On(day)) credit(h, day);
 		else held.set(key, h);
 	};
 	/** the three the wild Pokemon after this one can be chosen from: of any type, or of one domain's types for a domain incense */
@@ -16567,21 +16595,22 @@ function foldGame(facts, opts = {}) {
 			...graduates
 		].map((m) => (m.together ?? 0) + (m.fed ?? 0)));
 		for (const ft of FEATS) {
-			if (gotFeat.has(ft.id) || (cn[ft.key] ?? 0) < ft.n) continue;
+			if (gotFeat.has(ft.id) || !featLive(ft, day) || (cn[ft.key] ?? 0) < ft.n) continue;
 			gotFeat.add(ft.id);
 			feats.push({
 				id: ft.id,
 				day
 			});
-			grant(ft.reward, day, `feat:${ft.id}`, ft.name);
+			const reward = featReward(ft, day);
+			grant(reward, day, `feat:${ft.id}`, ft.name);
 			moments.push({
 				kind: "feat",
 				day,
 				id: ft.id,
 				name: ft.name,
-				coins: ft.reward.coins ?? 0,
-				gems: ft.reward.gems ?? 0,
-				items: Object.keys(ft.reward.items ?? {})
+				coins: reward.coins ?? 0,
+				gems: reward.gems ?? 0,
+				items: Object.keys(reward.items ?? {})
 			});
 		}
 	};
@@ -17582,19 +17611,19 @@ function foldGame(facts, opts = {}) {
 				const champ = kindAt(lg.index, lg.slot) === "champion";
 				earn(0, v21 ? gym ? LEADER_GEMS_V21.gym : LEADER_GEMS_V21.elite : gym ? GEMS.gym : GEMS.elite);
 				if (gym && lg.lap === 0) bump("badges");
-				if (!gym && lg.lap === 0) {
+				if (!gym && lg.lap === 0 && !v22) {
 					const plate = plateFor(`${lg.index}:${lg.slot}`, platesGot);
 					if (plate) {
 						platesGot.add(plate);
 						hold(`elite:${lg.index}:${lg.slot}`, f.day, `${lineup(l)[lg.slot].name}: ${PLATES[plate].name}`, 0, 0, [[plate, 1]]);
 					}
 				}
-				if (lg.lap > 0) {
+				if (lg.lap > 0 || v22 && champ) {
 					bpEarn(6 * (champ ? 5 : 1));
 					if (champ) {
-						const key = REMATCH_KEYS[((lg.lap - 1) * LEAGUES.length + lg.index) % REMATCH_KEYS.length];
-						hold(`rematch:${lg.lap}:${lg.index}`, f.day, `Rematch: ${l.name} Champion`, 0, 0, [[key, 1]]);
-						bump("rematch");
+						const key = v22 ? championKey(lg.lap, lg.index) : REMATCH_KEYS[((lg.lap - 1) * LEAGUES.length + lg.index) % REMATCH_KEYS.length];
+						hold(`rematch:${lg.lap}:${lg.index}`, f.day, lg.lap > 0 ? `Rematch: ${l.name} Champion` : `${l.name} Champion`, 0, 0, [[key, 1]]);
+						if (lg.lap > 0) bump("rematch");
 					}
 				}
 				moments.push({
@@ -17641,7 +17670,7 @@ function foldGame(facts, opts = {}) {
 		if (counts) weekDays[wk] = (weekDays[wk] ?? 0) + 1;
 		const ym = f.day.slice(0, 7);
 		monthXp[ym] = (monthXp[ym] ?? 0) + Math.round(base);
-		while ((monthStep[ym] ?? 0) < Math.floor(monthXp[ym] / SEASON_STEP)) {
+		while (!v22 && (monthStep[ym] ?? 0) < Math.floor(monthXp[ym] / 1500)) {
 			const step = monthStep[ym] = (monthStep[ym] ?? 0) + 1;
 			const r = seasonReward(step);
 			hold(`season:${ym}:${step}`, f.day, `Season step ${step}`, r.coins ?? 0, r.gems ?? 0, r.item ? [[r.item, 1]] : []);
@@ -17777,6 +17806,7 @@ function foldGame(facts, opts = {}) {
 		}
 		/** the week's quests, paid as soon as they are met: before the day's own actions as well as after, so what was won this evening can be collected this evening */
 		const payQuests = () => {
+			if (v22) return;
 			const met = {
 				"five-days": (weekDays[wk] ?? 0) >= 5,
 				catch: (weekCatch[wk] ?? 0) >= 1
@@ -17850,7 +17880,7 @@ function foldGame(facts, opts = {}) {
 				guitar: unit.guitar,
 				arbor: unit.arbor,
 				sleep: unit.sleep,
-				perfect
+				perfect: v22 ? tier === 4 : perfect
 			};
 			for (const fac of FACILITIES) {
 				if (!won[fac.win]) continue;
