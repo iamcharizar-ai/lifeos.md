@@ -386,7 +386,7 @@ body {
    screen set into this page's brutalist frame. Inside it, content stands on
    the screen: hairlines, not boxes; only what you press has depth; each kind
    of work has one colour everywhere (code blue, gym red, guitar orange,
-   Arbor green, sleep violet, chores gold).
+   Arbor lime (apart from the chores' green), sleep violet, chores gold).
    ════════════════════════════════════════════════════════════════════════ */
 :root {
   --dex-ground: #11163a;
@@ -400,7 +400,7 @@ body {
   --dex-gold: #ffc93a;
   --dex-gold-glow: rgba(255, 200, 40, 0.45);
   --tag-code: #5aa8ff; --tag-fitness: #ff5a64; --tag-guitar: #ff9a3c;
-  --tag-arbor: #45d483; --tag-sleep: #a98bff; --tag-routine: #ffc93a;
+  --tag-arbor: #a6e35a; --tag-sleep: #a98bff; --tag-routine: #ffc93a;
 }
 /* the default colour sits at zero specificity so a data-tag on the same element always wins */
 :where(.tile-pillar, .day-chip, .rank-row, .matrix-pillar) { --c: var(--tag-routine); }
