@@ -16085,7 +16085,7 @@ function foldGame(facts, opts = {}) {
 	/** the Type Plates already dropped (claimed or not), so no win drops one twice */
 	const platesGot = /* @__PURE__ */ new Set();
 	/** a claim made before its reward existed (a quest or feat won later the same day): it pays the moment the reward appears */
-	const claimedEarly = /* @__PURE__ */ new Set();
+	const claimedEarly = /* @__PURE__ */ new Map();
 	/** pay it into the wallet and the bag (not today's tally: that counted when it was earned) */
 	const credit = (h, day) => {
 		wallet.coins += h.coins;
@@ -16131,11 +16131,18 @@ function foldGame(facts, opts = {}) {
 			items: [],
 			choice
 		};
-		if (opts.instant || claimedEarly.delete(key)) credit({
+		if (opts.instant) credit({
 			...h,
 			...choice[0]
 		}, day);
-		else held.set(key, h);
+		else if (claimedEarly.has(key)) {
+			const pick = claimedEarly.get(key);
+			claimedEarly.delete(key);
+			credit({
+				...h,
+				...choice[v22On(day) && pick === 1 ? 1 : 0]
+			}, day);
+		} else held.set(key, h);
 	};
 	/** earned now, collected later: today's tally rises at once, the wallet when it is claimed */
 	/** Luxury Balls handed back for the 5 Nov 2026 echo bug */
@@ -16819,7 +16826,7 @@ function foldGame(facts, opts = {}) {
 			case "claim":
 				if (!u.to) return;
 				if (held.has(u.to)) release(u.to, day, u.item === "1" ? 1 : 0);
-				else claimedEarly.add(u.to);
+				else claimedEarly.set(u.to, u.item === "1" ? 1 : 0);
 				return;
 			case "boss-throw": {
 				const b = boss;
@@ -17766,6 +17773,11 @@ function foldGame(facts, opts = {}) {
 				hold(`boss:${b.card.week}:kill`, f.day, "Boss beaten", 0, 20, shard && !v22 ? [[shard, 1]] : []);
 				const shiny = rng(`boss-shiny:${b.card.week}`)() < 1 / 5;
 				const mon = make(b.card.species, "catch", f.day, shiny);
+				if (v22) {
+					const own = b.card.mega ? rec(b.card.form).f ?? b.card.species : b.card.form;
+					mon.form = own;
+					mon.path = [own];
+				}
 				const twin = twinOf(mon, f.day);
 				if (!twin) queue.push(mon);
 				catches++;

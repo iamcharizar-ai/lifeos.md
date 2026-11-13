@@ -587,7 +587,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   /** the Type Plates already dropped (claimed or not), so no win drops one twice */
   const platesGot = new Set<string>()
   /** a claim made before its reward existed (a quest or feat won later the same day): it pays the moment the reward appears */
-  const claimedEarly = new Set<string>()
+  const claimedEarly = new Map<string, 0 | 1>() // the key, and which side of a choice was tapped (13 Nov 2026: it was forgotten, so a pick paid the first side)
   /** pay it into the wallet and the bag (not today's tally: that counted when it was earned) */
   const credit = (h: Held, day: string) => {
     wallet.coins += h.coins; wallet.gems += h.gems
@@ -611,8 +611,13 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   /** version 15: a reward that is a choice of two waits like any other; unchosen, the first pays itself after CLAIM_AUTO days */
   const holdChoice = (key: string, day: string, title: string, choice: [Option, Option]) => {
     const h: Held = { key, day, title, coins: 0, gems: 0, items: [], choice }
-    if (opts.instant || claimedEarly.delete(key)) credit({ ...h, ...choice[0] }, day)
-    else held.set(key, h)
+    if (opts.instant) credit({ ...h, ...choice[0] }, day)
+    else if (claimedEarly.has(key)) {
+      // a choice tapped before the fold reaches the reward (one earned the same day): from version 22 it pays the side that was tapped, not always the first
+      const pick = claimedEarly.get(key)
+      claimedEarly.delete(key)
+      credit({ ...h, ...choice[v22On(day) && pick === 1 ? 1 : 0] }, day)
+    } else held.set(key, h)
   }
   /** earned now, collected later: today's tally rises at once, the wallet when it is claimed */
   /** Luxury Balls handed back for the 5 Nov 2026 echo bug */
@@ -1133,7 +1138,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         // a reward collected by hand; one that is not waiting (or was never earned) is ignored
         if (!u.to) return
         if (held.has(u.to)) release(u.to, day, u.item === '1' ? 1 : 0)
-        else claimedEarly.add(u.to)
+        else claimedEarly.set(u.to, u.item === '1' ? 1 : 0)
         return
       }
       case 'boss-throw': {
@@ -1858,6 +1863,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         hold(`boss:${b.card.week}:kill`, f.day, 'Boss beaten', 0, BOSS_WIN_GEMS_V21, shard && !v22 ? [[shard, 1]] : [])
         const shiny = rng(`boss-shiny:${b.card.week}`)() < 1 / BOSS_SHINY
         const mon = make(b.card.species, 'catch', f.day, shiny)
+        // version 22 (13 Nov 2026, the owner's word): a beaten boss joins as the form it was fought as, at level 1: a Gengar, not a Gastly. Its line is still its base
+        // (rarity, stages, the twin rule), so it has nothing to evolve into, is fully trained at the line's level, and forges its Mega like any Gengar. A Mega boss joins as the form it is a Mega of.
+        if (v22) { const own = b.card.mega ? (rec(b.card.form).f ?? b.card.species) : b.card.form; mon.form = own; mon.path = [own] }
         const twin = twinOf(mon, f.day)
         if (!twin) queue.push(mon)
         catches++
