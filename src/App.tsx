@@ -47,6 +47,10 @@ import { listAdds } from './game-core/events.ts'
 import { SLEEP_DONE, SLEEP_HABIT, V13_START } from './game-core/rules.ts'
 import { DAY_START_EVENT, clockOf } from './game-core/day.ts'
 import { Moments } from './components/PartnerStrip'
+import { backfillStamp, canEditDay, cellEditable } from './lib/backfill'
+
+/** Habits the graph cannot edit by hand: fed by Strong, Arbor, Woodshed or the band, never ticked from here. */
+const isHandLocked = (habitId: string): boolean => isLocked(habitId) || habitId === ARBOR_HABIT || habitId === GUITAR_HABIT || habitId === SLEEP_HABIT
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('daily')
@@ -312,6 +316,23 @@ export default function App() {
     }
   }
 
+  // The graph's edit mode: fill in (or take back) a tick on one of the last few days. Stamped late on purpose, so the
+  // game never counts it (lib/backfill.ts); the graph and the month's seal read the tick all the same.
+  const backfill = (habitId: string, day: string, on: boolean) => {
+    if (!canEditDay(day, today) || isHandLocked(habitId)) return
+    const was = ticks[day]?.[habitId]
+    if (on === Boolean(was) || (was && !cellEditable(was, day))) return
+    const at = backfillStamp(day)
+    setTicks((prev) => {
+      const d = { ...(prev[day] ?? {}) }
+      if (on) d[habitId] = at
+      else delete d[habitId]
+      return { ...prev, [day]: d }
+    })
+    if (on) cloud.emit('tick', { habitId, at }, day)
+    else cloud.emit('untick', { habitId }, day)
+  }
+
   // After midnight, before the band has read the night: the new day can be started by hand (one `day_start` for the date)
   const startDay = () => {
     const ev = { type: DAY_START_EVENT, day: calendar, at: new Date().toISOString(), payload: {} }
@@ -430,7 +451,7 @@ export default function App() {
           />
         )}
         {tab === 'monthly' && (
-          <MonthView habits={habits} ticks={ticks} today={today} initialYm={monthFocus ?? undefined} nights={link.nights} />
+          <MonthView habits={habits} ticks={ticks} today={today} initialYm={monthFocus ?? undefined} nights={link.nights} onBackfill={backfill} isHandLocked={isHandLocked} />
         )}
       </motion.main>
 

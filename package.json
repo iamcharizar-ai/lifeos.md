@@ -8,7 +8,7 @@
     "build": "node scripts/build-api.mjs && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test bridge/model.test.ts bridge/map.test.ts bridge/plan.test.ts bridge/health.test.ts bridge/webhook.test.ts bridge/receiver.test.ts bridge/check.test.ts bridge/watch.test.ts bridge/exercise.test.ts server/ai-snapshot.test.ts server/ai-endpoints.test.ts",
+    "test": "node --test bridge/model.test.ts bridge/map.test.ts bridge/plan.test.ts bridge/health.test.ts bridge/webhook.test.ts bridge/receiver.test.ts bridge/check.test.ts bridge/watch.test.ts bridge/exercise.test.ts server/ai-snapshot.test.ts server/ai-endpoints.test.ts server/backfill.test.ts",
     "health": "node bridge/sync.mjs",
     "api": "node scripts/build-api.mjs",
     "ai:links": "node scripts/ai-links.mjs"

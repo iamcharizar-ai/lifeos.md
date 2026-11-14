@@ -15,6 +15,7 @@
 // and the full habit × day grid. The ranking of habits sits shut at the bottom.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { domainOf, type Habit } from '../config/habits'
+import { EDIT_DAYS, cellEditable, editableDays } from '../lib/backfill'
 import { SLEEP_HABIT, tagOf } from '../game-core/rules.ts'
 import type { SleepNight } from '../game-core/events.ts'
 import type { Ticks } from '../lib/store'
@@ -105,6 +106,8 @@ export function MonthView({
   today,
   initialYm,
   nights,
+  onBackfill,
+  isHandLocked,
 }: {
   habits: Habit[]
   ticks: Ticks
@@ -113,8 +116,13 @@ export function MonthView({
   initialYm?: string
   /** the band's nights, so the Sleep row shows each night's score */
   nights?: Record<string, SleepNight>
+  /** edit mode: fill in or take back one habit on one earlier day (never pays XP, see lib/backfill.ts) */
+  onBackfill?: (habitId: string, day: string, on: boolean) => void
+  /** habits another app or the band fills: their cells are not editable here */
+  isHandLocked?: (habitId: string) => boolean
 }) {
   const [ym, setYm] = useState(() => initialYm ?? ymOf(today))
+  const [editing, setEditing] = useState(false)
   const months = useMonths() // re-render when a month seals or one arrives from another device
 
   const nowYm = ymOf(today)
@@ -125,6 +133,14 @@ export function MonthView({
   const prevYm = shiftYm(ym, -1)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const prevSnap = useMemo(() => snapOf(prevYm, today, habits, ticks), [prevYm, today, habits, ticks, months])
+
+  // Edit mode exists only on the running month, and only for the last few days of it. Anything else (a sealed month,
+  // the days before the 1st) is locked, so leaving the month or the day rolling into the next month ends the edit.
+  const editWindow = useMemo(() => (when === 'current' && onBackfill ? editableDays(today) : []), [when, today, onBackfill])
+  const canEdit = editWindow.length > 0
+  const editOn = editing && canEdit
+  const editable = (habitId: string, day: string, c: Cell) =>
+    editOn && editWindow.includes(day) && c !== 'na' && c !== 'future' && !isHandLocked?.(habitId) && cellEditable(ticks[day]?.[habitId], day)
 
   const label = monthName(ym)
   const days = useMemo(() => Array.from({ length: daysInMonth(ym) }, (_, i) => i + 1), [ym])
@@ -160,7 +176,10 @@ export function MonthView({
   }, [when, today, dayStats])
   const [picked, setPicked] = useState<number | null>(null)
   const selDay = picked && picked <= days.length ? picked : defaultDay
-  useEffect(() => setPicked(null), [ym])
+  useEffect(() => {
+    setPicked(null)
+    setEditing(false)
+  }, [ym])
 
   // a long month scrolls the grid sideways: open it on today, not on the 1st
   const gridEl = useRef<HTMLDivElement>(null)
@@ -354,7 +373,26 @@ export function MonthView({
 
       {/* Habit × day matrix */}
       <section className="neo-card overflow-hidden bg-white p-3" aria-label="Habit completion matrix">
-        <div className="mb-3 hud-label border-black text-xs">Habit × day</div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="hud-label border-black text-xs">Habit × day</div>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setEditing((e) => !e)}
+              aria-pressed={editOn}
+              className={`neo-button px-3 py-1.5 text-xs font-bold uppercase tracking-wider ${editOn ? 'bg-neo-yellow' : ''}`}
+            >
+              {editOn ? '✓ Done editing' : '✎ Edit graph'}
+            </button>
+          )}
+        </div>
+
+        {editOn && (
+          <p className="mb-2 border-2 border-dashed border-black bg-neo-yellow/40 px-3 py-2 text-[11px] font-bold leading-snug" role="status">
+            Tap a boxed cell to fill in or undo a day you missed. The last {EDIT_DAYS} days of this month can be edited ({editWindow.length === EDIT_DAYS ? '' : 'only '}
+            {editWindow.length} open now); older days and earlier months are locked. Edits change this graph only: they never pay XP in the Pokedex, and a tick you made in time stays.
+          </p>
+        )}
 
         <div className="mb-2 flex flex-wrap gap-3 text-[10px] font-bold text-neo-gray-dark">
           <span className="flex items-center gap-1">
@@ -422,13 +460,18 @@ export function MonthView({
                           <div className="sleep-cell num" style={{ background: score >= 90 ? '#f2c14e' : score >= 80 ? '#7fd38a' : score >= 70 ? '#9aa6ff' : '#d8d3ff' }}>{score}</div>
                         </div>
                       )
+                    const canFlip = editable(h.id, iso(d), c)
+                    const Wrap = canFlip ? 'button' : 'div'
                     return (
-                      <div
+                      <Wrap
                         key={d}
+                        {...(canFlip
+                          ? { type: 'button' as const, onClick: () => onBackfill?.(h.id, iso(d), c !== 'done'), 'aria-pressed': c === 'done', 'aria-label': `${h.name}, ${pad2(d)} ${label}: ${c === 'done' ? 'tap to undo' : 'tap to fill in'}` }
+                          : {})}
                         title={`${h.name} — ${pad2(d)} ${label}: ${c === 'done' ? 'done' : c === 'missed' ? 'missed' : c === 'na' ? 'not on the checklist then' : '—'}`}
                         className={`flex w-7 shrink-0 items-center justify-center border-r border-black/10 py-1.5 lg:w-8 ${
                           isToday ? 'border-x border-black/30 bg-neo-yellow/20' : d === selDay ? 'bg-black/[0.07]' : isWeekend(d) ? 'bg-black/[0.03]' : ''
-                        }`}
+                        } ${canFlip ? 'cursor-pointer bg-neo-yellow/30 outline outline-2 -outline-offset-2 outline-dashed outline-black' : ''}`}
                       >
                         <div
                           className={`flex h-5 w-5 items-center justify-center rounded border-2 text-xs font-bold transition-colors lg:h-6 lg:w-6 ${
@@ -443,7 +486,7 @@ export function MonthView({
                         >
                           {c === 'done' ? '✓' : ''}
                         </div>
-                      </div>
+                      </Wrap>
                     )
                   })}
 
