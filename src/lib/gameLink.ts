@@ -31,6 +31,8 @@ export interface GameLink {
   started: string[]
   /** day → what Strong logged (workouts, records, routines): from version 21 a Gym day is a logged workout, read by the shared core */
   marks: Record<string, DayMarks>
+  /** day → millilitres of water logged in Google Health. Read only here (the Water tile): the game sees the habit through its tick */
+  water: Record<string, number>
 }
 
 const KEY = 'lifeos.gamelink.v1'
@@ -40,7 +42,7 @@ const keyOf = (e: Stored): string => `${e.device ?? ''}|${e.at}|${e.type}|${JSON
 const relevant = (e: Stored): boolean =>
   e.type === USE_EVENT || e.type === LIST_EVENT || e.type === DAY_START_EVENT || e.type === CARD_EVENT || e.type === BOSS_DAY_EVENT ||
   // a workout from Strong (it carries the whole session as `gear`), and a deleted one
-  (e.type === 'workout' && typeof e.payload?.gear === 'string') || e.type === 'workout_delete' || (e.type === BODY_EVENT && ['sleepScore', 'steps', 'recovery', 'sleepMin', 'bed', 'wake'].some((k) => k in (e.payload ?? {})))
+  (e.type === 'workout' && typeof e.payload?.gear === 'string') || e.type === 'workout_delete' || (e.type === BODY_EVENT && ['sleepScore', 'steps', 'recovery', 'sleepMin', 'bed', 'wake', 'waterMl'].some((k) => k in (e.payload ?? {})))
 
 function load(): Stored[] {
   try {
@@ -51,12 +53,24 @@ function load(): Stored[] {
   }
 }
 
+/** day → water logged, oldest event first: a later reading replaces an earlier one, null takes it back (same rules as the game's bodyOf). */
+function waterOf(sorted: Stored[]): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const e of sorted) {
+    if (e.type !== BODY_EVENT) continue
+    const v = e.payload?.waterMl
+    if (typeof v === 'number' && Number.isFinite(v)) out[e.day] = v
+    else if (v === null) delete out[e.day]
+  }
+  return out
+}
+
 let events: Stored[] = load()
 const seen = new Set(events.map(keyOf))
 const derive = (): GameLink => {
   const sorted = inOrder(events)
   const body = bodyOf(sorted)
-  return { body, uses: usesOf(sorted), lists: listsOf(sorted), band: bandFrom({ habits: [], ticks: {}, today: '', body }), nights: sleepOf(sorted), boss: bossOf(sorted), started: [...new Set(sorted.filter((e) => e.type === DAY_START_EVENT).map((e) => e.day))], marks: strongMarks(sorted) }
+  return { water: waterOf(sorted), body, uses: usesOf(sorted), lists: listsOf(sorted), band: bandFrom({ habits: [], ticks: {}, today: '', body }), nights: sleepOf(sorted), boss: bossOf(sorted), started: [...new Set(sorted.filter((e) => e.type === DAY_START_EVENT).map((e) => e.day))], marks: strongMarks(sorted) }
 }
 let state: GameLink = derive()
 

@@ -10,7 +10,7 @@ import { recovery, sleepScoreOn, type VitalsDay, type VitalsState } from './mode
 type Point = Record<string, unknown>
 export type Simple = { dataPoints?: Point[] } | null | undefined
 export type SimpleSet = Partial<Record<Kind, Simple>>
-export type Kind = 'steps' | 'distance' | 'calories' | 'zoneMinutes' | 'sleep' | 'restingHr' | 'hrv' | 'spo2' | 'respRate' | 'tempDev' | 'vo2max' | 'weight'
+export type Kind = 'steps' | 'distance' | 'calories' | 'zoneMinutes' | 'hydration' | 'sleep' | 'restingHr' | 'hrv' | 'spo2' | 'respRate' | 'tempDev' | 'vo2max' | 'weight'
 export type DayPayload = { [K in keyof VitalsDay]?: VitalsDay[K] }
 
 const num = (v: unknown): number | undefined => {
@@ -54,6 +54,8 @@ export function toVitals(res: SimpleSet): Record<string, DayPayload> {
   }
   for (const p of points(res.calories)) put(out, p.date, { kcal: round(num(p.kcalSum)) })
   for (const p of points(res.zoneMinutes)) put(out, p.date, { zoneMin: pick(p, ['activeZoneMinutesSum', 'activeZoneMinutes']) })
+  // water: the day's logged total, in millilitres (a day with no log is absent, not 0: nothing was measured)
+  for (const p of points(res.hydration)) put(out, p.date, { waterMl: round(num(p.millilitersSum)) })
 
   // sleep: filed under the morning it ended. A staged night (the band's: deep, light, REM)
   // beats a stage-less one (a phone's estimate arriving through Health Connect, one
@@ -111,6 +113,7 @@ export function queries(from: string, to: string): Record<Kind, string[]> {
     distance: ['data', 'distance', 'daily-rollup', ...range],
     calories: ['data', 'total-calories', 'daily-rollup', ...range],
     zoneMinutes: ['data', 'active-zone-minutes', 'daily-rollup', ...range],
+    hydration: ['data', 'hydration-log', 'daily-rollup', ...range],
     sleep: ['data', 'sleep', 'list', ...range],
     restingHr: ['data', 'daily-resting-heart-rate', 'list', ...range],
     hrv: ['data', 'daily-heart-rate-variability', 'list', ...range],

@@ -41,11 +41,13 @@ export interface VitalsDay {
   tempDev?: number
   vo2max?: number
   weightKg?: number
+  /** water logged in Google Health that day, millilitres (what Life OS's Water tile fills from) */
+  waterMl?: number
 }
 
 export const NUMERIC: (keyof VitalsDay)[] = [
   'sleepMin', 'awakeMin', 'deepMin', 'remMin', 'lightMin', 'steps', 'distanceM', 'kcal', 'zoneMin',
-  'restingHr', 'hrv', 'spo2', 'respRate', 'tempDev', 'vo2max', 'weightKg',
+  'restingHr', 'hrv', 'spo2', 'respRate', 'tempDev', 'vo2max', 'weightKg', 'waterMl',
 ]
 const TEXT: (keyof VitalsDay)[] = ['bed', 'wake']
 

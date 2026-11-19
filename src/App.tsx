@@ -48,6 +48,8 @@ import { SLEEP_DONE, SLEEP_HABIT, V13_START } from './game-core/rules.ts'
 import { DAY_START_EVENT, clockOf } from './game-core/day.ts'
 import { Moments } from './components/PartnerStrip'
 import { backfillStamp, canEditDay, cellEditable } from './lib/backfill'
+import { STEPS_HABIT, WATER_HABIT, tickFixes } from './lib/vitalHabits'
+import { addDays } from './game-core/facts.ts'
 
 /** Habits the graph cannot edit by hand: fed by Strong, Arbor, Woodshed or the band, never ticked from here. */
 const isHandLocked = (habitId: string): boolean => isLocked(habitId) || habitId === ARBOR_HABIT || habitId === GUITAR_HABIT || habitId === SLEEP_HABIT
@@ -155,6 +157,20 @@ export default function App() {
     if (!settled) return
     const cfg = configWithLinkedHabit({ id: GUITAR_HABIT, name: 'Woodshed', emoji: '🎸', tier: 'pillar' }, 2, today)
     if (cfg) emitConfig(commitConfig(cfg))
+  }, [settled, today, emitConfig])
+
+  // Steps and Water, once: two core habits Google Health fills (lib/vitalHabits.ts). Fourth and fifth row, drag them wherever.
+  // A habit thrown away later is not brought back (configWithLinkedHabit skips a deleted id).
+  useEffect(() => {
+    if (!settled) return
+    const intro: [Omit<Habit, 'spans'>, number][] = [
+      [{ id: STEPS_HABIT, name: 'Steps', emoji: '👟', tier: 'core' }, 3],
+      [{ id: WATER_HABIT, name: 'Water', emoji: '💧', tier: 'core' }, 4],
+    ]
+    for (const [habit, at] of intro) {
+      const cfg = configWithLinkedHabit(habit, at, today)
+      if (cfg) emitConfig(commitConfig(cfg))
+    }
   }, [settled, today, emitConfig])
 
   // Sleep comes back as a pillar the band fills (version 13): first row, never ticked by hand. Only once: a Sleep habit
@@ -292,6 +308,29 @@ export default function App() {
     if (good) cloud.emit('tick', { habitId: SLEEP_HABIT, at })
     else cloud.emit('untick', { habitId: SLEEP_HABIT })
   }, [settled, link, ticks, today, cloud])
+
+  // Steps and Water follow Google Health: ticked when the day's goal is reached, taken back if the reading falls below it.
+  // Yesterday is judged too: its last steps and the water logged late can land after midnight.
+  useEffect(() => {
+    if (!settled) return
+    const fixes = tickFixes(habits, ticks, (d) => ({ steps: link.body[d]?.steps, waterMl: link.water[d] }), [addDays(today, -1), today])
+    if (fixes.length === 0) return
+    const at = new Date().toISOString()
+    setTicks((prev) => {
+      const next = { ...prev }
+      for (const f of fixes) {
+        const d = { ...(next[f.day] ?? {}) }
+        if (f.on) d[f.habitId] = at
+        else delete d[f.habitId]
+        next[f.day] = d
+      }
+      return next
+    })
+    for (const f of fixes) {
+      if (f.on) cloud.emit('tick', { habitId: f.habitId, at }, f.day)
+      else cloud.emit('untick', { habitId: f.habitId }, f.day)
+    }
+  }, [settled, habits, ticks, link, today, cloud])
 
   const toggle = (habitId: string) => {
     if (isLocked(habitId)) return // fed by Strong / Arbor — not ticked by hand
@@ -446,7 +485,7 @@ export default function App() {
             today={today}
             game={game}
             actions={actions}
-            linked={{ workout: workouts[today], gymNext: nextGymDay(workouts, today).name, arbor, plan, onSkill, guitar: { shed, session }, sleep: { state: sleepState(link, today), night: link.nights[today], check: sleepCheck } }}
+            linked={{ workout: workouts[today], gymNext: nextGymDay(workouts, today).name, arbor, plan, onSkill, guitar: { shed, session }, sleep: { state: sleepState(link, today), night: link.nights[today], check: sleepCheck }, vitals: { steps: link.body[today]?.steps, waterMl: link.water[today] } }}
             weekly={weekly}
           />
         )}

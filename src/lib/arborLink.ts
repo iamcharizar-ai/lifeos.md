@@ -14,12 +14,13 @@ import { planFor } from '../arbor-core/coach.ts'
 import { emptyArbor, foldArbor, type ArborState, type LedgerEvent } from '../arbor-core/model.ts'
 import { SKILLS } from '../arbor-core/skills.ts'
 import { GUITAR_HABIT } from './guitarLink'
+import { isVitalHabit, vitalKindOf } from './vitalHabits'
 
 export const GYM_HABIT = 'gym'
 export const ARBOR_HABIT = 'arbor-morning'
-export type Link = 'strong' | 'arbor' | 'woodshed' | 'vitals'
+export type Link = 'strong' | 'arbor' | 'woodshed' | 'vitals' | 'steps' | 'water'
 export const linkOf = (habitId: string): Link | null =>
-  habitId === GYM_HABIT ? 'strong' : habitId === ARBOR_HABIT ? 'arbor' : habitId === GUITAR_HABIT ? 'woodshed' : null
+  habitId === GYM_HABIT ? 'strong' : habitId === ARBOR_HABIT ? 'arbor' : habitId === GUITAR_HABIT ? 'woodshed' : vitalKindOf(habitId)
 
 // Gym stays hand-tickable until Strong has proven the link works (one workout
 // event from it has been folded). Locking it before that would leave no way to
@@ -38,7 +39,7 @@ export const useStrongLinked = (): boolean =>
 
 /** True when this habit must not be ticked by hand right now. */
 export const isLocked = (habitId: string): boolean =>
-  habitId === ARBOR_HABIT || (habitId === GYM_HABIT && strongSeen)
+  habitId === ARBOR_HABIT || (habitId === GYM_HABIT && strongSeen) || isVitalHabit(habitId) // Steps and Water are Google Health's
 
 export const STRONG_URL = 'https://strong-five.vercel.app'
 export const ARBOR_URL = 'https://arbor-umber.vercel.app'

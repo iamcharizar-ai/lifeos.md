@@ -13,8 +13,17 @@ Fitbit Air -> Google Health -> api/health-webhook (Google calls it)  -> ledger (
 ## What the apps take from it
 
 - the **sleep score** (`sleepScore`): a measured night ends the day in Life OS and fills the Sleep pillar (80 fills it, 90 pays a second Bell in the Pokedex); the boss's sleep task and the sky's weather read it
-- **steps** (`steps`): the Pokedex only. 10,000 pays an Iron mark and a walking feat, and steps warm the Mystery Egg. Life OS does not show them.
+- **steps** (`steps`): in the Pokedex, 10,000 pays an Iron mark and a walking feat, and steps warm the Mystery Egg. In Life OS they fill the **Steps** tile (below).
+- **water** (`waterMl`, from Google Health's `hydration-log`): fills the **Water** tile. Nothing in the game reads it directly.
 - **recovery** (`recovery`), once a week of mornings has HRV and resting heart rate
+
+## Steps and Water tiles
+
+Two core habits (30 XP, not pillars) that Google Health fills and nothing in the app can tick (`src/lib/vitalHabits.ts`). The tile is the progress bar: 5,000 of 10,000 steps colours half of it. The habit is ticked only at 100%, through an ordinary `tick`, so the game needs no rule for it; below that the tile shows its percentage and pays nothing. Goals are constants there: 10,000 steps (the API does not hand over the goal set in the Google Health app) and 4,000 ml of water.
+
+Water needs one thing from you, once: the Google sign-in must include the **Nutrition (read)** scope. Run `ghealth auth login` again with it, put the new refresh token in `GOOGLE_REFRESH_TOKEN` on Vercel and redeploy. Until then only the water read fails (it is logged, and nothing else is affected) and the tile reads "Waiting for Google Health". Water is read whenever steps notify (steps arrive every few minutes), so it needs no subscription of its own; a `hydration-log` subscription would also work.
+
+The water rollup's field name is a best guess (`bridge/health.ts` `waterOf` finds it by what it is, not its name); it has not been seen against the live API. If the tile stays empty with the scope granted, look at a raw `ghealth data hydration-log daily-rollup` row and fix `waterOf`.
 
 ## Which night counts
 

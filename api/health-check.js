@@ -20,6 +20,10 @@ const SOURCES = {
 		type: "active-zone-minutes",
 		how: "rollup"
 	},
+	hydration: {
+		type: "hydration-log",
+		how: "rollup"
+	},
 	sleep: {
 		type: "sleep",
 		how: "list",
@@ -129,6 +133,16 @@ const localOf = (instant, offset) => {
 	if (Number.isNaN(t)) return void 0;
 	return new Date(t + (Number.parseInt(String(offset ?? "0"), 10) || 0) * 1e3).toISOString().slice(0, 16);
 };
+/**
+* The day's water from one hydration rollup row. Its field name has not been checked against the live API (the other rollups
+* are `steps.countSum`, `distance.millimetersSum`), so it is found by what it is: a number under the row's one data object,
+* named for millilitres or volume, else any `...Sum`. A row with no such number is a day with nothing logged.
+*/
+function waterOf(row) {
+	const inner = obj(Object.entries(row).find(([k, v]) => !/time$/i.test(k) && v && typeof v === "object")?.[1]);
+	const nums = Object.entries(inner).filter(([, v]) => v !== "" && v !== null && Number.isFinite(Number(v)));
+	return (nums.find(([k]) => /milliliter|millilitre|volume|amount/i.test(k)) ?? nums.find(([k]) => /sum$/i.test(k)))?.[1];
+}
 /** One raw API response (a page, or pages joined) → the simplified points core/map.ts reads. */
 function simplify(kind, raw) {
 	const r = obj(raw);
@@ -145,6 +159,10 @@ function simplify(kind, raw) {
 		if (kind === "calories") return {
 			date,
 			kcalSum: obj(o.totalCalories).kcalSum
+		};
+		if (kind === "hydration") return {
+			date,
+			millilitersSum: waterOf(o)
 		};
 		const z = obj(o.activeZoneMinutes);
 		const parts = [
@@ -315,7 +333,8 @@ const NUMERIC = [
 	"respRate",
 	"tempDev",
 	"vo2max",
-	"weightKg"
+	"weightKg",
+	"waterMl"
 ];
 const TEXT = ["bed", "wake"];
 const emptyVitals = () => ({
@@ -489,6 +508,7 @@ function toVitals(res) {
 	}
 	for (const p of points(res.calories)) put(out, p.date, { kcal: round(num(p.kcalSum)) });
 	for (const p of points(res.zoneMinutes)) put(out, p.date, { zoneMin: pick(p, ["activeZoneMinutesSum", "activeZoneMinutes"]) });
+	for (const p of points(res.hydration)) put(out, p.date, { waterMl: round(num(p.millilitersSum)) });
 	const best = {};
 	for (const p of points(res.sleep)) {
 		if (p.isNap) continue;

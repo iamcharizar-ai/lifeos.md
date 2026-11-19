@@ -15,6 +15,7 @@ import { PartnerStrip } from '../components/PartnerStrip'
 import { nameOf, type Game } from '../game-core/fold.ts'
 import { SLEEP_HABIT, TAGS, tierXp, type Tag } from '../game-core/rules.ts'
 import { ArborHead, ArborSkills, GuitarTile, PillarTile, SleepTile, StrongTile, type LinkedCtx } from '../components/LinkedTiles'
+import { VitalTile } from '../components/VitalTile'
 import { TrackMark, trackMarkFor, type TrackMarkData } from '../components/TrackMark'
 import { MonthReviews, SundayPanel, type WeeklyCtx } from '../components/WeeklyPanels'
 import { linkOf, useStrongLinked } from '../lib/arborLink'
@@ -341,6 +342,8 @@ function ChecklistRow({
           />
         ) : link === 'vitals' ? (
           <SleepTile name={habit.name} state={linked.sleep.state} night={linked.sleep.night} ticked={ticked} selfXp={TIER_XP.core} onToggle={() => actions.onToggle(habit.id)} check={linked.sleep.check} />
+        ) : link === 'steps' || link === 'water' ? (
+          <VitalTile kind={link} name={habit.name} emoji={habit.emoji} reading={link === 'steps' ? linked.vitals.steps : linked.vitals.waterMl} ticked={ticked} xp={xp} />
         ) : link === 'woodshed' ? (
           <GuitarTile name={habit.name} xp={xp} ticked={ticked} done={played} total={session.length} />
         ) : pillar ? (

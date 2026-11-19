@@ -71,7 +71,7 @@ test('the days to read again run from the oldest day touched to today, never mor
 
 test('each notification reads only its own kinds; sleep brings the overnight dailies', async () => {
   const { kindsFor } = await import('./webhook.ts')
-  assert.deepEqual(kindsFor([{ dataType: 'steps', operation: 'UPSERT', days: [] }]), ['steps'])
+  assert.deepEqual(kindsFor([{ dataType: 'steps', operation: 'UPSERT', days: [] }]), ['steps', 'hydration'])
   assert.ok(kindsFor([{ dataType: 'sleep', operation: 'UPSERT', days: [] }]).includes('restingHr'))
   assert.deepEqual(kindsFor([{ dataType: 'heart-rate', operation: 'UPSERT', days: [] }]), [])
 })

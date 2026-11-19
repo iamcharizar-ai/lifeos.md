@@ -46,7 +46,7 @@ test('a signed notification with the secret is answered 204 and only the days an
   const raw = JSON.stringify(steps)
   const res = await post(raw, { authorization: SECRET, 'google-health-api-signature': sign(raw) })
   assert.equal(res.status, 204)
-  assert.deepEqual(synced, [{ from: '2026-10-13', to: '2026-10-13', kinds: ['steps'] }])
+  assert.deepEqual(synced, [{ from: '2026-10-13', to: '2026-10-13', kinds: ['steps', 'hydration'] }])
 })
 
 test('an array of notifications is one sync; ones the game does not use sync nothing', async () => {

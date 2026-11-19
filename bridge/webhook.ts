@@ -115,7 +115,7 @@ export function parseNotifications(body: unknown): Touch[] {
 }
 
 /** The kinds of data the game reads. A notification about anything else (a workout, a heart-rate sample) is acknowledged and ignored. */
-export const WATCHED = new Set(['steps', 'distance', 'sleep', 'weight', 'floors', 'altitude', 'active-minutes', 'total-calories', 'active-zone-minutes'])
+export const WATCHED = new Set(['steps', 'distance', 'sleep', 'weight', 'floors', 'altitude', 'active-minutes', 'total-calories', 'active-zone-minutes', 'hydration-log'])
 
 /**
  * Which kinds to read for these notifications: the ones named, not all twelve. Sleep brings the overnight
@@ -123,7 +123,9 @@ export const WATCHED = new Set(['steps', 'distance', 'sleep', 'weight', 'floors'
  * read itself (floors, altitude, active minutes) stand for the day's activity totals.
  */
 const KINDS_FOR: Record<string, Kind[]> = {
-  steps: ['steps'],
+  // steps notify every few minutes while you are up, so the water log rides along: the Water tile stays fresh without a subscription of its own
+  steps: ['steps', 'hydration'],
+  'hydration-log': ['hydration'],
   distance: ['distance'],
   'total-calories': ['calories'],
   'active-zone-minutes': ['zoneMinutes'],

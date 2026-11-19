@@ -33,6 +33,8 @@ export interface LinkedCtx {
   }
   /** last night: measured by the band, waiting for its reading, or no band in use */
   sleep: { state: SleepState; night: SleepNight | undefined; check?: CheckAnswer | null }
+  /** today's readings from Google Health, for the Steps and Water tiles (absent = nothing reported yet) */
+  vitals: { steps: number | undefined; waterMl: number | undefined }
 }
 
 // ── pixel pictograms (same engine Arbor draws its tree with) ────────────────

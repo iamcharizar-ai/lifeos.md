@@ -13,6 +13,8 @@ const RAW: Record<string, unknown> = {
   distance: { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), distance: { millimetersSum: '6543210' } }] },
   'total-calories': { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), totalCalories: { kcalSum: 2411.6 } }] },
   'active-zone-minutes': { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), activeZoneMinutes: { sumInFatBurnHeartZone: '20', sumInCardioHeartZone: '12', sumInPeakHeartZone: '2' } }] },
+  // the water log's rollup field name is a best guess until it is seen live; simplify() finds the number by what it is
+  'hydration-log': { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), hydrationLog: { volumeMillilitersSum: '3250' } }] },
   sleep: {
     dataPoints: [
       { sleep: { interval: { civilStartTime: civil('2026-03-27', 23, 12), civilEndTime: civil('2026-03-28', 6, 40) }, summary: { minutesAsleep: '418', minutesAwake: '30', stagesSummary: [{ type: 'DEEP', minutes: '80' }, { type: 'REM', minutes: '95' }, { type: 'LIGHT', minutes: '243' }, { type: 'AWAKE', minutes: '30' }] }, metadata: { mainSleep: true } } },
@@ -48,17 +50,17 @@ test('requests: closed-open civil ranges, the filter each type takes, and the 14
   // calories may only be asked for 14 days at a time: a longer sync reads the newest 14
   assert.deepEqual(JSON.parse(requestFor('calories', '2026-01-01', '2026-03-28').body!).range.start.date, D('2026-03-15'))
   assert.equal(addDays('2026-02-28', 1), '2026-03-01')
-  assert.equal(KINDS.length, 12)
+  assert.equal(KINDS.length, 13)
 })
 
 test('raw API answers become one day of readings', async () => {
   const calls: { url: string; method: string; body?: string; auth: string }[] = []
   const res = await readHealth('tok', '2026-03-27', '2026-03-28', fake(RAW, calls))
   assert.deepEqual(res.failed, {})
-  assert.equal(calls.length, 12)
+  assert.equal(calls.length, 13)
   assert.ok(calls.every((c) => c.auth === 'Bearer tok'))
   assert.deepEqual(toVitals(res.data)['2026-03-28'], {
-    steps: 9037, distanceM: 6543, kcal: 2412, zoneMin: 34,
+    steps: 9037, distanceM: 6543, kcal: 2412, zoneMin: 34, waterMl: 3250,
     bed: '2026-03-27T23:12', wake: '2026-03-28T06:40', sleepMin: 418, awakeMin: 30, deepMin: 80, remMin: 95, lightMin: 243,
     restingHr: 58, hrv: 47.3, spo2: 96.4, respRate: 14.6, tempDev: -0.25, vo2max: 44.8, weightKg: 72.05,
   })
@@ -119,4 +121,17 @@ test('sleep as the live API sends it (UTC instants and an offset, no civil times
   }
   const out = toVitals({ sleep: simplify('sleep', live) })
   assert.deepEqual(out['2026-10-13'], { bed: '2026-10-13T02:30', wake: '2026-10-13T07:50', sleepMin: 320, awakeMin: 0 })
+})
+
+test('water: the logged total of a day, whatever the rollup calls the field; a row with no number is nothing logged', () => {
+  const row = (inner: unknown) => ({ rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), hydrationLog: inner }] })
+  for (const inner of [{ volumeMillilitersSum: '3250' }, { millilitersSum: 3250 }, { amountSum: '3250.4' }])
+    assert.equal(toVitals({ hydration: simplify('hydration', row(inner)) })['2026-03-28']?.waterMl, 3250, JSON.stringify(inner))
+  assert.deepEqual(toVitals({ hydration: simplify('hydration', row({})) }), {})
+  assert.deepEqual(toVitals({ hydration: simplify('hydration', null) }), {})
+  // it is read like the other rollups, and a repeated sync of an unchanged total writes nothing
+  const days = toVitals({ hydration: simplify('hydration', row({ volumeMillilitersSum: '3250' })) })
+  const known = foldVitals(emptyVitals(), [{ device: 'health-sync', at: '2026-03-28T20:00:00Z', day: '2026-03-28', type: 'vitals', payload: { waterMl: 3250 } }])
+  assert.deepEqual(rowsToWrite(days, known), {})
+  assert.deepEqual(rowsToWrite({ '2026-03-28': { waterMl: 3500 } }, known), { '2026-03-28': { waterMl: 3500 } })
 })

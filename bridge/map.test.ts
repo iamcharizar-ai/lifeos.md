@@ -46,6 +46,6 @@ test('empty, failed or malformed responses produce nothing', () => {
 
 test('every query asks for the same inclusive range', () => {
   const q = queries('2026-03-26', '2026-03-28')
-  assert.equal(Object.keys(q).length, 12)
+  assert.equal(Object.keys(q).length, 13)
   for (const argv of Object.values(q)) assert.deepEqual(argv.slice(-4), ['--from', '2026-03-26', '--to', '2026-03-28'])
 })

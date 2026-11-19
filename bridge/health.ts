@@ -9,11 +9,16 @@
 import type { Kind, Simple, SimpleSet } from './map.ts'
 
 export const HEALTH_BASE = 'https://health.googleapis.com/v4'
-/** Read-only, and only the three families the bridge reads. All three are "restricted" scopes. */
+/**
+ * Read-only, and only the families the bridge reads. All are "restricted" scopes. Nutrition is there for the water log:
+ * until the sign-in has been given it (ghealth auth login again, then a new GOOGLE_REFRESH_TOKEN), only `hydration`
+ * fails to read and everything else still syncs.
+ */
 export const SCOPES = [
   'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
   'https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly',
   'https://www.googleapis.com/auth/googlehealth.sleep.readonly',
+  'https://www.googleapis.com/auth/googlehealth.nutrition.readonly',
 ]
 
 interface Source {
@@ -31,6 +36,7 @@ export const SOURCES: Record<Kind, Source> = {
   distance: { type: 'distance', how: 'rollup' },
   calories: { type: 'total-calories', how: 'rollup', maxDays: 14 },
   zoneMinutes: { type: 'active-zone-minutes', how: 'rollup' },
+  hydration: { type: 'hydration-log', how: 'rollup' },
   sleep: { type: 'sleep', how: 'list', field: 'sleep.interval.civil_end_time' },
   restingHr: { type: 'daily-resting-heart-rate', how: 'list', field: 'daily_resting_heart_rate.date' },
   hrv: { type: 'daily-heart-rate-variability', how: 'list', field: 'daily_heart_rate_variability.date' },
@@ -93,6 +99,17 @@ const localOf = (instant: unknown, offset: unknown): string | undefined => {
   return new Date(t + secs * 1000).toISOString().slice(0, 16)
 }
 
+/**
+ * The day's water from one hydration rollup row. Its field name has not been checked against the live API (the other rollups
+ * are `steps.countSum`, `distance.millimetersSum`), so it is found by what it is: a number under the row's one data object,
+ * named for millilitres or volume, else any `...Sum`. A row with no such number is a day with nothing logged.
+ */
+function waterOf(row: Obj): unknown {
+  const inner = obj(Object.entries(row).find(([k, v]) => !/time$/i.test(k) && v && typeof v === 'object')?.[1])
+  const nums = Object.entries(inner).filter(([, v]) => v !== '' && v !== null && Number.isFinite(Number(v)))
+  return (nums.find(([k]) => /milliliter|millilitre|volume|amount/i.test(k)) ?? nums.find(([k]) => /sum$/i.test(k)))?.[1]
+}
+
 /** One raw API response (a page, or pages joined) → the simplified points core/map.ts reads. */
 export function simplify(kind: Kind, raw: unknown): Simple {
   const r = obj(raw)
@@ -104,6 +121,7 @@ export function simplify(kind: Kind, raw: unknown): Simple {
         if (kind === 'steps') return { date, countSum: obj(o.steps).countSum }
         if (kind === 'distance') return { date, millimetersSum: obj(o.distance).millimetersSum }
         if (kind === 'calories') return { date, kcalSum: obj(o.totalCalories).kcalSum }
+        if (kind === 'hydration') return { date, millilitersSum: waterOf(o) }
         const z = obj(o.activeZoneMinutes)
         const parts = [z.sumInFatBurnHeartZone, z.sumInCardioHeartZone, z.sumInPeakHeartZone].map((x) => Number(x)).filter((x) => Number.isFinite(x))
         return { date, activeZoneMinutesSum: parts.length ? parts.reduce((a, b) => a + b, 0) : undefined }

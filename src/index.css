@@ -354,6 +354,48 @@ body {
 .vit-title { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 900; font-size: 20px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
 .vit-score { display: grid; place-items: center; min-width: 34px; height: 34px; padding: 0 6px; font-size: 16px; font-weight: 800; color: #1b2150; background: #f2e9b8; border: 2px solid #111; border-radius: 50%; }
 
+/* Steps and Water (components/VitalTile.tsx): the tile is the progress bar, coloured as far as the goal is done */
+.tile-steps, .tile-water {
+  --ring: #111; --ink: #fff;
+  position: relative; overflow: hidden; isolation: isolate; cursor: default;
+  color: var(--ink); border-color: #111; border-radius: 0;
+  box-shadow: 4px 4px 0 0 #111;
+}
+.tile-water { background: #0f2f4c; --ring: #59b8f0; }
+.tile-steps { background: #3b2411; --ring: #ff9a1f; }
+/* the ring sits over the fill, so the fill can run edge to edge */
+.tile-steps::after, .tile-water::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; box-shadow: inset 0 0 0 3px var(--ring); }
+.tile-steps.is-done::after, .tile-water.is-done::after { box-shadow: inset 0 0 0 3px #f2c14e; }
+.vital-fill { position: absolute; top: 0; bottom: 0; left: 0; z-index: 0; width: var(--fill, 0%); transition: width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.tile-water .vital-fill {
+  background: repeating-linear-gradient(0deg, transparent 0 9px, rgba(255, 255, 255, 0.13) 9px 11px), linear-gradient(180deg, #62ccff 0%, #2f9be0 100%);
+  box-shadow: inset -5px 0 0 #c4ecff;
+}
+.tile-steps .vital-fill {
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0 8px, transparent 8px 16px), linear-gradient(180deg, #ffc247 0%, #ff9a1f 100%);
+  box-shadow: inset -5px 0 0 #ffe3a3;
+}
+.vital-icon, .vital-text, .vital-pct, .vital-xp, .tile-steps > button:last-child, .tile-water > button:last-child { position: relative; z-index: 2; }
+.tile-steps > button:last-child, .tile-water > button:last-child { color: rgba(255, 255, 255, 0.7); }
+.vital-text, .vital-xp, .vital-icon { text-shadow: 0 0 3px #08141f, 1px 1px 0 #08141f; }
+.vital-icon { font-size: 26px; line-height: 1; }
+.vital-pct { padding: 1px 7px; font-size: 15px; font-weight: 900; color: #fff; background: rgba(8, 20, 32, 0.6); border: 2px solid #111; }
+.vital-xp { font-size: 16px; font-weight: 800; }
+/* water: bubbles rise through the part that is full, and are cut off where the water stops */
+.vital-bubbles { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; clip-path: inset(0 calc(100% - var(--fill, 0%)) 0 0); transition: clip-path 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.vital-bubbles img { position: absolute; bottom: -30px; opacity: 0; image-rendering: pixelated; animation: bubble-rise linear infinite; will-change: transform, opacity; }
+@keyframes bubble-rise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 0.95; }
+  50% { transform: translate(6px, -48px); }
+  90% { opacity: 0.95; }
+  100% { transform: translate(-4px, -108px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vital-fill, .vital-bubbles { transition: none; }
+  .vital-bubbles img { animation: none; opacity: 0.9; bottom: 14px; }
+}
+
 /* ── rewards flying into the bar they are kept in (lib/flyReward.ts) ── */
 .fly-reward { position: fixed; left: 0; top: 0; translate: -50% -50%; z-index: 80; pointer-events: none; padding: 2px 8px; font: 800 14px/1 var(--font-display, inherit); color: #1a1200; background: #ffd800; border: 2px solid #000; border-radius: 999px; box-shadow: 2px 2px 0 #000; white-space: nowrap; will-change: transform, opacity; }
 .reward-pulse { animation: reward-pulse 0.4s ease-out; }
