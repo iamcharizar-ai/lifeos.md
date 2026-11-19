@@ -5,7 +5,8 @@
 // Settings (Vercel project -> Environment Variables; names only, never commit values):
 //   WEBHOOK_SECRET        the secret Google sends in `Authorization`; also given to `ghealth webhooks subscribers create`
 //   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN
-//                         the Desktop OAuth client and the owner's sign-in (read-only health scopes)
+//                         the Desktop OAuth client and the owner's sign-in (read-only health scopes). Since 20 Nov 2026 the sign-in
+//                         also carries nutrition.readonly, which the Water tile's hydration read needs (bridge/health.ts SCOPES)
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   the ledger. The service-role key is for this server only (never a
 //                         VITE_ variable, never in a client bundle). Until it is set the anon key is used: that
 //                         keeps working, but it cannot write `health_status`, and it is the one the database
