@@ -292,7 +292,7 @@ export function buildSnapshot(rows: Row[], opts: Options): Snapshot {
       } else missed.push(nameOfHabit(id))
     }
     if (total === 0) continue
-    dayViews.push({ day: d, weekday: weekday(d), done, total, pct: pct(done, total), perfect: done === total, ...(gameDay.get(d) ? { xp: Math.round(gameDay.get(d)!.xp) } : {}), missed: d === today ? [] : missed, ticked })
+    dayViews.push({ day: d, weekday: weekday(d), done, total, pct: pct(done, total), perfect: done === total, ...(gameDay.get(d) && !hide ? { xp: Math.round(gameDay.get(d)!.xp) } : {}), missed: d === today ? [] : missed, ticked })
   }
 
   // today's checklist
@@ -562,7 +562,7 @@ export function renderMarkdown(s: Snapshot, sections: Section[] = ALL): string {
   const want = new Set(sections)
   const out: string[] = []
   const w = (...l: string[]) => out.push(...l)
-  w(`# Life OS snapshot — ${s.weekday} ${s.today}`, '', `Generated ${s.generatedAt} (time zone ${s.timezone}). History window: ${s.window.from} to ${s.today} (${s.window.days} days requested). ${s.freshness.events} ledger events; newest written ${s.freshness.latestEventInsertedAt ?? 'never'}${s.redacted ? '. Health data (the band, weight and Sleep) is left out of this view on request.' : `; latest band sleep reading is for ${s.freshness.latestBandDay ?? 'none'}.`}`, '')
+  w(`# Life OS snapshot — ${s.weekday} ${s.today}`, '', `Generated ${s.generatedAt} (time zone ${s.timezone}). History window: ${s.window.from} to ${s.today} (${s.window.days} days requested). ${s.freshness.events} ledger events; newest written ${s.freshness.latestEventInsertedAt ?? 'never'}${s.redacted ? '. Health data (the band, weight and Sleep) is left out of this view on request, and so is each day\'s XP (Sleep is paid by its score, so a day\'s XP gives the score away); the game section\'s totals still count it.' : `; latest band sleep reading is for ${s.freshness.latestBandDay ?? 'none'}.`}`, '')
   if (sections.length === ALL.length) w('## How to read this', '', HOW_TO_READ, '')
 
   if (want.has('today')) {

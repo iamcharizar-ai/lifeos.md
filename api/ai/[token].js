@@ -26751,7 +26751,7 @@ function buildSnapshot(rows, opts) {
 			total,
 			pct: pct(done, total),
 			perfect: done === total,
-			...gameDay.get(d) ? { xp: Math.round(gameDay.get(d).xp) } : {},
+			...gameDay.get(d) && !hide ? { xp: Math.round(gameDay.get(d).xp) } : {},
 			missed: d === today ? [] : missed,
 			ticked
 		});
@@ -27156,7 +27156,7 @@ function renderMarkdown(s, sections = ALL) {
 	const want = new Set(sections);
 	const out = [];
 	const w = (...l) => out.push(...l);
-	w(`# Life OS snapshot — ${s.weekday} ${s.today}`, "", `Generated ${s.generatedAt} (time zone ${s.timezone}). History window: ${s.window.from} to ${s.today} (${s.window.days} days requested). ${s.freshness.events} ledger events; newest written ${s.freshness.latestEventInsertedAt ?? "never"}${s.redacted ? ". Health data (the band, weight and Sleep) is left out of this view on request." : `; latest band sleep reading is for ${s.freshness.latestBandDay ?? "none"}.`}`, "");
+	w(`# Life OS snapshot — ${s.weekday} ${s.today}`, "", `Generated ${s.generatedAt} (time zone ${s.timezone}). History window: ${s.window.from} to ${s.today} (${s.window.days} days requested). ${s.freshness.events} ledger events; newest written ${s.freshness.latestEventInsertedAt ?? "never"}${s.redacted ? ". Health data (the band, weight and Sleep) is left out of this view on request, and so is each day's XP (Sleep is paid by its score, so a day's XP gives the score away); the game section's totals still count it." : `; latest band sleep reading is for ${s.freshness.latestBandDay ?? "none"}.`}`, "");
 	if (sections.length === ALL.length) w("## How to read this", "", HOW_TO_READ, "");
 	if (want.has("today")) {
 		const t = s.today_;

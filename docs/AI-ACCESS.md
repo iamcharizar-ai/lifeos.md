@@ -36,7 +36,7 @@ Changing a rule in `game-core` (copied from the Pokedex) changes what the snapsh
 
 - **The link is the key.** Anyone with it can read the data until you change the token. It also lands in that AI's chat history, and the data goes to that company under its own terms.
 - **Cut every link off:** change `AI_SNAPSHOT_TOKEN` in Vercel, redeploy, run `npm run ai:links` for the new ones.
-- **Share more widely** with `?redact=health` (and the same on the MCP URL, which also hides `get_health` and the health event types from `query_events`). The game's numbers still carry what the band earned, so this is not a guarantee of silence about your sleep.
+- **Share more widely** with `?redact=health` (and the same on the MCP URL, which also hides `get_health` and the health event types from `query_events`). Each day's XP is left out of the day table too, because Sleep is paid by its score and a day's XP could give it away (a test found this on 22 Nov 2026). The game section's totals still carry what the band earned, so this is not a guarantee of silence about your sleep.
 - The Supabase anon key in the apps' bundles can still read the whole ledger. That is the old single-user trade-off (see `supabase/2026-11-03-vitals-server-only.sql`); this does not change it, and does not widen it: a pasted link reads no more than that key already could.
 
 ## Read-only, and what was checked

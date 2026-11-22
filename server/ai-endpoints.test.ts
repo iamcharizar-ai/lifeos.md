@@ -12,6 +12,9 @@ process.env.HEALTH_TZ = 'Asia/Kolkata'
 
 interface R { id: string; device: string; at: string; day: string; type: string; payload: Record<string, unknown>; inserted_at: string }
 
+// the snapshot only reads the last 14 days, so the sample band reading is dated a few days back from the real today, not fixed
+const RECENT = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10)
+
 const rows: R[] = []
 let n = 0
 const add = (type: string, day: string, payload: Record<string, unknown>, at = `${day}T08:00:00.000Z`) => rows.push({ id: String(++n).padStart(6, '0'), device: 'd', at, day, type, payload, inserted_at: at })
@@ -27,7 +30,7 @@ before(() => {
     add('metric', d.toISOString().slice(0, 10), { key: 'filler', value: String(i) }, new Date(Date.UTC(2026, 9, 1, 0, 0, i)).toISOString())
   }
   add('tick', '2026-11-08', { habitId: 'code', at: '2026-11-08T05:00:00.000Z' }, '2026-11-08T05:00:00.000Z')
-  add('vitals', '2026-11-08', { sleepScore: 90, sleepMin: 450, steps: 6000 }, '2026-11-08T05:30:00.000Z')
+  add('vitals', RECENT, { sleepScore: 90, sleepMin: 450, steps: 6000 }, `${RECENT}T05:30:00.000Z`)
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input))
@@ -95,13 +98,18 @@ test('the sections, days, json and redaction options work', async () => {
   assert.equal(json.redactedHealth, true)
   assert.doesNotMatch(redacted, /latest band sleep reading|sleepScore|stepsToday/i)
   assert.match(redacted, /left out of this view on request/)
+  // Sleep pays its score as XP, so a day's XP would give the score away: the day table carries none when health is redacted
+  assert.ok(json.habits.days.length > 0 && json.habits.days.every((d: { xp?: number }) => d.xp === undefined), 'days are listed, with no XP')
+  assert.doesNotMatch(redacted, new RegExp(`${RECENT} \\| [^|]+\\| \\d+ \\| 90 \\|`))
+  const open = await (await GET(get(`/api/ai/${TOKEN}`))).text()
+  assert.match(open, new RegExp(`${RECENT} \\| [^|]+\\| \\d+ \\| 90 \\|`), 'without redaction the day still shows its XP')
   assert.equal(json.window.days, 5)
 })
 
 test('a warm refresh asks only for rows newer than the cursor', async () => {
   const GET = await ai()
   await GET(get(`/api/ai/${TOKEN}`)) // warm (or served as fresh)
-  add('tick', '2026-11-08', { habitId: 'new-habit', at: '2026-11-08T06:00:00.000Z' }, '2026-11-08T06:00:00.000Z')
+  add('tick', RECENT, { habitId: 'new-habit', at: `${RECENT}T06:00:00.000Z` }, `${RECENT}T06:00:00.000Z`) // newer than everything already read, so it is past the cursor
   await new Promise((r) => setTimeout(r, 25))
   // age the cache past the freshness window
   const realNow = Date.now
