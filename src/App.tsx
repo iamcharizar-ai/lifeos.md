@@ -42,13 +42,13 @@ import { GUITAR_HABIT, applyShedEvents, sessionToday, useShed } from './lib/guit
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
 import { useGame } from './lib/game'
 import { applyGameEvents, sleepMeasured, sleepState, useGameLink } from './lib/gameLink'
-import { useHealthCheck } from './lib/healthCheck'
+import { useHealthCheck, useVitalsRefresh } from './lib/healthCheck'
 import { listAdds } from './game-core/events.ts'
 import { SLEEP_DONE, SLEEP_HABIT, V13_START } from './game-core/rules.ts'
 import { DAY_START_EVENT, clockOf } from './game-core/day.ts'
 import { Moments } from './components/PartnerStrip'
 import { backfillStamp, canEditDay, cellEditable } from './lib/backfill'
-import { STEPS_HABIT, WATER_HABIT, tickFixes } from './lib/vitalHabits'
+import { STEPS_HABIT, WATER_HABIT, isVitalHabit, tickFixes } from './lib/vitalHabits'
 import { addDays } from './game-core/facts.ts'
 
 /** Habits the graph cannot edit by hand: fed by Strong, Arbor, Woodshed or the band, never ticked from here. */
@@ -270,6 +270,8 @@ export default function App() {
   const link = useGameLink()
   // while Sleep waits for today's reading, ask whether Google has the night (and fetch it if it does)
   const sleepCheck = useHealthCheck(sleepState(link, today) === 'waiting')
+  // keep Steps and Water current while one of them is on the checklist and the app is open
+  useVitalsRefresh(live.some((h) => isVitalHabit(h.id)))
   const game = useGame(habits, ticks, arbor, shed, link, today)
 
   // Record today's habit list, with each habit's tier and domain. From rules
@@ -331,6 +333,14 @@ export default function App() {
       else cloud.emit('untick', { habitId: f.habitId }, f.day)
     }
   }, [settled, habits, ticks, link, today, cloud])
+
+  // every day's steps and water, for the graph's Steps and Water rows
+  const dayVitals = useMemo(() => {
+    const out: Record<string, { steps?: number; waterMl?: number }> = {}
+    for (const [d, b] of Object.entries(link.body)) if (typeof b.steps === 'number') out[d] = { steps: b.steps }
+    for (const [d, w] of Object.entries(link.water)) out[d] = { ...out[d], waterMl: w }
+    return out
+  }, [link])
 
   const toggle = (habitId: string) => {
     if (isLocked(habitId)) return // fed by Strong / Arbor — not ticked by hand
@@ -490,7 +500,7 @@ export default function App() {
           />
         )}
         {tab === 'monthly' && (
-          <MonthView habits={habits} ticks={ticks} today={today} initialYm={monthFocus ?? undefined} nights={link.nights} onBackfill={backfill} isHandLocked={isHandLocked} />
+          <MonthView habits={habits} ticks={ticks} today={today} initialYm={monthFocus ?? undefined} nights={link.nights} vitals={dayVitals} onBackfill={backfill} isHandLocked={isHandLocked} />
         )}
       </motion.main>
 

@@ -13,8 +13,8 @@ const RAW: Record<string, unknown> = {
   distance: { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), distance: { millimetersSum: '6543210' } }] },
   'total-calories': { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), totalCalories: { kcalSum: 2411.6 } }] },
   'active-zone-minutes': { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), activeZoneMinutes: { sumInFatBurnHeartZone: '20', sumInCardioHeartZone: '12', sumInPeakHeartZone: '2' } }] },
-  // the water log's rollup field name is a best guess until it is seen live; simplify() finds the number by what it is
-  'hydration-log': { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), hydrationLog: { volumeMillilitersSum: '3250' } }] },
+  // as the live API sends it (seen 22 Nov 2026): the number sits two levels down
+  'hydration-log': { rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), hydrationLog: { amountConsumed: { millilitersSum: 3250 } } }] },
   sleep: {
     dataPoints: [
       { sleep: { interval: { civilStartTime: civil('2026-03-27', 23, 12), civilEndTime: civil('2026-03-28', 6, 40) }, summary: { minutesAsleep: '418', minutesAwake: '30', stagesSummary: [{ type: 'DEEP', minutes: '80' }, { type: 'REM', minutes: '95' }, { type: 'LIGHT', minutes: '243' }, { type: 'AWAKE', minutes: '30' }] }, metadata: { mainSleep: true } } },
@@ -125,12 +125,12 @@ test('sleep as the live API sends it (UTC instants and an offset, no civil times
 
 test('water: the logged total of a day, whatever the rollup calls the field; a row with no number is nothing logged', () => {
   const row = (inner: unknown) => ({ rollupDataPoints: [{ civilStartTime: civil('2026-03-28'), hydrationLog: inner }] })
-  for (const inner of [{ volumeMillilitersSum: '3250' }, { millilitersSum: 3250 }, { amountSum: '3250.4' }])
+  for (const inner of [{ amountConsumed: { millilitersSum: 3250 } }, { volumeMillilitersSum: '3250' }, { millilitersSum: 3250 }, { amountSum: '3250.4' }])
     assert.equal(toVitals({ hydration: simplify('hydration', row(inner)) })['2026-03-28']?.waterMl, 3250, JSON.stringify(inner))
   assert.deepEqual(toVitals({ hydration: simplify('hydration', row({})) }), {})
   assert.deepEqual(toVitals({ hydration: simplify('hydration', null) }), {})
   // it is read like the other rollups, and a repeated sync of an unchanged total writes nothing
-  const days = toVitals({ hydration: simplify('hydration', row({ volumeMillilitersSum: '3250' })) })
+  const days = toVitals({ hydration: simplify('hydration', row({ amountConsumed: { millilitersSum: 3250 } })) })
   const known = foldVitals(emptyVitals(), [{ device: 'health-sync', at: '2026-03-28T20:00:00Z', day: '2026-03-28', type: 'vitals', payload: { waterMl: 3250 } }])
   assert.deepEqual(rowsToWrite(days, known), {})
   assert.deepEqual(rowsToWrite({ '2026-03-28': { waterMl: 3500 } }, known), { '2026-03-28': { waterMl: 3500 } })

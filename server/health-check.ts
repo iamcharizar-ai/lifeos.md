@@ -18,8 +18,28 @@ async function scoreIn(day: string): Promise<number | null> {
   return hit ? (hit.payload!.sleepScore as number) : null
 }
 
-export async function GET(): Promise<Response> {
+// `?vitals=1` (the Steps and Water tiles): read today's and yesterday's steps and water straight from Google and write what is new,
+// at most once every 45 s per warm instance. Water has no webhook of its own, and logging it sends no steps notification, so
+// without this a glass of water only showed up after the next walk.
+let vitalsAt = 0
+const VITALS_EVERY_MS = 45_000
+
+async function vitals(day: string): Promise<Response> {
+  if (Date.now() - vitalsAt < VITALS_EVERY_MS) return new Response(JSON.stringify({ day, state: 'vitals', wrote: 0, skipped: true }), { status: 200, headers: HEADERS })
+  vitalsAt = Date.now()
+  try {
+    const r = await sync({ from: addDays(day, -1), to: day, kinds: ['steps', 'hydration'] })
+    return new Response(JSON.stringify({ day, state: 'vitals', wrote: r.wrote, failed: r.failed }), { status: 200, headers: HEADERS })
+  } catch (err) {
+    vitalsAt = 0 // a failed read is not a reason to wait a minute
+    console.log(`vitals read failed: ${err instanceof Error ? err.message : String(err)}`)
+    return new Response(JSON.stringify({ day, state: 'error', message: 'Google could not be read.' }), { status: 200, headers: HEADERS })
+  }
+}
+
+export async function GET(req?: Request): Promise<Response> {
   const day = today()
+  if (req && new URL(req.url, 'http://x').searchParams.get('vitals') === '1') return vitals(day)
   try {
     const r = await check({ day, scoreIn: () => scoreIn(day), sync: () => sync({ from: addDays(day, -1), to: day }), now: () => Date.now() }, memo)
     memo = r.memo

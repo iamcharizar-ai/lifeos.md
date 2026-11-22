@@ -23,7 +23,11 @@ Two core habits (30 XP, not pillars) that Google Health fills and nothing in the
 
 Water needs one thing from you, once: the Google sign-in must include the **Nutrition (read)** scope. Run `ghealth auth login` again with it, put the new refresh token in `GOOGLE_REFRESH_TOKEN` on Vercel and redeploy. Until then only the water read fails (it is logged, and nothing else is affected) and the tile reads "Waiting for Google Health". Water is read whenever steps notify (steps arrive every few minutes), so it needs no subscription of its own; a `hydration-log` subscription would also work.
 
-The water rollup's field name is a best guess (`bridge/health.ts` `waterOf` finds it by what it is, not its name); it has not been seen against the live API. If the tile stays empty with the scope granted, look at a raw `ghealth data hydration-log daily-rollup` row and fix `waterOf`.
+The water rollup, as the live API sends it (checked 22 Nov 2026), is `hydrationLog: { amountConsumed: { millilitersSum } }`, two levels down unlike the other rollups; `waterOf` in `bridge/health.ts` finds the number by what it is, at any depth. If the tile ever stays empty, look at a raw `ghealth data hydration-log daily-rollup` row.
+
+Logging water sends no notification of its own, so the app asks: while a Steps or Water tile is on the checklist and the app is open, `useVitalsRefresh` calls `/api/health-check?vitals=1` on opening, on coming back into view and every two minutes; the server reads today's and yesterday's steps and water from Google (at most every 45 s) and writes what is new.
+
+In the Monthly graph the Steps, Water and Sleep rows show their number in the box (percent of the goal, or the sleep score). A box is green only when the day counted: 100% for Steps and Water, 80 or more for Sleep (`SLEEP_DONE`); a day that fell short keeps its number in a plain box.
 
 ## Which night counts
 

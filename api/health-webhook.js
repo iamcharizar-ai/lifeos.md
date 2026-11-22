@@ -1305,13 +1305,20 @@ const localOf = (instant, offset) => {
 	return new Date(t + (Number.parseInt(String(offset ?? "0"), 10) || 0) * 1e3).toISOString().slice(0, 16);
 };
 /**
-* The day's water from one hydration rollup row. Its field name has not been checked against the live API (the other rollups
-* are `steps.countSum`, `distance.millimetersSum`), so it is found by what it is: a number under the row's one data object,
-* named for millilitres or volume, else any `...Sum`. A row with no such number is a day with nothing logged.
+* The day's water from one hydration rollup row. The live API (seen 22 Nov 2026) sends it two levels down, unlike the other
+* rollups: `hydrationLog: { amountConsumed: { millilitersSum: 1250 } }`. It is found by what it is rather than by that exact
+* path, so a rename or a flatter shape still reads: the numbers under the row's one data object, at any depth, preferring one
+* named for millilitres, volume or amount, else any `...Sum`. A row with no such number is a day with nothing logged.
 */
 function waterOf(row) {
-	const inner = obj(Object.entries(row).find(([k, v]) => !/time$/i.test(k) && v && typeof v === "object")?.[1]);
-	const nums = Object.entries(inner).filter(([, v]) => v !== "" && v !== null && Number.isFinite(Number(v)));
+	const data = Object.entries(row).find(([k, v]) => !/time$/i.test(k) && v && typeof v === "object")?.[1];
+	const nums = [];
+	const walk = (o, depth) => {
+		for (const [k, v] of Object.entries(obj(o))) if (v && typeof v === "object") {
+			if (depth < 4) walk(v, depth + 1);
+		} else if (v !== "" && v !== null && Number.isFinite(Number(v))) nums.push([k, v]);
+	};
+	walk(data, 0);
 	return (nums.find(([k]) => /milliliter|millilitre|volume|amount/i.test(k)) ?? nums.find(([k]) => /sum$/i.test(k)))?.[1];
 }
 /** One raw API response (a page, or pages joined) → the simplified points core/map.ts reads. */

@@ -20,6 +20,34 @@ export interface CheckAnswer {
 /** How often to ask while the page is in view and the night is still missing. */
 const EVERY_MS = 2 * 60_000
 
+/**
+ * Keep the Steps and Water tiles current: while `active` (one of them is on the checklist) and the page is in view, ask the
+ * server to read today's steps and water from Google, on opening, when the page comes back into view, and every two minutes.
+ * What it writes reaches the tiles the usual way (a catch-up of the ledger), so nothing here holds the readings.
+ */
+export function useVitalsRefresh(active: boolean): void {
+  useEffect(() => {
+    if (!active) return
+    let gone = false
+    const ask = async () => {
+      if (document.visibilityState === 'hidden') return
+      try {
+        const res = await fetch('/api/health-check?vitals=1', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+        if (!res.ok) return
+        const a = (await res.json()) as { state?: string; wrote?: number }
+        if (!gone && a?.state === 'vitals' && (a.wrote ?? 0) > 0) window.dispatchEvent(new Event(CATCH_UP_EVENT))
+      } catch {
+        /* offline, or a dev server with no functions: the tiles keep what the ledger has */
+      }
+    }
+    void ask()
+    const t = window.setInterval(() => void ask(), EVERY_MS)
+    const onVisible = () => { if (document.visibilityState === 'visible') void ask() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { gone = true; window.clearInterval(t); document.removeEventListener('visibilitychange', onVisible) }
+  }, [active])
+}
+
 /** The latest answer while `active` (Sleep is waiting for today's reading); null when not asked or the endpoint cannot be reached. */
 export function useHealthCheck(active: boolean): CheckAnswer | null {
   const [answer, setAnswer] = useState<CheckAnswer | null>(null)

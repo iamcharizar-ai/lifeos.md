@@ -16,7 +16,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { domainOf, type Habit } from '../config/habits'
 import { EDIT_DAYS, cellEditable, editableDays } from '../lib/backfill'
-import { SLEEP_HABIT, tagOf } from '../game-core/rules.ts'
+import { progressOf, readingOf, vitalKindOf, type DayReadings } from '../lib/vitalHabits'
+import { SLEEP_DONE, SLEEP_HABIT, tagOf } from '../game-core/rules.ts'
 import type { SleepNight } from '../game-core/events.ts'
 import type { Ticks } from '../lib/store'
 import {
@@ -106,6 +107,7 @@ export function MonthView({
   today,
   initialYm,
   nights,
+  vitals,
   onBackfill,
   isHandLocked,
 }: {
@@ -116,6 +118,8 @@ export function MonthView({
   initialYm?: string
   /** the band's nights, so the Sleep row shows each night's score */
   nights?: Record<string, SleepNight>
+  /** day → Google Health's steps and water, so those rows show how much of the goal each day reached */
+  vitals?: Record<string, DayReadings>
   /** edit mode: fill in or take back one habit on one earlier day (never pays XP, see lib/backfill.ts) */
   onBackfill?: (habitId: string, day: string, on: boolean) => void
   /** habits another app or the band fills: their cells are not editable here */
@@ -452,14 +456,20 @@ export function MonthView({
                   {cells.map((c, i) => {
                     const d = days[i]
                     const isToday = iso(d) === today
-                    // Sleep's row is the night's score from the band, shaded by how good it was
-                    const score = h.id === SLEEP_HABIT ? nights?.[iso(d)]?.score : undefined
-                    if (score !== undefined)
+                    // Sleep's row is the night's score from the band; Steps and Water show how much of the goal was done, in whole
+                    // percent. All three show their number in the box and are green only when the day counted (Sleep 80 or more,
+                    // the others 100%); a day that fell short keeps its number in a plain box.
+                    const kind = vitalKindOf(h.id)
+                    const vp = kind && c !== 'na' && c !== 'future' ? progressOf(kind, readingOf(kind, vitals?.[iso(d)])) : undefined
+                    const shown = h.id === SLEEP_HABIT ? nights?.[iso(d)]?.score : vp ? (c === 'done' ? 100 : vp.value === null ? undefined : vp.pct) : undefined
+                    if (shown !== undefined) {
+                      const good = h.id === SLEEP_HABIT ? shown >= SLEEP_DONE : c === 'done'
                       return (
-                        <div key={d} title={`Sleep — ${pad2(d)} ${label}: score ${score}`} className={`flex w-7 shrink-0 items-center justify-center border-r border-black/10 py-1.5 lg:w-8 ${isToday ? 'border-x border-black/30 bg-neo-yellow/20' : ''}`}>
-                          <div className="sleep-cell num" style={{ background: score >= 90 ? '#f2c14e' : score >= 80 ? '#7fd38a' : score >= 70 ? '#9aa6ff' : '#d8d3ff' }}>{score}</div>
+                        <div key={d} title={h.id === SLEEP_HABIT ? `Sleep — ${pad2(d)} ${label}: score ${shown}${good ? '' : ` (${SLEEP_DONE} counts)`}` : `${h.name} — ${pad2(d)} ${label}: ${shown}% of the goal${good ? '' : ' (100% counts)'}`} className={`flex w-7 shrink-0 items-center justify-center border-r border-black/10 py-1.5 lg:w-8 ${isToday ? 'border-x border-black/30 bg-neo-yellow/20' : ''}`}>
+                          <div className="sleep-cell num" style={{ background: good ? 'var(--color-neo-green)' : '#fff' }}>{shown}</div>
                         </div>
                       )
+                    }
                     const canFlip = editable(h.id, iso(d), c)
                     const Wrap = canFlip ? 'button' : 'div'
                     return (
