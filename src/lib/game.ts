@@ -13,6 +13,7 @@ import type { Ticks } from './store'
 import type { ArborState } from '../arbor-core/model.ts'
 import type { ShedState } from '../woodshed-core/model.ts'
 import { isGym, leaderOf } from '../game-core/fold.ts'
+import { newsKey } from '../game-core/events.ts'
 import { LEAGUES, lineup } from '../game-core/gyms.ts'
 import { itemName as shopName } from '../game-core/economy.ts'
 import { REGIONS, v22On } from '../game-core/rules.ts'
@@ -54,11 +55,12 @@ function loadSeen(): Set<string> | null {
  * Today's moments this device has not shown yet, and marks them shown. The
  * first run on a device shows nothing: history is not news.
  */
-export function freshMoments(game: Game, today: string): Moment[] {
+export function freshMoments(game: Game, today: string, told: Set<string> = new Set()): Moment[] {
   const seen = loadSeen()
   // choosing who leads is the player's own tap in the Pokedex, so it is never announced (a branch choice still is)
   const mine = game.moments.filter((m) => m.day === today && !(m.kind === 'use' && m.what === 'lead'))
-  const fresh = seen ? mine.filter((m) => !seen.has(momentKey(m))) : []
+  // and what the Pokedex has already told is marked shown below but not announced again (game-core/events.ts)
+  const fresh = seen ? mine.filter((m) => !seen.has(momentKey(m)) && !told.has(newsKey(m))) : []
   if (!seen || fresh.length) {
     // only today's keys are worth keeping
     const keep = [...(seen ?? [])].filter((k) => k.startsWith(today)).concat(mine.map(momentKey))

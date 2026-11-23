@@ -2,6 +2,7 @@
 // facts.ts takes. Pokedex and Life OS both call these, so the two apps cannot
 // read the same event differently.
 import type { BodyFacts, ItemUse } from './facts.ts'
+import type { Moment } from './fold.ts'
 import { V17_START, isTag, type Tag } from './rules.ts'
 
 export interface GameEvent {
@@ -134,4 +135,32 @@ export function listAdds(stands: ListedHabit[] | undefined, list: ListedHabit[],
   }
   const have = new Set(stands.map((h) => h.id))
   return list.some((h) => !have.has(h.id))
+}
+
+// ── news told once, in whichever app told it first ──────────────────────────
+// Pokedex and Life OS each say what just happened (a boss came or left, an egg hatched, a Pokemon was caught). Each kept its own
+// list of what it had told, in its own browser, so the same news came twice, once in each. The ledger is shared, so the record
+// of what has been told is a row in it: an `item_use` whose `what` is 'told' and whose `to` is the news keys, comma apart. The
+// fold ignores it (it changes nothing in the game); both apps read it and skip what is already told, and write it when they tell.
+
+/** The `what` of the item_use that records news as told. */
+export const TOLD = 'told'
+
+/** One piece of news, the same string in both apps: its day, its kind and whatever tells two of that kind apart. */
+export function newsKey(m: Moment): string {
+  const o = m as unknown as Record<string, unknown>
+  return [m.day, m.kind, ...['form', 'uid', 'level', 'n', 'item', 'what', 'id', 'league', 'slot', 'week', 'rank', 'lap', 'tag', 'step', 'tier', 'facility', 'egg'].map((k) => (k in o && o[k] !== undefined ? String(o[k]) : ''))].join('|')
+}
+
+/** Every news key told so far, in either app. */
+export function toldOf(uses: ItemUse[]): Set<string> {
+  const out = new Set<string>()
+  for (const u of uses) if (u.what === TOLD && u.to) for (const k of u.to.split(',')) if (k) out.add(k)
+  return out
+}
+
+/** The payload that records `keys` as told (the ones already told are left out; null when nothing is left to write). */
+export function toldPayload(keys: string[], told: Set<string>): { uid: string; what: string; to: string; n: string } | null {
+  const fresh = [...new Set(keys)].filter((k) => !told.has(k))
+  return fresh.length ? { uid: '', what: TOLD, to: fresh.join(','), n: Math.random().toString(36).slice(2, 10) } : null
 }

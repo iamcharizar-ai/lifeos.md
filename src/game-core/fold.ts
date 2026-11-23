@@ -561,6 +561,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const monthXp: Record<string, number> = {}, monthStep: Record<string, number> = {}
   const weekXp: Record<string, number> = {}, weekDays: Record<string, number> = {}, weekCatch: Record<string, number> = {}
   let egg: { kind: string; have: number; since: string; today?: number } | null = null
+  /** version 22 (23 Nov 2026): eggs the player asked to warm while the Nursery was still full, because the egg in it hatches at the end of that same day, after the day's actions are read */
+  let warmWish: string[] = []
   let walked = 0, trailFound = 0
   const stepLog: number[] = []
   let chests = 0
@@ -1011,7 +1013,11 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         // version 19: with two kinds of egg waiting, the one to put in the Nursery is chosen; its steps count from the next day
         if (day < V19_START || !(inv[item] > 0) || !(v22On(day) ? inNursery(item) : isEgg(item))) return
         // version 22: a fossil goes in like an egg, and a second place can be bought
-        if (egg && !(v22On(day) && inv[NURSERY_PLACE] && !egg2)) return
+        if (egg && !(v22On(day) && inv[NURSERY_PLACE] && !egg2)) {
+          // the egg in the place may hatch at the end of this very day: keep the wish, and the day's end puts this one in the place it frees
+          if (v22On(day)) warmWish.push(item)
+          return
+        }
         inv[item]--
         if (egg) egg2 = { kind: item, have: 0, since: day }
         else egg = { kind: item, have: 0, since: day }
@@ -2009,6 +2015,13 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     egg = tendNursery(egg)
     if (v22 && inv[NURSERY_PLACE]) egg2 = tendNursery(egg2)
     if (!egg && egg2) { egg = egg2; egg2 = null }
+    // version 22: what was asked for while the Nursery was full goes into the place the day's hatch has just freed (its steps count from tomorrow)
+    for (const k of warmWish) {
+      if (!(inv[k] > 0)) continue
+      const slot = { kind: k, have: 0, since: f.day }
+      if (!egg) { inv[k]--; egg = slot } else if (v22 && inv[NURSERY_PLACE] && !egg2) { inv[k]--; egg2 = slot }
+    }
+    warmWish = []
 
     payQuests()
     // feats last, so everything the day did is counted

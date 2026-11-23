@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { nameOf, type Game, type Moment } from '../game-core/fold.ts'
 import { MOMENTUM_OLD_STEPS, MOMENTUM_WINDOW } from '../game-core/rules.ts'
 import { POKEDEX_URL, freshMoments, momentKey, momentText, spriteUrl } from '../lib/game'
+import { newsKey } from '../game-core/events.ts'
 
 /** A sprite from the Pokedex site; a plain block with the initial if it cannot load. */
 function Sprite({ form, shiny, size, dim }: { form: string; shiny?: boolean; size: number; dim?: boolean }) {
@@ -88,14 +89,16 @@ export function PartnerStrip({ game }: { game: Game }) {
 /** The moments worth stopping for: they are staged in the middle of the screen, not slipped in at the bottom. */
 const BIG = new Set<string>(['evolve', 'catch', 'graduate', 'gym', 'league', 'key', 'mega', 'hatch'])
 
-export function Moments({ game, today, ready }: { game: Game; today: string; ready: boolean }) {
+export function Moments({ game, today, ready, told, onTold }: { game: Game; today: string; ready: boolean; told: Set<string>; onTold: (keys: string[]) => void }) {
   const [line, setLine] = useState<Moment[]>([])
   const timer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     if (!ready) return // never announce a half-loaded ledger
-    const fresh = freshMoments(game, today)
+    const fresh = freshMoments(game, today, told)
     if (!fresh.length) return
+    // what is announced here is recorded as told, so the Pokedex does not say it again
+    onTold(fresh.map(newsKey))
     // several level-ups in one tick: only the last one is worth saying
     const last = fresh.filter((m, i) => m.kind !== 'level' || !fresh.slice(i + 1).some((x) => x.kind === 'level'))
     // and a level-up still waiting its turn is stale once a newer one arrives

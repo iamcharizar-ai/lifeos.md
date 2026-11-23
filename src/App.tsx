@@ -41,9 +41,9 @@ import { practicedOn } from './arbor-core/model.ts'
 import { GUITAR_HABIT, applyShedEvents, sessionToday, useShed } from './lib/guitarLink'
 import { SKILL_BY_ID } from './arbor-core/skills.ts'
 import { useGame } from './lib/game'
-import { applyGameEvents, sleepMeasured, sleepState, useGameLink } from './lib/gameLink'
+import { applyGameEvents, getGameLink, sleepMeasured, sleepState, useGameLink } from './lib/gameLink'
 import { useHealthCheck, useVitalsRefresh } from './lib/healthCheck'
-import { listAdds } from './game-core/events.ts'
+import { listAdds, toldOf, toldPayload } from './game-core/events.ts'
 import { SLEEP_DONE, SLEEP_HABIT, V13_START } from './game-core/rules.ts'
 import { DAY_START_EVENT, clockOf } from './game-core/day.ts'
 import { Moments } from './components/PartnerStrip'
@@ -273,6 +273,14 @@ export default function App() {
   // keep Steps and Water current while one of them is on the checklist and the app is open
   useVitalsRefresh(live.some((h) => isVitalHabit(h.id)))
   const game = useGame(habits, ticks, arbor, shed, link, today)
+  // news told once, in whichever app told it first (game-core/events.ts): what the Pokedex has told is not announced here, and what is announced here is recorded for it
+  const toldKeys = useMemo(() => toldOf(link.uses), [link.uses])
+  const tellOnce = useCallback((keys: string[]) => {
+    const payload = toldPayload(keys, toldOf(getGameLink().uses))
+    if (!payload) return
+    applyGameEvents([{ type: 'item_use', day: today, at: new Date().toISOString(), payload }])
+    cloud.emit('item_use', payload, today)
+  }, [today, cloud])
 
   // Record today's habit list, with each habit's tier and domain. From rules
   // version 17 the latest list of a day stands, so adding, removing or changing
@@ -504,7 +512,7 @@ export default function App() {
         )}
       </motion.main>
 
-      <Moments game={game} today={today} ready={settled} />
+      <Moments game={game} today={today} ready={settled} told={toldKeys} onTold={tellOnce} />
 
       <footer className="hud-label mt-8 border-none text-center !text-[10px] !text-neo-gray-dark">
         v2.1 · habit tracker ·{' '}

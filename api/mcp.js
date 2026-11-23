@@ -16053,6 +16053,8 @@ function foldGame(facts, opts = {}) {
 	const monthXp = {}, monthStep = {};
 	const weekXp = {}, weekDays = {}, weekCatch = {};
 	let egg = null;
+	/** version 22 (23 Nov 2026): eggs the player asked to warm while the Nursery was still full, because the egg in it hatches at the end of that same day, after the day's actions are read */
+	let warmWish = [];
 	let walked = 0, trailFound = 0;
 	const stepLog = [];
 	let chests = 0;
@@ -16674,7 +16676,10 @@ function foldGame(facts, opts = {}) {
 				return;
 			case "warm":
 				if (day < "2026-11-04" || !(inv[item] > 0) || !(v22On(day) ? inNursery(item) : isEgg(item))) return;
-				if (egg && !(v22On(day) && inv["nursery-place"] && !egg2)) return;
+				if (egg && !(v22On(day) && inv["nursery-place"] && !egg2)) {
+					if (v22On(day)) warmWish.push(item);
+					return;
+				}
 				inv[item]--;
 				if (egg) egg2 = {
 					kind: item,
@@ -18014,6 +18019,22 @@ function foldGame(facts, opts = {}) {
 			egg = egg2;
 			egg2 = null;
 		}
+		for (const k of warmWish) {
+			if (!(inv[k] > 0)) continue;
+			const slot = {
+				kind: k,
+				have: 0,
+				since: f.day
+			};
+			if (!egg) {
+				inv[k]--;
+				egg = slot;
+			} else if (v22 && inv["nursery-place"] && !egg2) {
+				inv[k]--;
+				egg2 = slot;
+			}
+		}
+		warmWish = [];
 		payQuests();
 		evalFeats(f.day);
 		display = partner.form;
