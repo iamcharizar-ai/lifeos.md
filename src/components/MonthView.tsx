@@ -127,6 +127,8 @@ export function MonthView({
 }) {
   const [ym, setYm] = useState(() => initialYm ?? ymOf(today))
   const [editing, setEditing] = useState(false)
+  // the habit being looked at on its own: its row lights up and every other row dims (tap its name again to let go)
+  const [focusId, setFocusId] = useState<string | null>(null)
   const months = useMonths() // re-render when a month seals or one arrives from another device
 
   const nowYm = ymOf(today)
@@ -163,6 +165,9 @@ export function MonthView({
   const totalTicks = dayStats.reduce((a, s) => a + s.done, 0)
   const bestRun = longestRun(dayStats.filter((s) => !isFuture(s.d)), (s) => s.pct !== null && s.pct >= 0.8)
 
+  // the focused habit, if it is a row of this month (a month without it has nothing to dim)
+  const focus = rows.find((r) => r.id === focusId) ?? null
+
   // the kind of work a habit is, for its colour (a sealed month carries no domain, so the library or its id says)
   const tagFor = useMemo(() => {
     const byId = new Map(habits.map((h) => [h.id, h]))
@@ -183,15 +188,25 @@ export function MonthView({
   useEffect(() => {
     setPicked(null)
     setEditing(false)
+    setFocusId(null)
   }, [ym])
 
   // a long month scrolls the grid sideways: open it on today, not on the 1st
   const gridEl = useRef<HTMLDivElement>(null)
+  const headEl = useRef<HTMLDivElement>(null)
+  const cornerEl = useRef<HTMLDivElement>(null)
+  /** The day bar lives outside the grid's sideways scroller (so it can stick to the screen top): copy that scroll onto it. */
+  const syncHead = () => {
+    const el = gridEl.current
+    if (el && headEl.current) headEl.current.style.transform = `translate3d(${-el.scrollLeft}px, 0, 0)`
+  }
   useEffect(() => {
     const el = gridEl.current
-    const t = el?.querySelector<HTMLElement>('[data-today]')
-    if (el && t) el.scrollLeft = Math.max(0, t.offsetLeft - 200)
+    const t = headEl.current?.querySelector<HTMLElement>('[data-today]')
+    // the day sits in the bar at (its offset + the habit column); aim to leave about 200px of earlier days before it
+    if (el && t) el.scrollLeft = Math.max(0, t.offsetLeft + (cornerEl.current?.offsetWidth ?? 160) - 200)
     else if (el) el.scrollLeft = 0
+    syncHead()
   }, [ym, rows.length])
 
   // ← and → step through the months
@@ -201,6 +216,7 @@ export function MonthView({
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       if (e.key === 'ArrowLeft') setYm((y) => shiftYm(y, -1))
       if (e.key === 'ArrowRight') setYm((y) => shiftYm(y, 1))
+      if (e.key === 'Escape') setFocusId(null)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -376,19 +392,32 @@ export function MonthView({
       </section>
 
       {/* Habit × day matrix */}
-      <section className="neo-card overflow-hidden bg-white p-3" aria-label="Habit completion matrix">
+      <section className="neo-card bg-white p-3" aria-label="Habit completion matrix">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="hud-label border-black text-xs">Habit × day</div>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={() => setEditing((e) => !e)}
-              aria-pressed={editOn}
-              className={`neo-button px-3 py-1.5 text-xs font-bold uppercase tracking-wider ${editOn ? 'bg-neo-yellow' : ''}`}
-            >
-              {editOn ? '✓ Done editing' : '✎ Edit graph'}
-            </button>
-          )}
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            {focus && (
+              <button
+                type="button"
+                onClick={() => setFocusId(null)}
+                className="neo-button flex min-w-0 items-center gap-1.5 bg-neo-yellow px-3 py-1.5 text-xs font-bold tracking-wide"
+                title="Show every habit again (Esc)"
+              >
+                <span className="truncate">{focus.emoji} {focus.name}</span>
+                <span aria-hidden>✕</span>
+              </button>
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setEditing((e) => !e)}
+                aria-pressed={editOn}
+                className={`neo-button px-3 py-1.5 text-xs font-bold uppercase tracking-wider ${editOn ? 'bg-neo-yellow' : ''}`}
+              >
+                {editOn ? '✓ Done editing' : '✎ Edit graph'}
+              </button>
+            )}
+          </div>
         </div>
 
         {editOn && (
@@ -410,30 +439,41 @@ export function MonthView({
           </span>
         </div>
 
-        <div ref={gridEl} className="overflow-x-auto pb-2">
-          <div className="min-w-max rounded border-2 border-black bg-neo-bg">
-            {/* Header row: day numbers */}
-            <div className="sticky top-0 z-20 flex border-b-2 border-black bg-white">
-              <div className="sticky left-0 z-30 w-40 shrink-0 border-r-2 border-black bg-white px-3 py-2 text-xs font-bold uppercase tracking-wider text-black lg:w-48">Habit</div>
-              {days.map((d) => {
-                const isToday = iso(d) === today
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setPicked(d)}
-                    data-today={isToday ? '' : undefined}
-                    className={`num w-7 shrink-0 border-r border-black/20 py-1 text-center text-xs font-bold lg:w-8 ${
-                      isToday ? 'border-x-2 border-black bg-neo-yellow font-extrabold text-black' : d === selDay ? 'bg-black text-white' : isWeekend(d) ? 'bg-black/5 text-black/70' : 'text-black/70'
-                    }`}
-                  >
-                    <div>{d}</div>
-                    <div className={`text-[9px] font-bold ${d === selDay && !isToday ? 'text-white/60' : 'text-black/40'}`}>{DOW[dowOf(d)]}</div>
-                  </button>
-                )
-              })}
-              <div className="num w-12 shrink-0 border-l-2 border-black bg-white py-2 text-center text-xs font-bold text-black">Total</div>
+        {/* The day bar. It sits outside the sideways scroller on purpose: an ancestor that scrolls sideways holds a sticky child
+            to itself, so inside it the bar could never follow the page. Out here it is plain `sticky`, which the browser
+            moves with the page by itself (no script, so no lag or snapping): it rides along with the grid until its top
+            reaches the top of the screen, stays there, and goes back to its place when you scroll back up. Only the
+            sideways movement is copied by hand, from the grid's scroll (see syncHead). */}
+        <div className="sticky z-30" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+          <div className="flex overflow-hidden rounded-t border-2 border-black bg-white">
+            <div ref={cornerEl} className="w-40 shrink-0 border-r-2 border-black bg-white px-3 py-2 text-xs font-bold uppercase tracking-wider text-black lg:w-48">Habit</div>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <div ref={headEl} className="relative flex w-max will-change-transform">
+                {days.map((d) => {
+                  const isToday = iso(d) === today
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setPicked(d)}
+                      data-today={isToday ? '' : undefined}
+                      className={`num w-7 shrink-0 border-r border-black/20 py-1 text-center text-xs font-bold lg:w-8 ${
+                        isToday ? 'border-x-2 border-black bg-neo-yellow font-extrabold text-black' : d === selDay ? 'bg-black text-white' : isWeekend(d) ? 'bg-black/5 text-black/70' : 'bg-white text-black/70'
+                      }`}
+                    >
+                      <div>{d}</div>
+                      <div className={`text-[9px] font-bold ${d === selDay && !isToday ? 'text-white/60' : 'text-black/40'}`}>{DOW[dowOf(d)]}</div>
+                    </button>
+                  )
+                })}
+                <div className="num w-12 shrink-0 border-l-2 border-black bg-white py-2 text-center text-xs font-bold text-black">Total</div>
+              </div>
             </div>
+          </div>
+        </div>
+
+        <div ref={gridEl} onScroll={syncHead} className="overflow-x-auto pb-2">
+          <div className="min-w-max rounded-b border-2 border-t-0 border-black bg-neo-bg">
 
             {rows.map((h, idx) => {
               const cells = days.map((d) => cellOf(snap, today, h.id, d))
@@ -442,16 +482,25 @@ export function MonthView({
               const rowPct = rowEligible === 0 ? null : Math.round((rowDone / rowEligible) * 100)
               const pillar = h.tier === 'pillar'
               return (
-                <div key={h.id} className={`flex items-center border-b border-black/30 ${idx % 2 === 0 ? 'bg-white' : 'bg-neo-bg'}`}>
-                  <div
-                    className={`sticky left-0 z-10 flex w-40 shrink-0 items-center gap-1.5 border-r-2 border-black bg-white px-2 py-2 text-xs font-bold text-neo-black shadow-[2px_0_4px_rgba(0,0,0,0.05)] lg:w-48 ${pillar ? 'matrix-pillar' : ''}`}
+                <div
+                  key={h.id}
+                  className={`flex items-center border-b border-black/30 transition-[opacity,filter] duration-200 ${
+                    focus ? (focus.id === h.id ? 'bg-neo-yellow/25' : 'opacity-30 grayscale') : idx % 2 === 0 ? 'bg-white' : 'bg-neo-bg'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setFocusId(focus?.id === h.id ? null : h.id)}
+                    aria-pressed={focus?.id === h.id}
+                    title={focus?.id === h.id ? `Show every habit again` : `Look at ${h.name} on its own`}
+                    className={`sticky left-0 z-10 flex w-40 shrink-0 cursor-pointer items-center gap-1.5 border-r-2 border-black px-2 py-2 text-left text-xs font-bold text-neo-black shadow-[2px_0_4px_rgba(0,0,0,0.05)] lg:w-48 ${focus?.id === h.id ? 'bg-neo-yellow' : 'bg-white'} ${pillar ? 'matrix-pillar' : ''}`}
                     data-tag={pillar ? tagFor(h) : undefined}
                   >
                     <span className="text-sm">{h.emoji}</span>
                     <span className={`truncate ${pillar ? 'uppercase' : ''}`} title={h.name}>
                       {h.name}
                     </span>
-                  </div>
+                  </button>
 
                   {cells.map((c, i) => {
                     const d = days[i]
