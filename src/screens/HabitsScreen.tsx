@@ -640,6 +640,11 @@ export function HabitsScreen({
   const [showDone, setShowDone] = useState(false)
   // arranging shows everything, so the order of hidden rows is never lost
   const showAll = showDone || arranging
+  // `now` only moves when the timer below fires, which needs a tick that has not expired yet. A tick can arrive already
+  // expired: made on the phone while this tab was asleep, or brought by a catch-up. Then `now` is still where it was
+  // left (before the tick was made), the tick looks new for ever and the row stays green until a reload. So whenever
+  // today's ticks change, bring the clock up to date first.
+  useEffect(() => setNow(Date.now()), [todayRaw])
   useEffect(() => {
     let soonest = Infinity
     for (const at of Object.values(todayRaw ?? {})) {
