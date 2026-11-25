@@ -23,6 +23,10 @@ import {
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { berryGain, labWorth, leaderHit, partyPower, pillarsOf, tierOf, type Fighter } from './v22.ts'
+import { LAB_MEGA_X, MOMENTUM_LADDER, STONE_STREAK, momentumLadder, scenesOn, v23On } from './rules.ts'
+import { FREE_PLACE, biomeOfForm, placeOfScene, sceneItem } from './places.ts'
+import { fillOwed as fillOwedStones, forgeRecipe, goodRun, nextStone, recipeOf, type RowStone } from './v23.ts'
+export type { RowStone } from './v23.ts'
 import { featLive, featReward, championKey, BERRY_OF, trackPrize, milestoneOptionsV22, labReward, labCost, trainerOptions, convertV22, keptV22, pickupFindV22, PICKUP_COINS, FORGE_COINS, NURSERY_PLACE, NURSERY_IDS, inNursery, HELD_V22, MART_V22, GEAR_FOR, COUNTER_V21, EGG_WAIT_MAX, researchRewardV21, ribbonOptions, workEgg, BOOST, COMET_SHARD, DIRE_HIT, EVO_ITEMS, FOSSILS, LEGEND_KEYS, PICKUP_TIERS, PLATES, PLATE_BONUS, REMATCH_KEYS, plateFor, REVIVE_COST, TREASURE, VITAMINS, VITAMIN_MAX, VITAMIN_STEP, forgeFair, legendFor, milestoneOptions, pickupFind, researchReward, type Option } from './economy.ts'
 import { FACILITIES, GOLD_BP, GOLD_GEMS, REMATCH_BP, SILVER_BP, SILVER_GEMS, bpFor } from './frontier.ts'
 import {
@@ -315,6 +319,9 @@ export interface BossView {
   caught: boolean
   fled: boolean
 }
+/** One day on the Momentum row. `day` is empty for a day before the game began. */
+export interface RowDay { day: string; counts: boolean; stone: RowStone | null }
+
 export interface BossPast { week: string; form: string; level: number; taken: number; killed: boolean; caught: boolean }
 
 export interface Game {
@@ -350,7 +357,7 @@ export interface Game {
   days: DayResult[]
   today: DayResult
   /** the multiplier in force today, and how many of the last seven days counted */
-  momentum: { days: number; mult: number; /** the seven-day rule's steps in force ([days, multiplier], lowest first), for the screens to draw; null while version 21's ladder was the rule (5 to 9 Nov 2026) */ steps: [number, number][] | null }
+  momentum: { days: number; mult: number; /** the seven-day rule's steps in force ([days, multiplier], lowest first), for the screens to draw; null while version 21's ladder was the rule (5 to 9 Nov 2026) */ steps: [number, number][] | null; /** version 23: the multiplier for 0 to 7 good days, one step for each */ ladder?: readonly number[] }
   perfectDays: number
   regions: number
   league: LeagueState
@@ -429,6 +436,16 @@ export interface Game {
   tier: { v21: boolean; tier: number; effort: number; /** version 22: pillars done, a good night counted beside an effort pillar */ pillars: number; first: boolean; sleepBonus: boolean; bounty: Partial<Record<Tag, number>> }
   /** version 22 is in force on the last day */
   v22: boolean
+  /** scenes (core/places.ts) are in force on the last day: only the places you own let their Pokemon turn up, and the Meadow is free */
+  scenes: boolean
+  /** version 23 (MEGA-OVERHAUL-PLAN.md) is in force on the last day: Momentum is a ladder and the streak puts Mega Stones on its days */
+  v23: boolean
+  /** version 23: the seven days before today as the Momentum row draws them (oldest first), each with the Mega Stone its good day carries, if any */
+  row: RowDay[]
+  /** version 23: today's place on the row: whether today is already a good day, the stone it carries, and the stone that would join if today counts */
+  ring: { counts: boolean; stone: RowStone | null; next: RowStone | null }
+  /** version 23: who is a Mega today (before version 23, every Pokemon with a registered Mega) */
+  megas: RowStone[]
   /** version 22: each pillar's track: pips toward its prize, whether a prize waits in Collect, tracks filled for life, and for the Gym the routines of Strong's split done so far */
   tracks: Record<MarkTag, { pips: number; of: number; ready: boolean; n: number; kit: string[] }>
   /** version 22: the Lab: everyone not in the party researches (strength), the rank, points toward the next, what today added, and what the next three ranks pay */
@@ -726,19 +743,45 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   const deskBonus = (): number => deskNow().reduce((n, m) => n + DESK_BONUS[(rec(m.form).r ?? 'C') as Rarity] * (m.shiny ? 1.5 : 1), 0)
   const rankCost = (day: string): number => (v21On(day) ? RANK_V21 : researchCost(research.rank))
   const studyOf = (desk: Mon[]): number => desk.reduce((n, m) => n + studyPoints(levelOf(m.xp), (rec(m.form).r ?? 'C') as Rarity, m.shiny), 0)
+  // ── version 23: the Mega Stones on the Momentum row ──
+  /** the stone each good day carries (by the day's index), the good days that reached the streak while no stone was free, and who is a Mega today */
+  const rowStone = new Map<number, RowStone>()
+  const owedStone = new Set<number>()
+  let megaNow = new Map<string, string>()
+  /** the stones on the row as this morning found them: what the row shows and who is a Mega today (today's own pass may hand a stone out for tomorrow) */
+  let morningStone = new Map<number, RowStone>()
+  let v23Begun = false
+  /** a Mega only while its stone's day is on the row (version 23); before it, a Pokemon with a registered Mega is one for good */
+  const isMega = (m: Mon): boolean => (v23On(teamDay) ? megaNow.has(m.uid) : Boolean(m.megas?.length))
+  /** the stones you own: one for each Mega a Pokemon has registered, in a fixed order */
+  const stonesOwned = (): RowStone[] => [partner, ...queue, ...graduates]
+    .filter((m, k, all) => all.findIndex((x) => x.uid === m.uid) === k)
+    .flatMap((m) => (m.megas ?? []).map((form) => ({ uid: m.uid, form })))
+    .sort((a, b) => (a.uid + a.form < b.uid + b.form ? -1 : 1))
+  const goodAt = (k: number): boolean => Boolean(days[k]?.counts)
+  /** the good days among the seven that end with day index `i` */
+  const runAt = (i: number): number => goodRun(goodAt, i)
+  /** the next stone in line for days lo to hi (core/v23.ts): the week's order is seeded by the week, so every replay agrees */
+  const freeStone = (day: string, lo: number, hi: number): RowStone | null => nextStone(stonesOwned(), rowStone, lo, hi, `megas:${weekOf(day)}`)
+  /** Good days that reached the streak take the next free stone, oldest first. One that finds none is owed it, so a stone forged later is worth something at once. */
+  const fillOwed = (day: string, lo: number, hi: number): void => fillOwedStones(owedStone, rowStone, stonesOwned(), lo, hi, `megas:${weekOf(day)}`)
   /** version 22 (5.1): the Lab is everyone you own who is not the partner and not in the party */
   const labMembers = (): Mon[] => {
     const party = new Set([partner.uid, ...teamNow().map((m) => m.uid)])
     return [...queue, ...graduates].filter((m) => !party.has(m.uid))
   }
   /** version 22 (5.4): what each is worth to the Lab: its level, more in its last form, half as much again when shiny */
-  const labStrength = (): number => labMembers().reduce((n, m) => n + labWorth(levelOf(m.xp), (rec(m.form).e?.length ?? 0) === 0, m.shiny), 0)
+  const labStrength = (): number => labMembers().reduce((n, m) => n + labWorth(levelOf(m.xp), (rec(m.form).e?.length ?? 0) === 0, m.shiny) * (v23On(teamDay) && megaNow.has(m.uid) ? LAB_MEGA_X : 1), 0)
   /** the Old Charm: always on before version 22, a held item from it (9.4) */
   const oldCharm = (day: string): boolean => (v22On(day) ? partner.held === 'old-charm' : Boolean(inv['old-charm']))
   /** Fully trained Pokemon, counting a partner that was fully trained and leads again (version 14) */
   const trainedCount = (): number => graduates.length + (partner.graduated ? 1 : 0)
   /** the types the partner fights with: its own, and the TMs it carries */
-  const typesOf = (m: Mon): (string | undefined)[] => [rec(m.form).t, rec(m.form).t2, ...(v22On(teamDay) ? [] : (m.moves ?? []).map((id) => tmType(id) ?? undefined))]
+  const typesOf = (m: Mon): (string | undefined)[] => {
+    // version 23: a Mega fights as its Mega form while its stone is on the row
+    const r = rec((v23On(teamDay) ? megaNow.get(m.uid) : undefined) ?? m.form)
+    return [r.t, r.t2, ...(v22On(teamDay) ? [] : (m.moves ?? []).map((id) => tmType(id) ?? undefined))]
+  }
   const notes: Notes = { codeDays: 0, arborDays: 0, guitarDays: 0, workouts: 0, records: 0, clean: 0, owned: 0, steps: 0, stepDays: 0 }
   /** how each Pokemon did on each tag over all its days as the partner: its nature */
   const raised = new Map<string, Share>()
@@ -794,7 +837,10 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     const have = owned()
     // nothing new of that rarity in the open regions: try the neighbouring ones before repeating
     const chain: Record<string, string[]> = { C: ['C', 'U', 'R'], U: ['U', 'C', 'R'], R: ['R', 'U', 'C'], L: ['L', 'R', 'U', 'C'] }
-    const pools = chain[rarity].map((x) => FIRST_STAGES.filter(([, s]) => (s.g ?? 9) <= open && s.r === x))
+    // scenes: from SCENES_START only a place you own lets its Pokemon turn up (the Meadow always; a Legendary is met wherever it comes)
+    const gated = scenesOn(teamDay)
+    const placeOpen = (id: string, x: string) => !gated || x === 'L' || biomeOfForm(id) === FREE_PLACE || (inv[sceneItem(biomeOfForm(id))] ?? 0) > 0
+    const pools = chain[rarity].map((x) => FIRST_STAGES.filter(([id, s]) => (s.g ?? 9) <= open && s.r === x && placeOpen(id, x)))
     // a lure: its domain's types first, new species before repeats
     const ts = lure ? lureTypes(lure) : []
     const lured = lure ? pools.map((p) => p.filter(([, s]) => ts.includes(s.t) || (s.t2 !== undefined && ts.includes(s.t2)))) : []
@@ -1113,7 +1159,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         if (!megas.includes(u.to) || m.megas?.includes(u.to)) return
         if (v13On(day)) {
           // version 13: three shards of three different colours, and the X or Y is yours
-          const use = forgeFair(inv, u.item || undefined)
+          // version 23: the stone's own recipe (core/v23.ts), a Comet fitting any place; before it, three shards of three different colours
+          const use = v23On(day) ? forgeRecipe(inv, u.item, recipeOf(u.to)) : forgeFair(inv, u.item || undefined)
           if (!use) return
           for (const id of use) inv[id]--
           if (v22On(day)) wallet.coins -= FORGE_COINS
@@ -1184,7 +1231,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
         return
       }
       case 'theme': {
-        if (!u.to || inv[u.to]) theme = u.to ?? ''
+        // a scene is locked by choosing it: one you own, or the Meadow (always yours). Choosing nothing lets Today follow the wild Pokemon again.
+        if (!u.to || inv[u.to] || (scenesOn(day) && placeOfScene(u.to) === FREE_PLACE)) theme = u.to ?? ''
         return
       }
       case 'next': {
@@ -1358,7 +1406,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
 
   /** version 22: party power against a foe of this type (spec 5.3): the six, the Trainer's levels */
   const powerV22 = (foeType: string): number => partyPower([partner, ...teamNow().filter((m) => m.uid !== partner.uid)].map((m): Fighter => ({
-    level: Math.min(levelOf(m.xp), 50), hearts: heartsOf(m), bond: bondLevel(heartsOf(m)), beats: beats(typesOf(m), foeType), mega: Boolean(m.megas?.length), partner: m.uid === partner.uid, belt: m.uid === partner.uid && partner.held === 'expert-belt',
+    level: Math.min(levelOf(m.xp), 50), hearts: heartsOf(m), bond: bondLevel(heartsOf(m)), beats: beats(typesOf(m), foeType), mega: isMega(m), partner: m.uid === partner.uid, belt: m.uid === partner.uid && partner.held === 'expert-belt',
   })), trainerHearts)
 
   let display = partner.form
@@ -1370,6 +1418,21 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
 
   facts.forEach((f, i) => {
     teamDay = f.day
+    // version 23: today's Megas are the stones on the days of the row (the seven before today); the first day of it gives the good days already on the row their stones
+    if (v23On(f.day)) {
+      if (!v23Begun) {
+        v23Begun = true
+        for (let k = Math.max(0, i - 7); k < i; k++) if (goodAt(k) && runAt(k) >= STONE_STREAK) owedStone.add(k)
+        fillOwed(f.day, i - 7, i - 1)
+      }
+      megaNow = new Map()
+      morningStone = new Map(rowStone)
+      const holders = [partner, ...queue, ...graduates]
+      for (let k = Math.max(0, i - 7); k < i; k++) {
+        const st = rowStone.get(k)
+        if (st && holders.some((m) => m.uid === st.uid && m.megas?.includes(st.form))) megaNow.set(st.uid, st.form)
+      }
+    } else megaNow = new Map()
     const v13 = v13On(f.day)
     const v22 = v22On(f.day)
     wallet.coinsToday = 0; wallet.gemsToday = 0; wallet.marksToday = zeroMarks(); wallet.bpToday = 0
@@ -1459,8 +1522,9 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     // version 21: momentum slides: a day of MOMENTUM_PILLARS effortful pillars up a step, any other day down one, but for one free day a week
     // version 21.1: the seven days again, the top step at six of them (what the Life OS card draws; RULES-V21.md, the fixes)
     const windowOn = f.day >= V21_FIX
-    const mult = windowOn ? momentumWindow(mDays) : v21 ? MOMENTUM_STEPS[slide] : momentumMult(mDays)
-    momentum = { days: mDays, mult, steps: windowOn ? MOMENTUM_WINDOW_STEPS : v21 ? null : MOMENTUM_OLD_STEPS }
+    const ladder = v23On(f.day)
+    const mult = ladder ? momentumLadder(mDays) : windowOn ? momentumWindow(mDays) : v21 ? MOMENTUM_STEPS[slide] : momentumMult(mDays)
+    momentum = { days: mDays, mult, steps: windowOn ? MOMENTUM_WINDOW_STEPS : v21 ? null : MOMENTUM_OLD_STEPS, ...(ladder ? { ladder: MOMENTUM_LADDER } : {}) }
     if (v21 && !windowOn) {
       if (E >= MOMENTUM_PILLARS) slide = Math.min(MOMENTUM_STEPS.length - 1, slide + 1)
       else if (restWeek !== weekOf(f.day)) restWeek = weekOf(f.day)
@@ -1823,7 +1887,7 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     if (boss && f.boss) {
       const b: BossRun = boss
       const members = [partner, ...teamNow()]
-      const party: Member[] = members.map((m) => ({ level: levelOf(m.xp), rarity: rec(m.base).r ?? 'C', mega: Boolean(m.megas?.length) }))
+      const party: Member[] = members.map((m) => ({ level: levelOf(m.xp), rarity: rec(m.base).r ?? 'C', mega: isMega(m) }))
       const pw = powerOf()
       const type = rec(b.card.form).t
       const edges = members.filter((m) => beats(typesOf(m), type)).length
@@ -1966,6 +2030,11 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       payQuests()
       evalFeats(f.day)
     }
+    // version 23: a good day that has made the streak takes the next free stone for the row it will be on tomorrow (a stone forged today fills the oldest day still owed one)
+    if (v23On(f.day)) {
+      if (counts && runAt(i) >= STONE_STREAK) owedStone.add(i)
+      fillOwed(f.day, i - 6, i)
+    }
     if (f.day >= V20_START) study()
     // version 21.1: whoever leads at the end of the day's actions evolves today if its level is already there (a Rare Candy given in the Box, then led)
     if (f.day >= V21_FIX) gain(0, f.day)
@@ -2036,7 +2105,11 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       if (!dex[form]) moments.push({ kind: 'form', day: f.day, uid: partner.uid, form, what })
       see(form, f.day, partner.shiny)
     }
-    if (partner.megas?.length) {
+    if (v23On(f.day)) {
+      // version 23: drawn as its Mega while its stone is on the row, unless the plain form was asked for
+      const mf = megaNow.get(partner.uid)
+      if (mf && partner.show !== 'base') { aura = 'mega'; show(mf, 'mega') }
+    } else if (partner.megas?.length) {
       // registered for good: drawn every day, unless the plain form was asked for
       if (partner.show !== 'base') {
         aura = 'mega'
@@ -2142,6 +2215,26 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
   }
 
   const bondLvl = bondLevel((partner.together ?? 0) + (partner.fed ?? 0))
+  // version 23: the Momentum row (the seven days before today, oldest first), today's ring, and who is a Mega today
+  const lastIdx = days.length - 1
+  const row: RowDay[] = Array.from({ length: 7 }, (_, n) => {
+    const k = lastIdx - 7 + n
+    const d = k >= 0 ? days[k] : undefined
+    return { day: d?.day ?? '', counts: Boolean(d?.counts), stone: (d && morningStone.get(k)) || null }
+  })
+  const ring = ((): Game['ring'] => {
+    const stone = rowStone.get(lastIdx) ?? null
+    let next: RowStone | null = null
+    if (last && v23On(last.day) && !stone) {
+      let before = 0
+      for (let k = Math.max(0, lastIdx - 6); k < lastIdx; k++) if (goodAt(k)) before++
+      if (before + 1 >= STONE_STREAK) next = freeStone(last.day, lastIdx - 6, lastIdx)
+    }
+    return { counts: Boolean(days[lastIdx]?.counts), stone, next }
+  })()
+  const megasToday: RowStone[] = last && v23On(last.day)
+    ? [...megaNow].map(([uid, form]) => ({ uid, form }))
+    : [partner, ...queue, ...graduates].filter((m, k, all) => m.megas?.length && all.findIndex((x) => x.uid === m.uid) === k).map((m) => ({ uid: m.uid, form: (m.megas as string[])[0] }))
   return {
     partner,
     level,
@@ -2234,6 +2327,11 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
     shelved: lastFacts?.live ? MARK_TAGS.filter((t) => !lastFacts.live!.includes(t)) : [],
     tier: dayTier,
     v22: Boolean(last && v22On(last.day)),
+    v23: Boolean(last && v23On(last.day)),
+    scenes: Boolean(last && scenesOn(last.day)),
+    row,
+    ring,
+    megas: megasToday,
     partyPower: powerV22(leaderNow?.type ?? ''),
     lab: { strength: labStrength(), members: labMembers().length, rank: research.rank, points: research.points, need: labCost(research.rank), today: research.today, next: [1, 2, 3].map((k) => labReward(research.rank + k).title) },
     egg2: egg2 ? (() => {

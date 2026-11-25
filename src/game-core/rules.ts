@@ -11,6 +11,32 @@ export let V22_START = '2026-11-12'
 export const setV22Start = (day: string): void => { V22_START = day }
 export const v22On = (day: string): boolean => day >= V22_START
 
+/**
+ * Version 23 (MEGA-OVERHAUL-PLAN.md): Momentum is a ladder, one small step for each good day of the last seven, and the streak puts Mega Stones on its days.
+ * It starts the day it deployed, 25 Nov 2026 (the owner asked for it that day); every earlier day folds exactly as before.
+ * A `let` only so a test can set it.
+ */
+export let V23_START = '2026-11-25'
+export const setV23Start = (day: string): void => { V23_START = day }
+export const v23On = (day: string): boolean => day >= V23_START
+
+/**
+ * Scenes (core/places.ts): from this day a wild Pokemon turns up only in a place you own. The Meadow is free; every other place is a scene bought in the Rare
+ * shop (the old Beach, Cave and Starry night scenes are gone from it), and the Bag's scene is either "rotating" (Today follows the wild Pokemon's place) or one
+ * you lock, which changes only the look. It starts the day it deployed, 25 Nov 2026; the wild Pokemon already in front of you that day is the one it was.
+ * Only while version 22 is on, so the older fixtures (which pin V22_START far ahead) fold as they always did. A `let` only so a test can set it.
+ */
+export let SCENES_START = '2026-11-25'
+export const setScenesStart = (day: string): void => { SCENES_START = day }
+export const scenesOn = (day: string): boolean => v22On(day) && day >= SCENES_START
+/** The XP multiplier by the number of good days (two pillars) among the seven before today: every good day adds a little, the seventh is the leap. Tuned on the owner's real days: their pace averages x1.107, as today's steps do (x1.104). */
+export const MOMENTUM_LADDER = [1, 1.02, 1.05, 1.12, 1.21, 1.33, 1.5, 2] as const
+export const momentumLadder = (days: number): number => MOMENTUM_LADDER[Math.max(0, Math.min(MOMENTUM_LADDER.length - 1, Math.floor(days)))]
+/** A good day carries a Mega Stone once the seven-day count, with it, has reached this: the streak is on. */
+export const STONE_STREAK = 4
+/** A Lab Pokemon in Mega form is worth this many times as much to the Lab that day (the party's own x2 is POWER_MEGA_X). */
+export const LAB_MEGA_X = 2
+
 // ── the day (spec sections 2 and 3) ──
 /**
  * The wild Pokemon: every habit ticked takes one HP off, nothing multiplies it (3.3). Its HP is a fixed number of ticks by rarity, set from the owner's
