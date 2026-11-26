@@ -7,7 +7,7 @@
 // coming back.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, Reorder, motion, useDragControls } from 'framer-motion'
-import { flyReward } from '../lib/flyReward'
+import { flyReward, XP_BADGE } from '../lib/flyReward'
 import * as kit from '../ui-kit/motion.js'
 import { TIERS, TIER_XP, domainOf, type Habit, type Tier } from '../config/habits'
 import { dateISO, streakFor, type Ticks } from '../lib/store'
@@ -661,7 +661,7 @@ export function HabitsScreen({
           const at = todayRaw?.[h.id]
           if (!at || Date.parse(at) + DONE_HIDE_MS > t0) continue
           const row = document.querySelector(`[data-habit-row="${CSS.escape(h.id)}"]`)
-          if (row) flyReward(row, `+${tierXp(h.tier)}`, undefined, n++ * 180) // several leave one after another, not on top of each other
+          if (row) flyReward(row, `+${tierXp(h.tier)}`, undefined, n++ * 180, XP_BADGE) // several leave one after another, not on top of each other
         }
       }
       setNow(Date.now())

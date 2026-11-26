@@ -7,15 +7,21 @@
 // The timings come from the motion kit shared with the Pokedex (ui-kit).
 // Plain DOM and Web Animations, so it works from a timer without React.
 import { EASE, K, config, run } from '../ui-kit/motion.js'
+import xpBadgeUrl from '../assets/xp-badge.webp'
 
 /** Where the day's XP lands: the partner's XP bar. */
 export const XP_TARGET = '[data-reward-target="xp"]'
+
+/** The sprite a habit's XP flies as. Loaded up front so the first flight is never an empty box. */
+export const XP_BADGE = xpBadgeUrl
+if (typeof Image !== 'undefined') new Image().src = XP_BADGE
 
 /** The three beats, in milliseconds. */
 export const BEATS = { push: 320, hang: 1050, pull: 1050, land: 180 } as const
 export const TOTAL = BEATS.push + BEATS.hang + BEATS.pull + BEATS.land
 
-export function flyReward(from: Element, label: string, targetSelector: string = XP_TARGET, delay = 0): void {
+/** `sprite`: an image to fly as, with the label small beneath it; without one it flies as a label pill. */
+export function flyReward(from: Element, label: string, targetSelector: string = XP_TARGET, delay = 0, sprite?: string): void {
   const target = document.querySelector(targetSelector)
   if (!target || config.reduced) return
   const a = from.getBoundingClientRect()
@@ -31,8 +37,19 @@ export function flyReward(from: Element, label: string, targetSelector: string =
   const py = Math.min(window.innerHeight - 24, sy - ((ty - sy) / len) * away)
 
   const el = document.createElement('div')
-  el.className = 'fly-reward'
-  el.textContent = label
+  if (sprite) {
+    el.className = 'fly-reward fly-reward--sprite'
+    const img = document.createElement('img')
+    img.src = sprite
+    img.alt = ''
+    img.draggable = false
+    const tag = document.createElement('span')
+    tag.textContent = label
+    el.append(img, tag)
+  } else {
+    el.className = 'fly-reward'
+    el.textContent = label
+  }
   el.setAttribute('aria-hidden', 'true')
   document.body.appendChild(el)
 

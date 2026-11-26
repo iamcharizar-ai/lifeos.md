@@ -398,6 +398,9 @@ body {
 
 /* ── rewards flying into the bar they are kept in (lib/flyReward.ts) ── */
 .fly-reward { position: fixed; left: 0; top: 0; translate: -50% -50%; z-index: 80; pointer-events: none; padding: 2px 8px; font: 800 14px/1 var(--font-display, inherit); color: #1a1200; background: #ffd800; border: 2px solid #000; border-radius: 999px; box-shadow: 2px 2px 0 #000; white-space: nowrap; will-change: transform, opacity; }
+.fly-reward--sprite { display: grid; justify-items: center; gap: 1px; padding: 0; background: none; border: 0; box-shadow: none; color: #fff; }
+.fly-reward--sprite img { width: 52px; height: auto; display: block; filter: drop-shadow(0 0 6px rgba(200, 80, 255, 0.55)); }
+.fly-reward--sprite span { font-size: 12px; text-shadow: 0 0 3px #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
 .reward-pulse { animation: reward-pulse 0.4s ease-out; }
 @keyframes reward-pulse { 0% { filter: brightness(1); transform: scaleY(1); } 35% { filter: brightness(1.6); transform: scaleY(1.35); } 100% { filter: brightness(1); transform: scaleY(1); } }
 @media (prefers-reduced-motion: reduce) { .reward-pulse { animation: none; } }
