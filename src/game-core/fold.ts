@@ -23,7 +23,7 @@ import {
   type Ball, type NatureStat, type Rarity, type Tag,
 } from './rules.ts'
 import { berryGain, labWorth, leaderHit, partyPower, pillarsOf, tierOf, type Fighter } from './v22.ts'
-import { LAB_MEGA_X, MOMENTUM_LADDER, STONE_STREAK, momentumLadder, scenesOn, v23On } from './rules.ts'
+import { LAB_MEGA_X, MOMENTUM_LADDER, STONE_STREAK, hatchFirstOn, momentumLadder, scenesOn, v23On } from './rules.ts'
 import { FREE_PLACE, biomeOfForm, placeOfScene, sceneItem } from './places.ts'
 import { fillOwed as fillOwedStones, forgeRecipe, goodRun, nextStone, recipeOf, type RowStone } from './v23.ts'
 export type { RowStone } from './v23.ts'
@@ -2023,6 +2023,50 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       }
     }
 
+    // an egg: one kept warm at a time. Before version 19 only the Mystery Egg existed and went in at once; now a lone kind goes in at once,
+    // and with two kinds waiting the player chooses (`warm`). An egg put in today does not count today's steps.
+    const v19day = f.day >= V19_START
+    // version 22 (7): a fossil goes in the Nursery like an egg, and a second place can be bought. A lone kind waiting goes in at once; with two kinds the player chooses (`warm`).
+    const nurseryIds = v22 ? NURSERY_IDS : EGG_IDS
+    const loneKind = (): string | null => {
+      const waiting = nurseryIds.filter((k) => (inv[k] ?? 0) > 0)
+      return v19day ? (waiting.length === 1 ? waiting[0] : null) : (inv['rare-egg'] ? 'rare-egg' : null)
+    }
+    const stepsToday = (): number => Math.max(0, v19day ? (f.body?.steps ?? 0) : Math.min(STEPS_GOAL, f.body?.steps ?? 0))
+    /** one place: fill it, or count today's steps, or hatch what is in it (an egg put in today does not count today's steps) */
+    const tendNursery = (slot: typeof egg): typeof egg => {
+      if (!slot) { const lone = loneKind(); if (!lone) return null; inv[lone]--; return { kind: lone, have: 0, since: f.day } }
+      if (slot.since !== f.day) { slot.today = stepsToday(); slot.have += slot.today }
+      if (slot.have < eggNeed(slot.kind, slot.since, oldCharm(f.day))) return slot
+      const fossil = FOSSILS[slot.kind]
+      if (fossil) {
+        // version 22: walking brings a fossil back to life
+        const mon = make(fossil.species, 'fossil', f.day)
+        queue.push(mon)
+        see(mon.form, f.day, false)
+        bump('fossils')
+        moments.push({ kind: 'fossil', day: f.day, uid: mon.uid, form: mon.form, item: slot.kind })
+        return null
+      }
+      bump('hatched')
+      const kind = EGG_KINDS[slot.kind] ?? EGG_KINDS['rare-egg']
+      const want = kind.want === 'mix' ? (rng(`${slot.kind}:rarity:${f.day}`)() < WORK_EGG_RARE ? 'R' : 'U') : kind.want
+      const mon = make(roll(slot.kind === 'rare-egg' ? `rare-egg:${f.day}` : `${slot.kind}:${f.day}`, want, kind.work ?? null), 'egg', f.day)
+      if (kind.hearts && v19day) mon.fed = (mon.fed ?? 0) + kind.hearts
+      const twin = twinOf(mon, f.day)
+      if (!twin) queue.push(mon)
+      see(mon.form, f.day, false)
+      moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form, egg: slot.kind, ...(twin ? { dupe: twin.uid } : {}) })
+      return null
+    }
+    // hatch first: a place that today's steps already finish hatches now, before the day's actions, so they can reach the Pokemon that hatched
+    const finishes = (slot: typeof egg): boolean => Boolean(slot && slot.since !== f.day && slot.have + stepsToday() >= eggNeed(slot.kind, slot.since, oldCharm(f.day)))
+    let early1 = false, early2 = false
+    if (hatchFirstOn(f.day)) {
+      if (finishes(egg)) { egg = tendNursery(egg); early1 = true }
+      if (v22 && inv[NURSERY_PLACE] && finishes(egg2)) { egg2 = tendNursery(egg2); early2 = true }
+    }
+
     payQuests()
     evalFeats(f.day)
     for (const u of f.uses ?? []) {
@@ -2046,43 +2090,8 @@ export function foldGame(facts: DayFacts[], opts: { instant?: boolean } = {}): G
       walked += reading
       while (walked >= TRAIL_EGG_STEPS * (trailFound + 1)) { trailFound++; hold(`trail:${trailFound}`, f.day, 'The trail left an egg', 0, 0, [['trail-egg', 1]]) }
     }
-    // an egg: one kept warm at a time. Before version 19 only the Mystery Egg existed and went in at once; now a lone kind goes in at once,
-    // and with two kinds waiting the player chooses (`warm`). An egg put in today does not count today's steps.
-    const v19day = f.day >= V19_START
-    // version 22 (7): a fossil goes in the Nursery like an egg, and a second place can be bought. A lone kind waiting goes in at once; with two kinds the player chooses (`warm`).
-    const nurseryIds = v22 ? NURSERY_IDS : EGG_IDS
-    const loneKind = (): string | null => {
-      const waiting = nurseryIds.filter((k) => (inv[k] ?? 0) > 0)
-      return v19day ? (waiting.length === 1 ? waiting[0] : null) : (inv['rare-egg'] ? 'rare-egg' : null)
-    }
-    /** one place: fill it, or count today's steps, or hatch what is in it (an egg put in today does not count today's steps) */
-    const tendNursery = (slot: typeof egg): typeof egg => {
-      if (!slot) { const lone = loneKind(); if (!lone) return null; inv[lone]--; return { kind: lone, have: 0, since: f.day } }
-      if (slot.since !== f.day) { slot.today = Math.max(0, v19day ? (f.body?.steps ?? 0) : Math.min(STEPS_GOAL, f.body?.steps ?? 0)); slot.have += slot.today }
-      if (slot.have < eggNeed(slot.kind, slot.since, oldCharm(f.day))) return slot
-      const fossil = FOSSILS[slot.kind]
-      if (fossil) {
-        // version 22: walking brings a fossil back to life
-        const mon = make(fossil.species, 'fossil', f.day)
-        queue.push(mon)
-        see(mon.form, f.day, false)
-        bump('fossils')
-        moments.push({ kind: 'fossil', day: f.day, uid: mon.uid, form: mon.form, item: slot.kind })
-        return null
-      }
-      bump('hatched')
-      const kind = EGG_KINDS[slot.kind] ?? EGG_KINDS['rare-egg']
-      const want = kind.want === 'mix' ? (rng(`${slot.kind}:rarity:${f.day}`)() < WORK_EGG_RARE ? 'R' : 'U') : kind.want
-      const mon = make(roll(slot.kind === 'rare-egg' ? `rare-egg:${f.day}` : `${slot.kind}:${f.day}`, want, kind.work ?? null), 'egg', f.day)
-      if (kind.hearts && v19day) mon.fed = (mon.fed ?? 0) + kind.hearts
-      const twin = twinOf(mon, f.day)
-      if (!twin) queue.push(mon)
-      see(mon.form, f.day, false)
-      moments.push({ kind: 'hatch', day: f.day, uid: mon.uid, form: mon.form, egg: slot.kind, ...(twin ? { dupe: twin.uid } : {}) })
-      return null
-    }
-    egg = tendNursery(egg)
-    if (v22 && inv[NURSERY_PLACE]) egg2 = tendNursery(egg2)
+    if (!early1) egg = tendNursery(egg)
+    if (v22 && inv[NURSERY_PLACE] && !early2) egg2 = tendNursery(egg2)
     if (!egg && egg2) { egg = egg2; egg2 = null }
     // version 22: what was asked for while the Nursery was full goes into the place the day's hatch has just freed (its steps count from tomorrow)
     for (const k of warmWish) {

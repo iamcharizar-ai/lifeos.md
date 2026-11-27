@@ -29,6 +29,15 @@ export const v23On = (day: string): boolean => day >= V23_START
 export let SCENES_START = '2026-11-25'
 export const setScenesStart = (day: string): void => { SCENES_START = day }
 export const scenesOn = (day: string): boolean => v22On(day) && day >= SCENES_START
+/**
+ * Hatch first: from this day an egg or fossil that the day's steps already finish hatches before the day's actions, so a Pokemon that hatched today can be
+ * fed, put in the party or led the same day (before, those actions were taken before it existed and did nothing: Scyther, 27 Nov 2026). One that finishes
+ * only because of something done today (an Old Charm bought) still hatches after the actions, as before. Starts the day it deployed; only while version 22
+ * is on. A `let` only so a test can set it.
+ */
+export let HATCH_FIRST = '2026-11-27'
+export const setHatchFirst = (day: string): void => { HATCH_FIRST = day }
+export const hatchFirstOn = (day: string): boolean => v22On(day) && day >= HATCH_FIRST
 /** The XP multiplier by the number of good days (two pillars) among the seven before today: every good day adds a little, the seventh is the leap. Tuned on the owner's real days: their pace averages x1.107, as today's steps do (x1.104). */
 export const MOMENTUM_LADDER = [1, 1.02, 1.05, 1.12, 1.21, 1.33, 1.5, 2] as const
 export const momentumLadder = (days: number): number => MOMENTUM_LADDER[Math.max(0, Math.min(MOMENTUM_LADDER.length - 1, Math.floor(days)))]
